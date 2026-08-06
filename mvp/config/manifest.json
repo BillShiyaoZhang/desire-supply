@@ -1,0 +1,17 @@
+{
+  "active_ruleset": "pilot-v1",
+  "created_on": "2026-08-07",
+  "files": {
+    "budget": "budget-v1.yaml",
+    "matching": "matching-v1.yaml",
+    "reason_codes": "reason-codes-v1.yaml",
+    "taxonomy": "taxonomy-v1.yaml"
+  },
+  "versions": {
+    "budget": "budget-v1",
+    "matching": "matching-v1",
+    "reason_codes": "reason-codes-v1",
+    "taxonomy": "taxonomy-v1"
+  }
+}
+

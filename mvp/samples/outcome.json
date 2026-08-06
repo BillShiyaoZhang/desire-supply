@@ -1,0 +1,27 @@
+{
+  "project_id": "project-demo-001",
+  "pilot_id": "pilot-demo",
+  "demand_id": "demand-demo-001",
+  "creator_ids": ["creator-demo-001"],
+  "status": "completed",
+  "signed": true,
+  "real_payment": true,
+  "planned_start": "2026-08-18",
+  "actual_start": "2026-08-18",
+  "planned_finish": "2026-09-12",
+  "actual_finish": "2026-09-10",
+  "milestones": [
+    {"id": "m1", "amount": 9600, "accepted": true, "paid": true, "paid_on_terms": true},
+    {"id": "m2", "amount": 14400, "accepted": true, "paid": true, "paid_on_terms": true}
+  ],
+  "scope_changes": 1,
+  "dispute": false,
+  "demand_clarity_improved": true,
+  "creator_preference_confirmed": [true],
+  "willing_to_use_again": {"demand": true, "creators": [true]},
+  "service_fee_accepted": true,
+  "operator_hours": {"recruiting": 1.5, "interview": 3.0, "matching": 1.0, "coordination": 4.0, "dispute": 0.0},
+  "failure_primary": null,
+  "failure_secondary": [],
+  "safety_events": []
+}

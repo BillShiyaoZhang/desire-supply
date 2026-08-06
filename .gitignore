@@ -1,0 +1,15 @@
+.DS_Store
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.venv/
+dist/
+build/
+*.egg-info/
+
+# 礼宾式 MVP 的真实参与者资料、数据库、报告与导出
+mvp/local-data/*
+!mvp/local-data/.gitkeep
+mvp/exports/
+

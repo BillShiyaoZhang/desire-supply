@@ -1,0 +1,32 @@
+{
+  "version": "budget-v1",
+  "effective_date": "2026-08-07",
+  "currency": "CNY",
+  "default_region": "CN",
+  "regional_daily_baselines": {
+    "CN": 1000,
+    "CN-tier-1": 1400,
+    "CN-other": 900,
+    "default": 1000
+  },
+  "skill_multipliers": {
+    "basic": 0.8,
+    "standard": 1.0,
+    "advanced": 1.35,
+    "expert": 1.8
+  },
+  "historical_domain_medians": {},
+  "risk_rates": {
+    "uncertainty": {"low": 0.0, "medium": 0.10, "high": 0.20, "very_high": 0.30},
+    "urgency": {"low": 0.0, "medium": 0.05, "high": 0.15, "very_high": 0.25},
+    "external_dependencies": {"low": 0.0, "medium": 0.05, "high": 0.10, "very_high": 0.20}
+  },
+  "risk_buffer_cap": 0.50,
+  "health_thresholds": {"yellow": 0.80, "green": 1.00},
+  "provenance": {
+    "status": "founder assumption; not a market price claim",
+    "review_after": "first 5 paid projects",
+    "instruction": "访谈创作者并与真实报价比较；任何修改新建版本，不覆盖历史配置。"
+  }
+}
+

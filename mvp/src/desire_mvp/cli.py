@@ -1,0 +1,328 @@
+import argparse
+import json
+import sys
+from pathlib import Path
+from typing import Any, Dict, Iterable, List, Optional
+
+from .budget import assess_budget
+from .config import ConfigError, default_config_dir, load_config
+from .decisions import DecisionError, validate_decision
+from .explanations import brief_to_markdown, explain_candidate
+from .matching import rank_candidates
+from .privacy import assert_external_output_safe, find_prohibited_identity_fields
+from .reports import build_pilot_report, report_to_csv, report_to_markdown
+from .repository import Repository
+from .validation import validate_creator, validate_demand, validate_outcome
+
+
+class CliError(ValueError):
+    pass
+
+
+def default_data_dir() -> Path:
+    return Path(__file__).resolve().parents[2] / "local-data"
+
+
+def _json(value: Any) -> str:
+    return json.dumps(value, ensure_ascii=False, indent=2, sort_keys=True)
+
+
+def _load_json(path: str) -> Any:
+    try:
+        with Path(path).open("r", encoding="utf-8") as handle:
+            return json.load(handle)
+    except FileNotFoundError as exc:
+        raise CliError("找不到文件: {}".format(path)) from exc
+    except json.JSONDecodeError as exc:
+        raise CliError("JSON 格式错误: {} ({})".format(path, exc)) from exc
+
+
+def _records(value: Any) -> List[Dict[str, Any]]:
+    items = value if isinstance(value, list) else [value]
+    if not all(isinstance(item, dict) for item in items):
+        raise CliError("导入文件必须是 JSON 对象或对象数组")
+    return items
+
+
+def _repo(args: argparse.Namespace) -> Repository:
+    repository = Repository(Path(args.data_dir))
+    repository.initialize()
+    return repository
+
+
+def _configs(args: argparse.Namespace):
+    return load_config(Path(args.config_dir))
+
+
+def cmd_init(args: argparse.Namespace) -> None:
+    repository = _repo(args)
+    configs = _configs(args)
+    print(_json({"database": str(repository.path), "rule_version": configs.rule_version, "status": "ready"}))
+
+
+def cmd_import(args: argparse.Namespace) -> None:
+    repository = _repo(args)
+    records = _records(_load_json(args.file))
+    imported = []
+    for record in records:
+        prohibited = find_prohibited_identity_fields(record)
+        if prohibited:
+            raise CliError(
+                "匹配层资料不得包含联系人/身份字段: {}。请把它们移到单独加密的联系人存储。".format(
+                    ", ".join(prohibited)
+                )
+            )
+        repository.put_entity(args.kind, record)
+        imported.append(str(record.get("id")))
+    print(_json({"kind": args.kind, "imported": imported, "count": len(imported)}))
+
+
+def cmd_list(args: argparse.Namespace) -> None:
+    records = _repo(args).list_entities(args.kind, getattr(args, "pilot", None))
+    print(_json([{"id": item.get("id"), "status": item.get("status"), "pilot_id": item.get("pilot_id")} for item in records]))
+
+
+def cmd_validate(args: argparse.Namespace) -> None:
+    repository = _repo(args)
+    record = repository.get_entity(args.kind, args.entity_id)
+    result = validate_creator(record) if args.kind == "creator" else validate_demand(record)
+    print(_json(result.to_dict()))
+    if not result.ready:
+        raise SystemExit(1)
+
+
+def cmd_budget(args: argparse.Namespace) -> None:
+    repository = _repo(args)
+    configs = _configs(args)
+    demand = repository.get_entity("demand", args.demand_id)
+    validation = validate_demand(demand)
+    if not validation.ready:
+        raise CliError("需求存在 BLOCKER，请先运行 validate demand {}".format(args.demand_id))
+    print(_json(assess_budget(demand, configs.budget).to_dict()))
+
+
+def _match_payload(
+    demand: Dict[str, Any], creators: Iterable[Dict[str, Any]], matching_config: Dict[str, Any]
+) -> Dict[str, Any]:
+    valid_creators = []
+    invalid_creators = []
+    for creator in creators:
+        validation = validate_creator(creator)
+        if validation.ready:
+            valid_creators.append(creator)
+        else:
+            invalid_creators.append({"creator_id": creator.get("id"), "validation": validation.to_dict()})
+    ranked, excluded = rank_candidates(demand, valid_creators, matching_config)
+    return {
+        "ranked": [item.to_dict() for item in ranked],
+        "excluded": excluded,
+        "invalid_creators": invalid_creators,
+    }
+
+
+def cmd_match(args: argparse.Namespace) -> None:
+    repository = _repo(args)
+    configs = _configs(args)
+    demand = repository.get_entity("demand", args.demand_id)
+    validation = validate_demand(demand)
+    if not validation.ready:
+        print(_json(validation.to_dict()))
+        raise CliError("需求存在 BLOCKER，不能进入匹配")
+    budget = assess_budget(demand, configs.budget)
+    if budget.status == "RED":
+        print(_json(budget.to_dict()))
+        raise CliError("预算健康状态为 RED，不能进入匹配")
+    if budget.status == "YELLOW" and not args.allow_yellow:
+        print(_json(budget.to_dict()))
+        raise CliError("预算健康状态为 YELLOW；请缩小范围，或用 --allow-yellow 并记录人工理由")
+    if budget.status == "YELLOW" and not args.reason:
+        raise CliError("--allow-yellow 必须同时提供 --reason")
+
+    creators = repository.list_entities("creator")
+    result = _match_payload(demand, creators, configs.matching)
+    result["budget_exception_reason"] = args.reason if budget.status == "YELLOW" else None
+    recommendation_id = repository.record_recommendation(
+        demand, creators, configs.rule_version, result, budget.to_dict()
+    )
+    top = result["ranked"][: args.top]
+    briefs = []
+    creator_by_id = {str(item.get("id")): item for item in creators}
+    for score_dict in top:
+        creator = creator_by_id[score_dict["creator_id"]]
+        from .models import MatchScore
+
+        score = MatchScore(**score_dict)
+        briefs.append(explain_candidate(demand, creator, score).to_dict())
+    public_payload = {
+        "recommendation_id": recommendation_id,
+        "demand_id": args.demand_id,
+        "rule_version": configs.rule_version,
+        "budget": budget.to_dict(),
+        "recommended": top,
+        "briefs": briefs,
+        "excluded_count": len(result["excluded"]),
+        "invalid_creator_count": len(result["invalid_creators"]),
+    }
+    assert_external_output_safe(
+        briefs,
+        [creator_by_id[item["creator_id"]] for item in top],
+    )
+    print(_json(public_payload))
+
+
+def cmd_explain(args: argparse.Namespace) -> None:
+    repository = _repo(args)
+    recommendation = repository.latest_recommendation(args.demand_id)
+    snapshot = recommendation["input_snapshot"]
+    demand = snapshot["demand"]
+    creator = next(
+        (item for item in snapshot["creators"] if str(item.get("id")) == args.creator_id), None
+    )
+    if creator is None:
+        raise CliError("该创作者不在最新匹配快照中")
+    score_dict = next(
+        (item for item in recommendation["result"]["ranked"] if item["creator_id"] == args.creator_id), None
+    )
+    if score_dict is None:
+        excluded = next(
+            (item for item in recommendation["result"]["excluded"] if item["creator_id"] == args.creator_id), None
+        )
+        raise CliError("该创作者被硬过滤: {}".format(_json(excluded or {})))
+    from .models import MatchScore
+
+    brief = explain_candidate(demand, creator, MatchScore(**score_dict))
+    assert_external_output_safe(brief.to_dict(), [creator])
+    print(brief_to_markdown(brief) if args.format == "markdown" else _json(brief.to_dict()))
+
+
+def cmd_decision(args: argparse.Namespace) -> None:
+    repository = _repo(args)
+    configs = _configs(args)
+    recommendation = repository.latest_recommendation(args.demand_id)
+    invited = args.invited or ([args.selected] if args.selected else [])
+    participant_responses = []
+    if args.responses:
+        participant_responses = _load_json(args.responses)
+        if not isinstance(participant_responses, list) or not all(
+            isinstance(item, dict) for item in participant_responses
+        ):
+            raise CliError("--responses 文件必须是 JSON 对象数组")
+    validate_decision(
+        recommendation,
+        args.selected,
+        invited,
+        participant_responses,
+        args.reason,
+        args.note,
+        configs.reason_codes,
+    )
+    decision_id = repository.record_decision(
+        recommendation["id"],
+        args.demand_id,
+        recommendation["pilot_id"],
+        args.selected,
+        invited,
+        participant_responses,
+        args.reason,
+        args.note,
+    )
+    print(_json({"decision_id": decision_id, "recommendation_id": recommendation["id"], "selected": args.selected, "invited": invited, "responses_recorded": len(participant_responses)}))
+
+
+def cmd_outcome(args: argparse.Namespace) -> None:
+    outcome = _load_json(args.file)
+    if not isinstance(outcome, dict):
+        raise CliError("结果文件必须是 JSON 对象")
+    if str(outcome.get("project_id")) != args.project_id:
+        raise CliError("命令中的 project-id 与文件内 project_id 不一致")
+    validation = validate_outcome(outcome)
+    if not validation.ready:
+        print(_json(validation.to_dict()))
+        raise CliError("项目结果存在 BLOCKER，未写入数据库")
+    _repo(args).record_outcome(outcome)
+    print(_json({"project_id": args.project_id, "status": outcome.get("status"), "recorded": True}))
+
+
+def cmd_report(args: argparse.Namespace) -> None:
+    report = build_pilot_report(_repo(args), args.pilot_id)
+    markdown = report_to_markdown(report)
+    csv_text = report_to_csv(report)
+    output_dir = Path(args.output_dir) if args.output_dir else Path(args.data_dir) / "reports" / args.pilot_id
+    output_dir.mkdir(parents=True, exist_ok=True)
+    markdown_path = output_dir / "report.md"
+    csv_path = output_dir / "metrics.csv"
+    markdown_path.write_text(markdown, encoding="utf-8")
+    csv_path.write_text(csv_text, encoding="utf-8")
+    print(_json({"pilot_id": args.pilot_id, "markdown": str(markdown_path), "csv": str(csv_path), "metrics": report["metrics"]}))
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(prog="mvp", description="愿作礼宾式 MVP 本地运营工具")
+    parser.add_argument("--data-dir", default=str(default_data_dir()), help="匿名化本地数据目录")
+    parser.add_argument("--config-dir", default=str(default_config_dir()), help="版本化规则配置目录")
+    commands = parser.add_subparsers(dest="command", required=True)
+
+    init = commands.add_parser("init", help="初始化本地数据库并检查配置")
+    init.set_defaults(func=cmd_init)
+
+    importer = commands.add_parser("import", help="导入匿名化 JSON 资料")
+    importer.add_argument("kind", choices=("creator", "demand"))
+    importer.add_argument("file")
+    importer.set_defaults(func=cmd_import)
+
+    listing = commands.add_parser("list", help="列出资料 ID 和状态")
+    listing.add_argument("kind", choices=("creator", "demand"))
+    listing.add_argument("--pilot")
+    listing.set_defaults(func=cmd_list)
+
+    validate = commands.add_parser("validate", help="检查资料完整性")
+    validate.add_argument("kind", choices=("creator", "demand"))
+    validate.add_argument("entity_id")
+    validate.set_defaults(func=cmd_validate)
+
+    budget = commands.add_parser("budget", help="评估需求预算健康度")
+    budget.add_argument("demand_id")
+    budget.set_defaults(func=cmd_budget)
+
+    match = commands.add_parser("match", help="执行硬过滤、透明排序并保存快照")
+    match.add_argument("demand_id")
+    match.add_argument("--top", type=int, default=3, choices=range(1, 6))
+    match.add_argument("--allow-yellow", action="store_true")
+    match.add_argument("--reason", help="允许 YELLOW 预算继续时的人工理由")
+    match.set_defaults(func=cmd_match)
+
+    explain = commands.add_parser("explain", help="从最新不可变快照生成对外候选说明")
+    explain.add_argument("demand_id")
+    explain.add_argument("creator_id")
+    explain.add_argument("--format", choices=("markdown", "json"), default="markdown")
+    explain.set_defaults(func=cmd_explain)
+
+    decision = commands.add_parser("decision", help="记录邀请和最终选择")
+    decision.add_argument("demand_id")
+    decision.add_argument("--selected", help="最终选中的 creator id；未成交时省略")
+    decision.add_argument("--invited", nargs="+", help="实际邀请的 creator id")
+    decision.add_argument("--responses", help="候选接受/拒绝原因 JSON 文件")
+    decision.add_argument("--reason", required=True, help="标准决定/覆盖原因代码")
+    decision.add_argument("--note", help="补充说明；OTHER 时必填")
+    decision.set_defaults(func=cmd_decision)
+
+    outcome = commands.add_parser("outcome", help="录入完成、退出或失败结果")
+    outcome.add_argument("project_id")
+    outcome.add_argument("--file", required=True)
+    outcome.set_defaults(func=cmd_outcome)
+
+    report = commands.add_parser("report", help="生成 Markdown 和 CSV 批次报告")
+    report.add_argument("pilot_id")
+    report.add_argument("--output-dir")
+    report.set_defaults(func=cmd_report)
+    return parser
+
+
+def main(argv: Optional[List[str]] = None) -> None:
+    parser = build_parser()
+    args = parser.parse_args(argv)
+    try:
+        args.func(args)
+    except (CliError, ConfigError, DecisionError, KeyError, ValueError) as exc:
+        print("错误: {}".format(exc), file=sys.stderr)
+        raise SystemExit(2)

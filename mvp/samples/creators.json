@@ -1,0 +1,147 @@
+[
+  {
+    "id": "creator-demo-001",
+    "status": "active",
+    "consent_version": "pilot-consent-v1",
+    "interests": {"problem_types": ["workflow-automation", "internal-tool"], "domains": ["small-business", "nonprofit"], "tasks": ["python-development", "automation", "discovery"], "intensity": 4},
+    "skills": [
+      {"tag": "python", "proficiency": 4, "evidence_type": "portfolio", "evidence_trust": 4, "evidence_ref": "evidence-demo-c001-python"},
+      {"tag": "automation", "proficiency": 4, "evidence_type": "client-confirmed", "evidence_trust": 3, "evidence_ref": "evidence-demo-c001-auto"},
+      {"tag": "requirements-analysis", "proficiency": 3, "evidence_type": "work-sample", "evidence_trust": 3, "evidence_ref": "evidence-demo-c001-req"}
+    ],
+    "availability": {"available_from": "2026-08-10", "weekly_hours": 24, "duration_weeks": 8, "timezone": "Asia/Shanghai"},
+    "collaboration": {"languages": ["zh-CN", "en"], "work_mode": "async-first", "feedback_frequency": "twice-weekly", "team_preference": "solo"},
+    "compensation": {"minimum_project": 12000, "currency": "CNY", "direct_cost": 0},
+    "boundaries": {"prohibited_domains": ["gambling", "surveillance"], "prohibited_tasks": ["unreviewed-auto-decision"], "allowed_data_sensitivity": ["public", "low", "medium"]},
+    "location": {"region": "CN"},
+    "conflicts": [],
+    "ai": {"allowed": true, "requires_ai": false, "human_review": "all-user-facing-output", "prohibited_cases": ["personal-data-upload", "autonomous-financial-decision"]}
+  },
+  {
+    "id": "creator-demo-002",
+    "status": "active",
+    "consent_version": "pilot-consent-v1",
+    "interests": {"problem_types": ["workflow-automation", "data-organization"], "domains": ["small-business", "research"], "tasks": ["automation", "data-analysis", "testing"], "intensity": 3},
+    "skills": [
+      {"tag": "python", "proficiency": 3, "evidence_type": "repository", "evidence_trust": 3, "evidence_ref": "evidence-demo-c002-python"},
+      {"tag": "automation", "proficiency": 3, "evidence_type": "work-sample", "evidence_trust": 3, "evidence_ref": "evidence-demo-c002-auto"},
+      {"tag": "data-analysis", "proficiency": 4, "evidence_type": "portfolio", "evidence_trust": 4, "evidence_ref": "evidence-demo-c002-data"}
+    ],
+    "availability": {"available_from": "2026-08-15", "weekly_hours": 18, "duration_weeks": 6, "timezone": "Asia/Shanghai"},
+    "collaboration": {"languages": ["zh-CN"], "work_mode": "async-first", "feedback_frequency": "weekly", "team_preference": "solo"},
+    "compensation": {"minimum_project": 10000, "currency": "CNY", "direct_cost": 300},
+    "boundaries": {"prohibited_domains": ["gambling"], "prohibited_tasks": [], "allowed_data_sensitivity": ["public", "low", "medium"]},
+    "location": {"region": "CN"},
+    "conflicts": [],
+    "ai": {"allowed": true, "requires_ai": false, "human_review": "sample-and-critical-path", "prohibited_cases": ["restricted-data-upload"]}
+  },
+  {
+    "id": "creator-demo-003",
+    "status": "active",
+    "consent_version": "pilot-consent-v1",
+    "interests": {"problem_types": ["prototype-validation", "internal-tool"], "domains": ["education", "nonprofit"], "tasks": ["ux-design", "web-development", "discovery"], "intensity": 4},
+    "skills": [
+      {"tag": "ux-design", "proficiency": 4, "evidence_type": "portfolio", "evidence_trust": 4, "evidence_ref": "evidence-demo-c003-ux"},
+      {"tag": "web-frontend", "proficiency": 3, "evidence_type": "repository", "evidence_trust": 3, "evidence_ref": "evidence-demo-c003-web"},
+      {"tag": "user-research", "proficiency": 3, "evidence_type": "case-study", "evidence_trust": 3, "evidence_ref": "evidence-demo-c003-research"}
+    ],
+    "availability": {"available_from": "2026-08-12", "weekly_hours": 25, "duration_weeks": 10, "timezone": "Asia/Shanghai"},
+    "collaboration": {"languages": ["zh-CN", "en"], "work_mode": "async-first", "feedback_frequency": "twice-weekly", "team_preference": "solo"},
+    "compensation": {"minimum_project": 15000, "currency": "CNY", "direct_cost": 0},
+    "boundaries": {"prohibited_domains": ["gambling", "weapons"], "prohibited_tasks": ["dark-pattern-design"], "allowed_data_sensitivity": ["public", "low"]},
+    "location": {"region": "CN"},
+    "conflicts": [],
+    "ai": {"allowed": true, "requires_ai": false, "human_review": "all-design-decisions", "prohibited_cases": ["student-personal-data-upload"]}
+  },
+  {
+    "id": "creator-demo-004",
+    "status": "active",
+    "consent_version": "pilot-consent-v1",
+    "interests": {"problem_types": ["prototype-validation", "content-system"], "domains": ["education", "content-operations"], "tasks": ["web-development", "writing", "documentation"], "intensity": 3},
+    "skills": [
+      {"tag": "web-frontend", "proficiency": 4, "evidence_type": "repository", "evidence_trust": 4, "evidence_ref": "evidence-demo-c004-web"},
+      {"tag": "ux-design", "proficiency": 3, "evidence_type": "portfolio", "evidence_trust": 3, "evidence_ref": "evidence-demo-c004-ux"},
+      {"tag": "technical-writing", "proficiency": 3, "evidence_type": "published-work", "evidence_trust": 4, "evidence_ref": "evidence-demo-c004-writing"}
+    ],
+    "availability": {"available_from": "2026-08-20", "weekly_hours": 20, "duration_weeks": 12, "timezone": "Asia/Shanghai"},
+    "collaboration": {"languages": ["zh-CN"], "work_mode": "async-first", "feedback_frequency": "twice-weekly", "team_preference": "solo"},
+    "compensation": {"minimum_project": 13000, "currency": "CNY", "direct_cost": 0},
+    "boundaries": {"prohibited_domains": ["surveillance"], "prohibited_tasks": ["dark-pattern-design"], "allowed_data_sensitivity": ["public", "low", "medium"]},
+    "location": {"region": "CN"},
+    "conflicts": [],
+    "ai": {"allowed": false, "requires_ai": false, "human_review": "not-applicable", "prohibited_cases": ["all-generative-output"]}
+  },
+  {
+    "id": "creator-demo-005",
+    "status": "active",
+    "consent_version": "pilot-consent-v1",
+    "interests": {"problem_types": ["research-synthesis", "data-organization"], "domains": ["research", "nonprofit"], "tasks": ["research", "data-analysis", "writing"], "intensity": 4},
+    "skills": [
+      {"tag": "data-analysis", "proficiency": 4, "evidence_type": "published-work", "evidence_trust": 4, "evidence_ref": "evidence-demo-c005-data"},
+      {"tag": "technical-writing", "proficiency": 4, "evidence_type": "published-work", "evidence_trust": 4, "evidence_ref": "evidence-demo-c005-writing"},
+      {"tag": "information-architecture", "proficiency": 3, "evidence_type": "case-study", "evidence_trust": 3, "evidence_ref": "evidence-demo-c005-ia"}
+    ],
+    "availability": {"available_from": "2026-08-10", "weekly_hours": 16, "duration_weeks": 6, "timezone": "Asia/Shanghai"},
+    "collaboration": {"languages": ["zh-CN", "en"], "work_mode": "async-first", "feedback_frequency": "weekly", "team_preference": "solo"},
+    "compensation": {"minimum_project": 9000, "currency": "CNY", "direct_cost": 500},
+    "boundaries": {"prohibited_domains": ["weapons"], "prohibited_tasks": ["fabricated-citation"], "allowed_data_sensitivity": ["public", "low", "medium"]},
+    "location": {"region": "CN"},
+    "conflicts": [],
+    "ai": {"allowed": true, "requires_ai": false, "human_review": "source-by-source", "prohibited_cases": ["unverified-citation", "restricted-data-upload"]}
+  },
+  {
+    "id": "creator-demo-006",
+    "status": "active",
+    "consent_version": "pilot-consent-v1",
+    "interests": {"problem_types": ["research-synthesis", "content-system"], "domains": ["research", "education"], "tasks": ["research", "writing", "documentation"], "intensity": 3},
+    "skills": [
+      {"tag": "technical-writing", "proficiency": 4, "evidence_type": "portfolio", "evidence_trust": 4, "evidence_ref": "evidence-demo-c006-writing"},
+      {"tag": "data-analysis", "proficiency": 3, "evidence_type": "work-sample", "evidence_trust": 3, "evidence_ref": "evidence-demo-c006-data"},
+      {"tag": "requirements-analysis", "proficiency": 3, "evidence_type": "client-confirmed", "evidence_trust": 3, "evidence_ref": "evidence-demo-c006-req"}
+    ],
+    "availability": {"available_from": "2026-08-18", "weekly_hours": 20, "duration_weeks": 8, "timezone": "Asia/Shanghai"},
+    "collaboration": {"languages": ["zh-CN", "en"], "work_mode": "sync-weekly", "feedback_frequency": "weekly", "team_preference": "solo"},
+    "compensation": {"minimum_project": 11000, "currency": "CNY", "direct_cost": 300},
+    "boundaries": {"prohibited_domains": ["gambling"], "prohibited_tasks": ["fabricated-citation"], "allowed_data_sensitivity": ["public", "low"]},
+    "location": {"region": "CN"},
+    "conflicts": [],
+    "ai": {"allowed": true, "requires_ai": false, "human_review": "all-claims", "prohibited_cases": ["private-source-upload"]}
+  },
+  {
+    "id": "creator-demo-007",
+    "status": "active",
+    "consent_version": "pilot-consent-v1",
+    "interests": {"problem_types": ["internal-tool", "prototype-validation"], "domains": ["developer-tools", "small-business"], "tasks": ["python-development", "web-development", "testing"], "intensity": 3},
+    "skills": [
+      {"tag": "python", "proficiency": 4, "evidence_type": "repository", "evidence_trust": 4, "evidence_ref": "evidence-demo-c007-python"},
+      {"tag": "backend-api", "proficiency": 4, "evidence_type": "repository", "evidence_trust": 4, "evidence_ref": "evidence-demo-c007-api"},
+      {"tag": "quality-assurance", "proficiency": 3, "evidence_type": "work-sample", "evidence_trust": 3, "evidence_ref": "evidence-demo-c007-qa"}
+    ],
+    "availability": {"available_from": "2026-08-25", "weekly_hours": 12, "duration_weeks": 5, "timezone": "Asia/Tokyo"},
+    "collaboration": {"languages": ["zh-CN", "en"], "work_mode": "async-first", "feedback_frequency": "weekly", "team_preference": "small-team"},
+    "compensation": {"minimum_project": 18000, "currency": "CNY", "direct_cost": 800},
+    "boundaries": {"prohibited_domains": ["gambling", "surveillance"], "prohibited_tasks": ["offensive-security"], "allowed_data_sensitivity": ["public", "low", "medium"]},
+    "location": {"region": "JP"},
+    "conflicts": ["client-demo-003"],
+    "ai": {"allowed": true, "requires_ai": true, "human_review": "tests-and-code-review", "prohibited_cases": ["secrets-upload"]}
+  },
+  {
+    "id": "creator-demo-008",
+    "status": "active",
+    "consent_version": "pilot-consent-v1",
+    "interests": {"problem_types": ["content-system", "workflow-automation"], "domains": ["content-operations", "small-business"], "tasks": ["writing", "automation", "documentation"], "intensity": 2},
+    "skills": [
+      {"tag": "automation", "proficiency": 3, "evidence_type": "portfolio", "evidence_trust": 3, "evidence_ref": "evidence-demo-c008-auto"},
+      {"tag": "technical-writing", "proficiency": 4, "evidence_type": "published-work", "evidence_trust": 4, "evidence_ref": "evidence-demo-c008-writing"},
+      {"tag": "llm-integration", "proficiency": 3, "evidence_type": "repository", "evidence_trust": 3, "evidence_ref": "evidence-demo-c008-llm"}
+    ],
+    "availability": {"available_from": "2026-08-11", "weekly_hours": 15, "duration_weeks": 8, "timezone": "Asia/Shanghai"},
+    "collaboration": {"languages": ["zh-CN"], "work_mode": "async-first", "feedback_frequency": "twice-weekly", "team_preference": "solo"},
+    "compensation": {"minimum_project": 9500, "currency": "CNY", "direct_cost": 500},
+    "boundaries": {"prohibited_domains": ["gambling"], "prohibited_tasks": ["mass-spam"], "allowed_data_sensitivity": ["public", "low"]},
+    "location": {"region": "CN"},
+    "conflicts": [],
+    "ai": {"allowed": true, "requires_ai": true, "human_review": "all-published-output", "prohibited_cases": ["personal-data-upload"]}
+  }
+]
+

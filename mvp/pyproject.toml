@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "desire-supply-mvp"
+version = "0.1.0"
+description = "愿作礼宾式 MVP 的本地运营工具"
+readme = "README.md"
+requires-python = ">=3.9"
+license = {text = "Proprietary - pilot use only"}
+authors = [{name = "Desire Supply"}]
+dependencies = []
+
+[project.scripts]
+mvp = "desire_mvp.cli:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+

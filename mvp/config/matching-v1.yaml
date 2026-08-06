@@ -1,0 +1,33 @@
+{
+  "version": "matching-v1",
+  "effective_date": "2026-08-07",
+  "weights": {
+    "interest": 0.30,
+    "capability": 0.25,
+    "availability": 0.15,
+    "compensation": 0.15,
+    "collaboration": 0.10,
+    "evidence_trust": 0.05
+  },
+  "hard_filter_order": [
+    "BOUNDARY_DOMAIN",
+    "BOUNDARY_TASK",
+    "MISSING_MUST_HAVE_SKILL",
+    "DATE_CONFLICT",
+    "CAPACITY_CONFLICT",
+    "DURATION_CONFLICT",
+    "BELOW_PRIVATE_FLOOR",
+    "DATA_POLICY_CONFLICT",
+    "AI_POLICY_CONFLICT",
+    "LOCATION_RESTRICTION",
+    "LANGUAGE_MISMATCH",
+    "WORK_MODE_CONFLICT",
+    "CONFLICT_OF_INTEREST"
+  ],
+  "notes": [
+    "首轮只使用确定性规则，不使用机器学习或向量相似度。",
+    "预算高于私密底线后不会因预算更高而无限增加排序。",
+    "修改权重必须新建 matching-v2.yaml，并更新 manifest；不得覆盖本文件。"
+  ]
+}
+

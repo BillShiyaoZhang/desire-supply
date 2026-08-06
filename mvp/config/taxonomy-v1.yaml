@@ -1,0 +1,50 @@
+{
+  "version": "taxonomy-v1",
+  "effective_date": "2026-08-07",
+  "domains": [
+    "education",
+    "small-business",
+    "nonprofit",
+    "research",
+    "developer-tools",
+    "content-operations"
+  ],
+  "problem_types": [
+    "workflow-automation",
+    "prototype-validation",
+    "research-synthesis",
+    "data-organization",
+    "content-system",
+    "internal-tool"
+  ],
+  "tasks": [
+    "discovery",
+    "research",
+    "writing",
+    "ux-design",
+    "web-development",
+    "python-development",
+    "data-analysis",
+    "automation",
+    "testing",
+    "documentation"
+  ],
+  "skills": [
+    "requirements-analysis",
+    "user-research",
+    "information-architecture",
+    "ux-design",
+    "visual-design",
+    "python",
+    "javascript",
+    "web-frontend",
+    "backend-api",
+    "data-analysis",
+    "llm-integration",
+    "automation",
+    "technical-writing",
+    "quality-assurance"
+  ],
+  "governance": "只能在批次复盘时添加或合并标签；记录旧标签映射，禁止项目中途为某个候选临时改词表。"
+}
+

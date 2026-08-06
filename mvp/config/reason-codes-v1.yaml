@@ -1,0 +1,36 @@
+{
+  "version": "reason-codes-v1",
+  "effective_date": "2026-08-07",
+  "decision_override": {
+    "ALGORITHM_TOP": "采用规则建议的候选",
+    "MISSING_CONTEXT": "算法缺少重要上下文",
+    "BAD_TAXONOMY": "技能或意愿词表不能表达真实情况",
+    "WEIGHT_PROBLEM": "分项正确但权重不合理",
+    "TRUST_SIGNAL": "访谈出现尚未结构化的可信或风险信号",
+    "PARTICIPANT_CHOICE": "候选人或需求方主动拒绝",
+    "CONFLICT": "发现新的利益冲突",
+    "NO_MATCH": "没有合格或双方接受的候选",
+    "OTHER": "其他；必须补充说明"
+  },
+  "candidate_response": {
+    "ACCEPT": "愿意进入短沟通",
+    "NOT_INTERESTED": "意愿不匹配",
+    "CAPACITY": "当前容量不足",
+    "COMPENSATION": "报酬范围不合适",
+    "SCOPE_UNCLEAR": "范围仍不清晰",
+    "BOUNDARY": "触及个人边界",
+    "OTHER": "其他"
+  },
+  "project_failure": {
+    "NO_FUNDING": "资金承诺未落实",
+    "NO_MATCH": "没有形成双方选择",
+    "SCOPE": "范围或验收无法达成一致",
+    "DEPENDENCY": "关键输入或外部依赖失败",
+    "CAPACITY": "参与者容量变化",
+    "PAYMENT": "付款未按约执行",
+    "QUALITY": "交付未达到约定标准",
+    "COMMUNICATION": "沟通或响应机制失败",
+    "SAFETY": "安全、隐私、保密或行为事件",
+    "OTHER": "其他"
+  }
+}
