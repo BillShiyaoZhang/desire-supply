@@ -1,0 +1,13 @@
+{
+  "name": "desire-supply-docs",
+  "private": true,
+  "version": "0.1.0",
+  "description": "愿作（Desire Supply）文档站",
+  "scripts": {
+    "dev": "docsify serve . --port 5174",
+    "verify": "python3 ../scripts/verify_docs.py"
+  },
+  "devDependencies": {
+    "docsify-cli": "5.0.0"
+  }
+}

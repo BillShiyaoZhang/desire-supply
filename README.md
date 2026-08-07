@@ -6,11 +6,18 @@
 
 ## 从这里开始
 
+- [完整文档](https://billshiyaozhang.github.io/desire-supply/)：项目介绍、快速开始、系统架构、领域模型、安全设计与演进路线
+- [文档源文件](./docs/index.md)：适合在仓库中阅读
 - [MVP 使用说明](./mvp/README.md)：安装、演示和日常命令
 - [MVP 启动清单](./mvp/operations/launch-checklist.md)：首个真实项目前必须完成的事项
 - [人工运营手册](./mvp/operations/pilot-runbook.md)：从招募到复盘的标准流程
-- [礼宾式 MVP 开发方案](./docs/concierge-mvp-development-plan.md)：范围、假设和完成定义
-- [平台概念设计](./docs/desire-supply-platform-design.md)：长期产品方向
 
 公开平台、账户、支付、聊天和社区功能不属于首轮 MVP。首轮以 5 个进入付费阶段的真实项目为一个验证批次。
 
+## 文档站本地预览
+
+```bash
+python3 -m http.server 5174 --directory docs
+```
+
+打开 `http://localhost:5174`。提交文档前运行 `python3 scripts/verify_docs.py` 检查导航与站内链接。
