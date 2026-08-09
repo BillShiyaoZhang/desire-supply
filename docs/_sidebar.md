@@ -14,6 +14,7 @@
   - [系统总览](/architecture/overview.md)
   - [当前 MVP 架构](/architecture/current-mvp.md)
   - [领域模型与状态](/architecture/domain-model.md)
+  - [Community、Contribution 与规则治理](/architecture/community-governance.md)
   - [匹配、预算与决策](/architecture/matching-and-budget.md)
   - [数据、安全与隐私](/architecture/data-and-security.md)
   - [目标平台架构](/architecture/target-platform.md)
