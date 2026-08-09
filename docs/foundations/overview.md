@@ -94,16 +94,23 @@ flowchart LR
 
 愿作的边界也必须明确。它不能单独提供全民基础保障，不能消除所有生存焦虑，也不能仅凭产品设计改变整个社会的生产关系。它最多先成为一种局部替代机制和制度实验场。
 
-## 5. 从平台走向共同体的四份基础文本
+## 5. 从理念到实现的阅读地图
 
-本目录将对话中的制度讨论整理为四个相互连接、但职责不同的文本：
+本目录把制度讨论与实现规划分成两个层次。第一层说明愿作希望保护的关系：
 
 - 本文回答愿作源于什么社会问题，以及它在更大社会想象中的位置；
 - [愿作社会契约](/foundations/social-contract.md)说明共同体承诺保护什么；
 - [经济宪法与治理结构](/foundations/economic-constitution.md)说明谁拥有什么、谁决定什么；
 - [成员制度、动态开放与反收编](/foundations/membership-and-open-community.md)说明陌生人如何成为成员，以及共同体如何避免固化和被外部力量购买。
 
-这些文本属于理念和制度假设。现阶段的 Community、投票和规则发布边界仍以[Community、Contribution 与规则治理](/architecture/community-governance.md)为权威技术设计。
+第二层把理念连接到可验证实现：
+
+- [Foundations 要求目录](/foundations/foundation-requirements.md)为规范主张建立稳定 ID、责任类型和验证链；
+- [Foundations 实现差距审计](/foundations/implementation-gap-assessment.md)区分当前 MVP、目标平台局部实现、设计稿和缺失能力；
+- [Foundations 技术能力地图](/foundations/technical-capability-map.md)说明完整实现需要哪些技术上下文、制度接口和端到端旅程；
+- [Foundations 落地路线图](/foundations/realization-roadmap.md)规定先后依赖、影子模式、激活门槛和阶段完成证据。
+
+第一层属于理念和制度假设，第二层属于审计与目标设计；两者都不自动代表生产事实。具体领域的可执行边界仍以对应的 `docs/architecture/` 页面、能力状态登记和实现代码为准。现阶段的 Community、投票和规则发布细节见[Community、Contribution 与规则治理](/architecture/community-governance.md)。
 
 ## 6. 理论线索与研究边界
 

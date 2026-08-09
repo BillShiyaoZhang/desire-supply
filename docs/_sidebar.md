@@ -9,6 +9,10 @@
   - [愿作社会契约](/foundations/social-contract.md)
   - [经济宪法与治理结构](/foundations/economic-constitution.md)
   - [成员制度、动态开放与反收编](/foundations/membership-and-open-community.md)
+  - [Foundations 要求目录](/foundations/foundation-requirements.md)
+  - [Foundations 实现差距审计](/foundations/implementation-gap-assessment.md)
+  - [Foundations 技术能力地图](/foundations/technical-capability-map.md)
+  - [Foundations 落地路线图](/foundations/realization-roadmap.md)
 
 - **理解系统**
   - [系统总览](/architecture/overview.md)
