@@ -4,6 +4,12 @@
   - [快速开始](/guide/quick-start.md)
   - [核心概念](/guide/core-concepts.md)
 
+- **理念与制度基础**
+  - [从异世界幻想到愿作](/foundations/overview.md)
+  - [愿作社会契约](/foundations/social-contract.md)
+  - [经济宪法与治理结构](/foundations/economic-constitution.md)
+  - [成员制度、动态开放与反收编](/foundations/membership-and-open-community.md)
+
 - **理解系统**
   - [系统总览](/architecture/overview.md)
   - [当前 MVP 架构](/architecture/current-mvp.md)
