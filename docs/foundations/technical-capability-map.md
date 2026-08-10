@@ -13,7 +13,7 @@
 3. 哪些要求可以由软件强制，哪些必须由人、法律实体或外部制度完成；
 4. 什么证据足以证明能力从“设计过”走到了“现实有效”。
 
-所有能力都应追踪[Foundations 要求目录中的稳定 `FND-*` 要求](/foundations/foundation-requirements.md)。一个能力可以服务多个基础要求，但不能用“间接相关”冒充完整覆盖。
+所有能力都应追踪[Foundations 要求目录中的稳定 `FND-*` 要求](/foundations/foundation-requirements.md)。当前 foundations 范围的原子映射和 P1 处置由[要求与能力登记册](/foundations/requirements-capability-registry.md)维护；一个能力可以服务多个基础要求，但不能用“间接相关”冒充完整覆盖。
 
 ## 1. 目标系统不是单层软件
 
@@ -54,7 +54,7 @@ flowchart TB
 | Activation gate | 达到哪些代码、运营、法律和效果条件后才能打开 |
 | Status layers | `DESIGN` 到 `EFFECTIVE` 各层分别处于什么状态 |
 
-这份登记册应成为唯一能力状态来源。架构页面、测试和运行手册引用它，而不是各自写一条容易过期的“当前 GREEN”。
+这份登记格式已经在[要求与能力登记册](/foundations/requirements-capability-registry.md)建立 foundations 范围基线。由于 2026-08-10 本轮没有检查代码和现实证据，其 Delivery/Reality 状态仍为 `UNVERIFIED`；后续架构页面、测试和运行手册应引用并用固定 revision/现实文件升级它，而不是各自写一条容易过期的“当前 GREEN”。
 
 Capability 是责任和验收边界，不等于部署单元；多个 Capability 可以先由同一模块承载。只有在数据所有权、团队责任、扩缩容或故障隔离确有需要时，才考虑拆成独立服务。Capability ID 一经分配应保持稳定，编号不表示章节顺序、优先级或成熟度。
 
@@ -72,6 +72,8 @@ Capability 是责任和验收边界，不等于部署单元；多个 Capability 
 | `FND-RUL-*`, `FND-SEP-001` | `CAP-S02/03`, `CAP-I04/07` | 版本、影响分析、候选到独立发布、职责分离和历史可复现 |
 | `FND-MEM-*` | `CAP-I01..03`, `CAP-I06/11` | 公民成员生命周期、公共职务、贡献证据、新人路径和反固化效果 |
 | `FND-DEP-*`, `FND-NOD-*` | `CAP-S01/03/04/06`, `CAP-C02/05/06/08/09`, `CAP-I01/06/08/09/11/12` | 状态隔离、非排他归属、伙伴授权、跨机构角色、关系性强迫、线下资源、辅助办理与节点连续性 |
+| `FND-SAF-*`, `FND-EQU-*` | `CAP-S02..07`, `CAP-C01/02/04/08`, `CAP-I06/11/12` | 举报、反报复、临时保护、正当程序、独立申诉、事件响应、非歧视、敏感公平数据和可访问权利 |
+| `FND-CTR-*`, `FND-OPS-*`, `FND-EVD-*` | `CAP-S01..07`, `CAP-C03/05/06/08`, `CAP-I06/08/09/11/12` | 法律/合同/付款现实、运营责任、供应商、连续性、批次上限、研究伦理、证据等级和宣称控制 |
 | `FND-GOV-*` | `CAP-S02/03`, `CAP-I01/04..07` | 事项分层、代表、审议、表决、执行、复议、冷静期与真实授权 |
 | `FND-ECO-*` | `CAP-C03/06`, `CAP-I05..08/10/11` | 公共金库、公共劳动、职责分离、成员经济权益法律证据、剩余分配与集中度 |
 | `FND-MIS-*`, `FND-EXIT-*` | `CAP-S03..05`, `CAP-I03/07..11` | 使命指标触发、退出摩擦、成员权益、核心资产、依赖风险和合法分支 |
@@ -209,7 +211,13 @@ flowchart LR
 
 ## 6. 使命健康与反异化能力
 
-`CAP-I11 Mission Health` 应由 Audit/Analytics 提供可信数据，由独立复盘和治理程序解释。它不能是一项自动总分。
+| ID | 能力与所有者 | 必须包含的技术实现 | 关键约束 | 当前基础 |
+| --- | --- | --- | --- | --- |
+| `CAP-I11` | Mission Health | 版本化指标目录、权威事件/财务/研究事实、分母与时间窗、隐私阈值、质性反例、阈值触发、批次预注册和纠正记录 | 由 Audit/Analytics 提供可信数据，由独立复盘和治理程序解释；不得形成个人总分或以指标自动处罚、撤权 | foundations 已有指标与激活设计；现有实现及现实运行均未复核，旧审计提示指标事实源可能误导 |
+
+该能力不能成为自动总分，也不能因已经设计了指标就被视为 `OPERATED/EFFECTIVE`。
+
+P0/P1 的具体指标 ID、事实源、口径字段、隐私边界和触发动作由[使命衡量与学习计划](/foundations/mission-measurement-and-learning-plan.md)维护；下表是完整目标方向，不替代批次预注册。
 
 | 指标族 | 必须回答的问题 | 候选可量化信号 | 必须配套的质性证据 |
 | --- | --- | --- | --- |
@@ -360,7 +368,7 @@ IAM 负责执行最小权限，但资格来源域负责资格事实。Membership
 
 现有 `docs/architecture/` 应继续作为技术权威细节，但需要补齐或重构以下主题：
 
-1. 新增统一 capability registry 与状态证据页，消除各页顶部状态漂移；
+1. 将现有[Foundations 要求与能力登记册](/foundations/requirements-capability-registry.md)接入固定 revision 的架构、代码、测试、运营、法律和效果证据，补齐 owner/approver，并消除各页顶部状态漂移；
 2. 为 Civic Membership、Contextual Reputation & Credentials 建立独立设计，不与 IAM 或组内 Membership 混合；
 3. 为 Commons & Public Fund 建立独立设计，并明确它与交易 Funding/Payment 的资金执行接口；
 4. 扩展 Community 为分层治理设计，覆盖代表、事项分类、执行追踪、利益冲突和宪法程序，但保持目标业务域独立发布；

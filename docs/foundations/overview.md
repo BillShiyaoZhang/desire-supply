@@ -2,6 +2,8 @@
 
 > 文档状态：思想与制度基础草案 v0.1。整理自《资本主义与异世界幻想》对话，并结合当前愿作设计重新编排。本文讨论“为什么做”和“希望形成什么社会关系”，不代表已实现功能，也不替代法律、产品或技术决策。当前事实请以[项目介绍](/guide/introduction.md)、[平台概念设计](/desire-supply-platform-design.md)和实现代码为准。
 
+> 若目的是判断能否启动开发或真实试点，请从[软件开发启动就绪度与决策入口](/foundations/readiness-and-start-decision.md)开始。该入口把本目录的理念、技术差距与产品、研究、运营、法律、商业和工程门槛连接起来。
+
 ## 0. 核心判断
 
 剑与魔法、异世界和升级叙事的吸引力，不能只用逃避现实解释。它们也可能表达了现代生活中几种被压缩的需要：行动能够产生可见结果，成长能够被理解，劳动与意义重新相连，人能够拥有多重身份，并在一个真实共同体中被需要。
@@ -146,21 +148,34 @@ flowchart TB
 
 ## 6. 从理念到实现的阅读地图
 
-本目录把制度讨论与实现规划分成两个层次。第一层说明愿作希望保护的关系：
+本目录把制度讨论、完整目标与近期启动分成三个层次。第一层说明愿作希望保护的关系：
 
 - 本文回答愿作源于什么社会问题，以及它在更大社会想象中的位置；
 - [愿作社会契约](/foundations/social-contract.md)说明共同体承诺保护什么；
 - [经济宪法与治理结构](/foundations/economic-constitution.md)说明谁拥有什么、谁决定什么；
 - [成员制度、动态开放与反收编](/foundations/membership-and-open-community.md)说明陌生人如何成为成员，以及共同体如何避免固化和被外部力量购买。
 
-第二层把理念连接到可验证实现：
+第二层把理念连接到完整目标与当前实现差距：
 
 - [Foundations 要求目录](/foundations/foundation-requirements.md)为规范主张建立稳定 ID、责任类型和验证链；
 - [Foundations 实现差距审计](/foundations/implementation-gap-assessment.md)区分当前 MVP、目标平台局部实现、设计稿和缺失能力；
 - [Foundations 技术能力地图](/foundations/technical-capability-map.md)说明完整实现需要哪些技术上下文、制度接口和端到端旅程；
 - [Foundations 落地路线图](/foundations/realization-roadmap.md)规定先后依赖、影子模式、激活门槛和阶段完成证据。
 
-第一层属于理念和制度假设，第二层属于审计与目标设计；两者都不自动代表生产事实。具体领域的可执行边界仍以对应的 `docs/architecture/` 页面、能力状态登记和实现代码为准。现阶段的 Community、投票和规则发布细节见[Community、Contribution 与规则治理](/architecture/community-governance.md)。
+第三层把“应该做什么”收敛为可签字的启动包：
+
+- [软件开发启动就绪度与决策入口](/foundations/readiness-and-start-decision.md)给出当前结论、`G0A/G0B/G1/G2/G3` 门槛、允许和禁止范围；
+- [产品与首批试点定义](/foundations/product-and-pilot-definition.md)确定首个场景、主旅程、P1 产品要求、非目标和停止条件；
+- [研究与证据计划](/foundations/research-and-evidence-plan.md)规定假设、证据等级、参与者保护、研究方法和继续/修改/停止规则；
+- [运营模型与服务手册](/foundations/operating-model-and-service-playbook.md)规定人工角色、职责分离、服务蓝图、最小权利/安全包和连续性；
+- [法律、合规与合同准备计划](/foundations/legal-compliance-and-contract-plan.md)列出必须由目标辖区专业人员确认的现实责任与文件；
+- [商业、财务与进入市场计划](/foundations/business-finance-and-go-to-market.md)规定客户、价格、获客、单位经济、预算和资本护栏的验证方法；
+- [使命衡量与学习计划](/foundations/mission-measurement-and-learning-plan.md)定义指标事实源、口径、质性反例、隐私边界和触发动作；
+- [软件交付章程](/foundations/software-delivery-charter.md)把 P1 拆成增量纵切，定义用例、工程门禁、测试、发布、恢复和交付治理；
+- [风险、决定与假设登记册](/foundations/risk-decision-and-assumption-register.md)维护未决风险、决定、安全默认和可证伪假设；
+- [要求与能力登记册](/foundations/requirements-capability-registry.md)维护原子 `FND → CAP → P1 处置 → 证据` 追踪和能力状态。
+
+第一层属于理念和制度假设，第二层属于审计与完整目标设计，第三层属于启动控制；三层都不自动代表生产事实。第三层中的 `TBD` 必须由真实研究、具名责任人、目标辖区专业意见、固定代码 revision 和演练证据关闭。具体领域的可执行边界仍应与对应的 `docs/architecture/` 页面和实现代码核对；本轮没有检查这些目录。现阶段的 Community、投票和规则发布细节原指向[Community、Contribution 与规则治理](/architecture/community-governance.md)，其当前状态同样须重新核验。
 
 ## 7. 理论线索与研究边界
 

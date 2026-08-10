@@ -2,6 +2,8 @@
 
 > 文档状态：临时代码与设计审计记录 v0.1。审计日期为 2026-08-09，检查对象是提交 `6789db6` 之上的未提交工作区；该工作区没有独立 snapshot，不能由提交号完整重建。本文描述审计时观察，不是上线声明、可永久继承的能力基线，也不替代安全、法律、财务或组织审查。
 
+> 2026-08-10 补充说明：本目录随后新增了开发启动包以及 `FND-SAF/EQU/CTR/OPS/EVD-*` 试点护栏；它们没有被本次 2026-08-09 代码审计追溯验证。当前 go/no-go 请看[软件开发启动就绪度与决策入口](/foundations/readiness-and-start-decision.md)，原子状态请看[要求与能力登记册](/foundations/requirements-capability-registry.md)；在固定 revision 重新采集前均保持 `UNVERIFIED`。
+
 ## 0. 结论先行
 
 当前仓库已经证明了两件事：第一，礼宾式 MVP 能以随机 ID、身份字段隔离、确定性规则和可解释记录帮助运营者完成需求校验、预算闸门、匹配、人工选择和结果记录；第二，目标平台已经在身份、租户、权限、政策同意、会话安全、规则目录、Creator Profile、Demand、Matching 和 Outbox 等基础域上建立了相当严格的契约、领域模型和一部分 PostgreSQL 实现。

@@ -6,12 +6,22 @@
 
 - **理念与制度基础**
   - [从异世界幻想到愿作](/foundations/overview.md)
+  - [软件开发启动就绪度与决策入口](/foundations/readiness-and-start-decision.md)
   - [愿作社会契约](/foundations/social-contract.md)
   - [经济宪法与治理结构](/foundations/economic-constitution.md)
   - [成员制度、动态开放与反收编](/foundations/membership-and-open-community.md)
+  - [产品与首批试点定义](/foundations/product-and-pilot-definition.md)
+  - [研究与证据计划](/foundations/research-and-evidence-plan.md)
+  - [运营模型与服务手册](/foundations/operating-model-and-service-playbook.md)
+  - [法律、合规与合同准备计划](/foundations/legal-compliance-and-contract-plan.md)
+  - [商业、财务与进入市场计划](/foundations/business-finance-and-go-to-market.md)
+  - [使命衡量与学习计划](/foundations/mission-measurement-and-learning-plan.md)
   - [Foundations 要求目录](/foundations/foundation-requirements.md)
+  - [Foundations 要求与能力登记册](/foundations/requirements-capability-registry.md)
+  - [风险、决定与假设登记册](/foundations/risk-decision-and-assumption-register.md)
   - [Foundations 实现差距审计](/foundations/implementation-gap-assessment.md)
   - [Foundations 技术能力地图](/foundations/technical-capability-map.md)
+  - [软件交付章程](/foundations/software-delivery-charter.md)
   - [Foundations 落地路线图](/foundations/realization-roadmap.md)
 
 - **理解系统**
