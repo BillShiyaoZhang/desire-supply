@@ -1,8 +1,8 @@
 # 软件开发启动就绪度与决策入口
 
-> 文档状态：启动决策基线草案 v0.1  
-> 评估日期：2026-08-10  
-> 证据边界：本结论严格只依据 `docs/foundations/` 内现有材料，未重新检查代码、测试、外部市场、法律、财务、团队或真实用户事实。被引用的代码审计事实仍以[实现差距审计](/foundations/implementation-gap-assessment.md)记录的审计时点为限。  
+> 文档状态：启动决策基线草案 v0.2
+> 评估日期：2026-08-12
+> 证据边界：本结论严格只依据 `docs/foundations/` 内现有材料，未重新检查代码、测试、外部市场、法律、财务、团队或真实用户事实。被引用的代码审计事实仍以[实现差距审计](/foundations/implementation-gap-assessment.md)记录的审计时点为限。
 > 决策规则：未知事实一律记为 `TBD`，不得用推测、样例、设计稿或测试替代真实证据。
 
 ## 0. 结论先行
@@ -17,14 +17,14 @@
 | 外部真人访谈、观察或研究招募 | `NO-GO（待 G0B）` | 只有 `G0B` 全部通过后，才可按获批研究协议和独立研究库处理联系人、录音、补偿或案例资料 |
 | 使用合成数据的抛弃式原型、领域探索、测试夹具和风险验证 | `GO` | 不接触真实个人数据、真实付款或真实权益决定；不得冒充生产能力 |
 | 修复已知安全红线、建立能力登记册和可复现工程基线 | `GO` | 开工前须重新核验代码事实，不能沿用过期审计数字 |
-| 最窄生产纵切的正式实现 | `NO-GO（待 G1）` | 通过本文 `G1` 后，状态才可改为 `GO`，并仅按[软件交付章程](/foundations/software-delivery-charter.md)限定范围启动 |
+| 最窄生产纵切的正式实现 | `NO-GO（待 G1）` | `DEC-033` 已关闭真人研究前置，但其余 G1 项仍须通过；整体通过后才可按[软件交付章程](/foundations/software-delivery-charter.md)限定范围启动 |
 | 邀请真实服务/付费试点参与者、把真实资料导入产品、签约、收款或付款 | `NO-GO（待 G2）` | 需通过 `G2` 的产品、运营、法律、数据、财务和工程门槛；研究参与者不因此成为服务试点参与者 |
 | 公开注册、开放市场、正式成员治理、公共金库或所有权机制 | `NO-GO` | 分别依路线图 P2–P5 的真实证据激活，不能提前包装上线 |
 
 因此，“距离启动软件开发还有多远”不能用一个工期回答，而应按门槛回答：
 
 - 距离**不接触真实数据/资金/权益的准备性开发**：没有门槛，可以立即开始；
-- 距离**最窄生产纵切**：`G1` 当前为 `NO-GO`；不是只差开一次会，而是须先把其全部 `TBD` 变成可复核证据并获具名批准；
+- 距离**最窄生产纵切**：`G1` 当前仍为 `NO-GO`；`G1-02` 已依[创始人定向构建决定](/foundations/g1-direct-build-decision.md)关闭，但其余 `TBD` 仍须变成可复核证据并获具名批准；
 - 距离**封闭付费试点**：还差 `G1 → G2` 两级门槛以及至少一次不接触真实资金的全流程演练；
 - 距离**公开上线**：当前证据不足以估计，不应给出日期或百分比。
 
@@ -57,7 +57,7 @@
 | 使命、社会契约与禁止结果 | `GREEN` | 社会契约、经济宪法、成员与开放原则、稳定 `FND-*` | 尚未由真实成员批准；可先作为创始试点约束 |
 | 完整目标能力与阶段依赖 | `GREEN` | `CAP-*` 能力地图、P0–P5 激活顺序 | 不能把完整目标地图当首版范围 |
 | 首个目标用户与问题场景 | `RED` | 有“需求方/创作者/受益者”等角色语言 | 没有获批的 ICP、单一场景、替代方案与排除范围 |
-| 真实问题与付费意愿证据 | `RED` | 有待验证的制度假设 | 没有可复核访谈、观察、承诺或真实付费项目证据 |
+| 真实问题与付费意愿证据 | `RED / G1 DIRECT-BUILD` | `DEC-033` 允许把场景当创始人产品选择来构建 | 所有市场与效果假设仍为 `E0`；G2 前仍需独立于代码的现实证据 |
 | 首版产品范围与验收 | `AMBER` | 路线图定义了完整 P1 纵切 | 仍需缩成首批场景的用户故事、验收、非目标与停止规则 |
 | 礼宾运营与责任分离 | `RED` | 原则上要求人工负责、冲突回避和审计 | 没有已任命人员、排班、SLO、SOP、培训或演练记录 |
 | 法律、合同、税务与支付 | `RED` | 已识别不能软件化的事项 | 辖区、实体、平台角色、合同包、付款方式、税务与保险均未确认 |
@@ -138,12 +138,14 @@
 
 ### G1：允许最窄生产纵切开发
 
-当前状态：`NO-GO`。以下条件全部满足才可 `PASS`：
+当前状态：`NO-GO`。`G1-02` 已按 `DEC-033` 选择替代路径；以下条件仍须全部满足才可使 G1 整体 `PASS`：
+
+`DEC-033` 对该原子项的记录语义为 `PASS — DEC-033`，但这项 PASS 只有在 G1 总评审确认跨职能批准链后才可被总 Gate 使用；它绝不单独改变 G1 总状态。
 
 | Gate ID | 必须具备的证据 | 责任角色 | 当前 |
 | --- | --- | --- | --- |
 | `G1-01` | 一个获批 ICP、一个主场景、一个明确地域/辖区范围及排除项 | Product accountable | `TBD` |
-| `G1-02` | 在 `G0B` 授权范围内完成问题访谈和流程观察，证据达到研究计划的最低质量门槛 | Research lead | `TBD` |
+| `G1-02` | 外部真人研究不是本轮前置；`DEC-033` 已选择创始人定向路径，假设保持 `E0`。正式 G1 总评审前仍须由 Product、Research/Evidence、Business/Finance 与独立 Risk reviewer 具名批准限域 backlog、预算/期限及证据债务 | Founder sponsor + cross-functional approvers | `PASS — DEC-033（需在 G1 总评审确认批准链）` |
 | `G1-03` | 产品定义中的主旅程、非目标、用户验收和停止条件获批准 | Product + Ops + Engineering | `TBD` |
 | `G1-04` | 运营角色已任命，职责冲突、升级、申诉和暂停权已演练 | Operations accountable | `TBD` |
 | `G1-05` | 辖区、运营实体、平台法律角色、合同架构/关键条款及支付路径已有书面专业确认；最终可执行文本留作 `G2` 证据 | Legal accountable | `TBD` |
@@ -153,7 +155,7 @@
 | `G1-09` | 首个 backlog 只包含获批纵切，具备 `FND → CAP → 验收 → 证据` 追踪 | Delivery accountable | `TBD` |
 | `G1-10` | `G1` 授权范围会触发的 Critical 已移除，或已有 Gate 前控制证据且残余影响不再为 Critical；仅在真实数据/资金/权益或延期能力启用时触发的 Critical 通过保持能力关闭而标为 `DEFERRED`；其余风险有责任人、到期、监测和接受者 | Risk accountable | `TBD` |
 
-任何一项为 `TBD`、`FAIL` 或依赖“开发后再决定”，结论均为 `NO-GO`。
+除已由 `DEC-033` 明确替代的 `G1-02` 外，任何一项为 `TBD`、`FAIL` 或依赖“开发后再决定”，结论均为 `NO-GO`。`G1-02` 的批准链须在 G1 总评审确认；其通过不提高任何 `ASM-*` 证据等级，也不影响 G2。范围、辖区、数据、provider、资金、参与者类型、backlog revision、预算或期限变化会使该通过自动失效并重新评审。
 
 ### G2：允许封闭付费试点
 
@@ -219,6 +221,9 @@ Review scope: G0B / G1 / G2 / G3
 Evidence cutoff:
 Code revision（若适用）:
 Pilot version / rule version:
+Evidence exception / decision ID:
+Exception scope / expiry / approvers:
+G2 replacement evidence required:
 
 Gate results:
 - Product:
@@ -273,6 +278,7 @@ Approvals:
 | 技术能力地图 | `DRAFT` 目标设计 | Architecture owner | Product、Ops、Security/Privacy、Legal/Finance |
 | 落地路线图 | `DRAFT` 阶段策略 | Delivery accountable | Cross-functional Gate approvers |
 | 启动就绪度入口 | `DRAFT` go/no-go 基线 | Pilot accountable | 全部 `G1/G2` 责任角色 |
+| G1 创始人定向构建决定 | `APPROVED` 范围决定证据 | Project owner / Product accountable | G1 Gate approvers 在总评审中复核其范围与失效条件 |
 | 产品与首批试点定义 | `DRAFT` 产品章程 | Product accountable | Research、Ops、Engineering、Legal/Finance |
 | 研究与证据计划 | `DRAFT` 研究协议 | Research lead | Privacy、Ethics/Legal、参与者保护 reviewer |
 | 运营模型与服务手册 | `DRAFT` 运行基线 | Operations accountable | Safety、Privacy、Finance、Legal、Engineering |
@@ -296,4 +302,4 @@ Approvals:
 - 团队人数、能力、预算和实际交付速度；
 - foundations 的制度假设是否在真实协作中有效。
 
-在这些事实产生前，最诚实的状态是：**内部准备可继续；外部真人研究为 `G0B NO-GO`，生产纵切开发为 `G1 NO-GO`，真实服务/付费试点为 `G2 NO-GO`。文档框架已能支持评审，但启动证据尚未完成。**
+在这些事实产生前，最诚实的状态是：**内部准备与 G1 剩余条件关闭工作可继续；本轮选择不开展外部真人研究，`G0B` 保持 `NO-GO`；`G1-02` 已依 `DEC-033` 通过，但 G1 整体仍因其他 `TBD/BLOCKER` 为 `NO-GO`；真实服务/付费试点仍为 `G2 NO-GO`。**

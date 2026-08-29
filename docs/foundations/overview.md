@@ -175,7 +175,7 @@ flowchart TB
 - [风险、决定与假设登记册](/foundations/risk-decision-and-assumption-register.md)维护未决风险、决定、安全默认和可证伪假设；
 - [要求与能力登记册](/foundations/requirements-capability-registry.md)维护原子 `FND → CAP → P1 处置 → 证据` 追踪和能力状态。
 
-第一层属于理念和制度假设，第二层属于审计与完整目标设计，第三层属于启动控制；三层都不自动代表生产事实。第三层中的 `TBD` 必须由真实研究、具名责任人、目标辖区专业意见、固定代码 revision 和演练证据关闭。具体领域的可执行边界仍应与对应的 `docs/architecture/` 页面和实现代码核对；本轮没有检查这些目录。现阶段的 Community、投票和规则发布细节原指向[Community、Contribution 与规则治理](/architecture/community-governance.md)，其当前状态同样须重新核验。
+第一层属于理念和制度假设，第二层属于审计与完整目标设计，第三层属于启动控制；三层都不自动代表生产事实。第三层中的 `TBD` 必须由该 Gate 获准的证据路径、具名责任人、目标辖区专业意见、固定代码 revision 和演练证据关闭。`DEC-033` 只允许用创始人定向、假设保持 `E0` 的路径替代 G1 真人研究前置，不替代其他 G1 条件，也不降低 G2。具体领域的可执行边界仍应与对应的 `docs/architecture/` 页面和实现代码核对；本轮没有检查这些目录。现阶段的 Community、投票和规则发布细节原指向[Community、Contribution 与规则治理](/architecture/community-governance.md)，其当前状态同样须重新核验。
 
 ## 7. 理论线索与研究边界
 

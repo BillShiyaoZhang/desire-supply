@@ -18,28 +18,36 @@ flowchart LR
 | C 对外说明 | 项目摘要、推荐理由、待确认问题 | 经检查的 Markdown/JSON | 经双方逐次同意的接收者 |
 | D 聚合研究数据 | 漏斗、集中度、完成率、耗时 | 报告目录 | 项目团队；对外发布前再审查 |
 
-随机 ID 映射只存在 A 层。B 层中的 `funding_evidence_ref` 和 `evidence_ref` 只应是不可公开解析的受控引用，不是原文件、URL 密钥或联系人线索。
+随机 ID 映射只存在 A 层。B 层中的 `funding_evidence_ref`、`evidence_ref` 和 `event_ref` 只应是不可公开解析的受控引用，不是原文件、URL 密钥或联系人线索；其安全 slug 语法见[输入契约](/architecture/input-contracts-and-imports.md#受控外部引用)。安全事件正文和身份仍留在 A 层受控安全系统，B 层 outcome 只保存 `{event_ref, severity}` 最小投影。
 
 ## 当前数据库
 
-SQLite 文件默认位于 `mvp/local-data/mvp.sqlite3`，包含四张表：
+SQLite 文件默认位于 `mvp/local-data/mvp.sqlite3`，包含四张业务表与四张迁移/历史完整性表：
 
 - `entities`：当前创作者和需求 JSON；
 - `recommendations`：完整输入快照、预算和匹配结果；
 - `decisions`：邀请、反馈、选择和原因；
 - `outcomes`：项目结果 JSON。
+- `schema_migrations`：连续数据库版本与 descriptor checksum；
+- `migration_runs`、`payload_migration_audit`：迁移 receipt、摘要和最小审计；cutover 后由受管触发器禁止补写、修改或删除；
+- `recommendation_snapshot_manifests`：推荐三列摘要与快照版本。
 
 风险最高的字段包括创作者私密报酬底线、明确边界、利益冲突、需求风险和快照中的历史资料。即使没有姓名，这些组合也可能在小群体中重新识别个人，因此不能把“匿名 ID”误称为不可识别数据。
+
+`migration_runs.target_fingerprint` 证明 cutover commit 时刻的目标事实，不是业务表的永久校验和。后续授权的 v1 写入可以改变 live fingerprint；长期可信依据是受管 DDL 与不可变 registry/receipt/audit 链，而不是阻止业务数据正常演进。
 
 ## 防护控制
 
 ### 代码内控制
 
 - 导入器递归拒绝常见身份键，包括嵌套对象和数组；
+- 发布的 v1 JSON Schema 与运行时 contract 拒绝未知字段，并统一核对 required、unique/min-items、类型/范围/枚举、日期、ID 和受控引用；
+- 不依赖可变配置的付款合计、日期先后、预算上下界、结果状态/基数等矛盾由 static contract 在 validator、Repository 与迁移目标共同拒绝；
+- SQLite 当前读取核对行元数据与 payload 身份；legacy preflight 漂移时阻断，不猜测哪一份正确；
 - 需求与创作者校验要求同意版本、风险和数据规则；
 - 高敏或受限数据需要处理计划，允许 AI 时还需模型数据规则；
 - 候选说明不读取私密金额，并执行值级泄漏防护；
-- 推荐保存规则与输入快照，决定绑定推荐，减少事后篡改；
+- 推荐保存规则与输入快照，决定绑定推荐；manifest 摘要，以及推荐和迁移历史的受管不可变触发器减少事后篡改；
 - Git 忽略 `local-data` 运行文件，示例数据明确为虚构。
 
 ### 运营控制
@@ -60,8 +68,10 @@ SQLite 文件默认位于 `mvp/local-data/mvp.sqlite3`，包含四张表：
 | 本机丢失 | SQLite 被复制 | 设备和目录加密 | 当前应用不做数据库层加密；需受管密钥与远程撤销 |
 | 越权披露 | 把候选卡发给未同意的人 | 分别确认披露、发送清单 | 依赖运营纪律；目标平台需 ABAC 与审计 |
 | 历史篡改 | 改资料后否认原输入 | 推荐快照只追加 | 本机管理员仍可改库；需签名审计或不可变日志 |
+| 行/JSON 身份漂移 | 索引列指向 A、payload 声称 B | current 读取 fail closed；legacy plan 报固定 blocker | 本机管理员仍可直接破坏文件；需受控存储与监控 |
+| 迁移 receipt / 写语义伪造 | 手工补写 run/audit、同名空触发器或额外吞写 trigger | 受管 table 精确定义、全量 index/trigger 精确集合、registry/receipt chain、append-once trigger | 本机管理员可同时改代码与库；生产需签名/远端审计 |
 | 配置操纵 | 为某候选临时改权重 | 版本文件、manifest、批次冻结 | 缺少发布审批；目标平台需双人审核与生效窗口 |
-| 恶意输入 | 巨大 JSON、异常类型 | 基础类型校验、无网络执行 | 没有大小限制/正式 schema；导入前需配额和 schema |
+| 恶意输入 | 巨大 JSON、异常类型 | 正式 v1 schema、运行时关闭字段/类型契约、无网络执行 | 仍没有文件/数组大小限制；导入前需配额 |
 | 依赖/CDN 风险 | 文档脚本被替换 | Docsify 版本固定 | CDN URL未做 SRI；文档无敏感数据，仍可后续自托管资产 |
 
 ## 数据保留与删除
@@ -77,9 +87,16 @@ SQLite 文件默认位于 `mvp/local-data/mvp.sqlite3`，包含四张表：
 
 当前 schema 没有自动级联删除，也没有匿名化迁移。真实运行应使用经审核的删除脚本或逐项清单，并记录完成日期和无法删除的法定义务。备份需要在下一个轮换周期内同步过期。
 
+目标平台的数据主体请求、versioned retention policy、法律保留、跨Context任务、provider/object清除、subject-safe响应与PITR恢复watermark，以[数据权利、保留、法律保留与清除编排](/architecture/data-rights-retention-and-erasure.md)为权威细化。该设计尚未实现；当前MVP人工清单不能冒充自动化平台能力。
+
 ## 备份与恢复
 
+阶段 0 的 SQLite 迁移前备份、指纹、RPO/RTO 与恢复验收以 [Schema 与存储迁移](/architecture/schema-and-storage-migrations.md#10-备份恢复与保留)为准。
+
 - 备份 A 层和 B 层时使用不同加密介质或不同密钥；
+- SQLite 迁移备份必须在 data-dir 与 Git worktree 外 exclusive-create；backup 先写私有 staging，再经始终保有的最终 descriptor 复制并 `fsync` 文件与目录，绝不按最终路径重开写入；
+- backup/manifest/restore 失败清理以 `(device, inode)` 所有权判断，不写入或删除竞态产生、被替换的外来文件；
+- 数据库 SHA-256 按固定块流式计算，恢复副本复制后再次核对摘要、逻辑指纹和 `integrity_check`；
 - SQLite 备份在应用不写入时执行，恢复后运行 `PRAGMA integrity_check` 和关键命令冒烟测试；
 - 至少保留一个离线或不同故障域副本；
 - 恢复演练验证的不只是文件存在，还包括密钥、配置版本、推荐快照和报告可读取；

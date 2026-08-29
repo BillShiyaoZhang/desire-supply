@@ -30,6 +30,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
+      - name: Run MVP tests
+        working-directory: mvp
+        env:
+          PYTHONPATH: src
+        run: python3 -m unittest discover -s tests -v
+
       - name: Setup Pages
         uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b # v5
 

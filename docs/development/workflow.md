@@ -51,16 +51,16 @@ taxonomy、matching、reason codes 同理。复合 `rule_version` 会进入每�
 
 ## 数据 schema 演进
 
-当前 JSON 没有显式 `schema_version`，因此新增必填字段会让旧资料立即失败。这是已知限制。下次做实质 schema 演进前应先增加：
+当前 demand、creator、outcome JSON 已有显式 `schema_version: 1`，常规 validator 和写入边界拒绝缺失或未知版本。阶段 0 的具体版本、CLI、事务、快照不变与恢复契约见 [Schema 与存储迁移](/architecture/schema-and-storage-migrations.md)。后续版本仍必须按该设计先补失败测试，并增加：
 
-- 每种记录的 `schema_version`；
-- JSON Schema 或等价的机器可读契约；
+- 更新每种记录的 `schema_version`；
+- 更新 JSON Schema 或等价的机器可读契约；
 - `v1 -> v2` 纯函数迁移器；
 - 旧样例加载与迁移测试；
 - 只读预检命令，迁移前不修改原文件；
 - 备份、回滚和删除语义。
 
-不要在 `Repository.get_entity` 中静默猜测旧格式，这会破坏复现。
+不要在 `Repository.get_entity` 中静默猜测旧格式，这会破坏复现；隐式 v0 只允许进入显式迁移器或冻结的历史快照只读解码器。
 
 ## 数据库变更
 
