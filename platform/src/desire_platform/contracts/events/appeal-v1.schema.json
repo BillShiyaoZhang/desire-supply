@@ -1,0 +1,87 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.desire.example/events/appeal-v1.schema.json",
+  "title": "Appeal event envelope v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "actor_id",
+    "actor_kind",
+    "aggregate_id",
+    "aggregate_type",
+    "aggregate_version",
+    "causation_id",
+    "correlation_id",
+    "event_id",
+    "event_type",
+    "occurred_at",
+    "organization_id",
+    "original_actor_id",
+    "payload",
+    "schema_version",
+    "trace_id"
+  ],
+  "properties": {
+    "actor_id": {"$ref": "#/$defs/Uuid"},
+    "actor_kind": {"const": "USER"},
+    "aggregate_id": {"$ref": "#/$defs/Uuid"},
+    "aggregate_type": {"const": "Appeal"},
+    "aggregate_version": {"type": "integer", "minimum": 1},
+    "causation_id": {"$ref": "#/$defs/Uuid"},
+    "correlation_id": {"$ref": "#/$defs/Uuid"},
+    "event_id": {"$ref": "#/$defs/Uuid"},
+    "event_type": {
+      "type": "string",
+      "enum": [
+        "AppealApplicationDraftSaved",
+        "AppealDecisionPublished",
+        "AppealOpened",
+        "AppealReviewAssignmentReleased",
+        "AppealReviewClaimed",
+        "AppealReviewDraftSaved",
+        "AppealSubmitted"
+      ]
+    },
+    "occurred_at": {"$ref": "#/$defs/Timestamp"},
+    "organization_id": {"$ref": "#/$defs/Uuid"},
+    "original_actor_id": {
+      "oneOf": [{"$ref": "#/$defs/Uuid"}, {"type": "null"}]
+    },
+    "payload": {"$ref": "#/$defs/Payload"},
+    "schema_version": {"const": 1},
+    "trace_id": {"$ref": "#/$defs/Uuid"}
+  },
+  "$defs": {
+    "Uuid": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^(?!00000000-0000-0000-0000-000000000000$)[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    },
+    "Timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "Z$"
+    },
+    "Payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "appeal_id",
+        "appeal_status",
+        "source_outcome_version_id"
+      ],
+      "properties": {
+        "appeal_id": {"$ref": "#/$defs/Uuid"},
+        "appeal_status": {
+          "type": "string",
+          "enum": ["DECIDED", "DRAFT", "IN_REVIEW", "SUBMITTED", "WITHDRAWN"]
+        },
+        "application_draft_version": {"type": "integer", "minimum": 1},
+        "application_version": {"type": "integer", "minimum": 1},
+        "decision_version_id": {"$ref": "#/$defs/Uuid"},
+        "review_draft_version": {"type": "integer", "minimum": 1},
+        "source_outcome_version_id": {"$ref": "#/$defs/Uuid"}
+      }
+    }
+  }
+}

@@ -1,0 +1,773 @@
+openapi: 3.1.0
+info:
+  title: Desire Supply Creator Profile API
+  version: 1.0.0-draft
+  summary: Personal Creator Profile and immutable version contract
+  description: >-
+    Versioned executable contract for the synthetic Creator Profile v1 slice.
+    Contract tests are green while domain and application behavior remains an
+    intentional semantic RED. All request and response objects are closed.
+    Public commands never accept actor, role, Session, server timestamps,
+    hashes, evidence locators, provider tokens, contact locators, exact address,
+    or legacy import references. Every response is private no-store.
+  x-contract-status: contract-tests-green-domain-application-red
+jsonSchemaDialect: https://json-schema.org/draft/2020-12/schema
+servers:
+  - url: /
+tags:
+  - name: Creator Profile
+paths:
+  /v1/me/creator-profile:
+    post:
+      tags: [Creator Profile]
+      operationId: createCreatorProfile
+      summary: Create the authenticated User's single personal Creator Profile
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCreatorProfileRequest'
+      responses:
+        '201':
+          $ref: '#/components/responses/ProfileCreated'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+    get:
+      tags: [Creator Profile]
+      operationId: getMyCreatorProfile
+      summary: Read the authenticated owner's complete safe management projection
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          $ref: '#/components/responses/ProfileRead'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /v1/me/creator-profile/drafts:
+    post:
+      tags: [Creator Profile]
+      operationId: saveCreatorProfileDraft
+      summary: Append one immutable draft version and discard the prior draft
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SaveCreatorProfileDraftRequest'
+      responses:
+        '201':
+          $ref: '#/components/responses/ProfileCreated'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /v1/me/creator-profile/drafts/{profile_version_id}/publish:
+    post:
+      tags: [Creator Profile]
+      operationId: publishCreatorProfileVersion
+      summary: Confirm and publish the exact current immutable draft
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ProfileVersionId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PublishCreatorProfileVersionRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/ProfileUpdated'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/HoldAwareForbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /v1/me/creator-profile/pause:
+    post:
+      tags: [Creator Profile]
+      operationId: pauseCreatorProfile
+      summary: Stop new matching use without changing published content
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PauseCreatorProfileRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/ProfileUpdated'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /v1/me/creator-profile/resume:
+    post:
+      tags: [Creator Profile]
+      operationId: resumeCreatorProfile
+      summary: Restore matching eligibility after exact authority and hold checks
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResumeCreatorProfileRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/ProfileUpdated'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/HoldAwareForbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /v1/me/creator-profile/archive:
+    post:
+      tags: [Creator Profile]
+      operationId: archiveCreatorProfile
+      summary: Permanently archive the personal Creator Profile root
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ArchiveCreatorProfileRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/ProfileUpdated'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+components:
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: __Host-ds_session
+      description: Opaque BFF Session handle; never exposed to JavaScript or logs.
+      x-sensitive: true
+      x-log-policy: redact
+  parameters:
+    ProfileVersionId:
+      name: profile_version_id
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/OpaqueId'
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: Raw value is retained only in request memory and persisted as a keyed digest.
+      x-sensitive: true
+      x-log-policy: redact
+      schema:
+        $ref: '#/components/schemas/IdempotencyKey'
+    IfMatch:
+      name: If-Match
+      in: header
+      required: true
+      description: Strong ETag for the CreatorProfile aggregate.
+      schema:
+        $ref: '#/components/schemas/EntityTag'
+    CsrfToken:
+      name: X-CSRF-Token
+      in: header
+      required: true
+      description: Masked synchronizer token bound to the current BFF Session.
+      x-sensitive: true
+      x-log-policy: redact
+      schema:
+        $ref: '#/components/schemas/CsrfToken'
+  headers:
+    NoStore:
+      description: Owner content and errors must never be cached.
+      schema:
+        type: string
+        const: no-store
+    TraceId:
+      description: Safe trace correlation identifier.
+      schema:
+        $ref: '#/components/schemas/TraceId'
+    ETag:
+      description: Strong CreatorProfile entity tag.
+      schema:
+        $ref: '#/components/schemas/EntityTag'
+  responses:
+    ProfileCreated:
+      description: Creator Profile or immutable draft created
+      headers:
+        ETag:
+          $ref: '#/components/headers/ETag'
+        Cache-Control:
+          $ref: '#/components/headers/NoStore'
+        X-Trace-Id:
+          $ref: '#/components/headers/TraceId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/CreatorProfileDto'
+    ProfileRead:
+      description: Safe owner management projection
+      headers:
+        ETag:
+          $ref: '#/components/headers/ETag'
+        Cache-Control:
+          $ref: '#/components/headers/NoStore'
+        X-Trace-Id:
+          $ref: '#/components/headers/TraceId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/CreatorProfileDto'
+    ProfileUpdated:
+      description: Creator Profile lifecycle changed
+      headers:
+        ETag:
+          $ref: '#/components/headers/ETag'
+        Cache-Control:
+          $ref: '#/components/headers/NoStore'
+        X-Trace-Id:
+          $ref: '#/components/headers/TraceId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/CreatorProfileDto'
+    BadRequest:
+      description: Closed request structure, type, format, or enum is invalid
+      x-error-codes: [INVALID_REQUEST]
+      headers:
+        Cache-Control:
+          $ref: '#/components/headers/NoStore'
+        X-Trace-Id:
+          $ref: '#/components/headers/TraceId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ProfileErrorResponse'
+    Unauthorized:
+      description: Authentication is absent or its exclusive deadline has elapsed
+      x-error-codes: [AUTHENTICATION_REQUIRED, SESSION_EXPIRED]
+      headers:
+        Cache-Control:
+          $ref: '#/components/headers/NoStore'
+        X-Trace-Id:
+          $ref: '#/components/headers/TraceId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ProfileErrorResponse'
+    Forbidden:
+      description: Authenticated owner lacks allowed authority
+      x-error-codes: [ACCESS_DENIED]
+      headers:
+        Cache-Control:
+          $ref: '#/components/headers/NoStore'
+        X-Trace-Id:
+          $ref: '#/components/headers/TraceId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ProfileErrorResponse'
+    HoldAwareForbidden:
+      description: Authority is denied or an available SafetyHold decision is BLOCK
+      x-error-codes: [ACCESS_DENIED, SAFETY_HOLD_BLOCKED]
+      headers:
+        Cache-Control:
+          $ref: '#/components/headers/NoStore'
+        X-Trace-Id:
+          $ref: '#/components/headers/TraceId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ProfileErrorResponse'
+    NotFound:
+      description: Profile is missing or cannot be disclosed to this actor
+      x-error-codes: [RESOURCE_NOT_FOUND]
+      headers:
+        Cache-Control:
+          $ref: '#/components/headers/NoStore'
+        X-Trace-Id:
+          $ref: '#/components/headers/TraceId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ProfileErrorResponse'
+    Conflict:
+      description: Receipt reuse, unique owner, taxonomy, policy, or lifecycle conflict
+      x-error-codes:
+        - PROFILE_ALREADY_EXISTS
+        - INVALID_STATE_TRANSITION
+        - IDEMPOTENCY_KEY_REUSED
+        - TAXONOMY_BUNDLE_CHANGED
+        - POLICY_BUNDLE_CHANGED
+      headers:
+        Cache-Control:
+          $ref: '#/components/headers/NoStore'
+        X-Trace-Id:
+          $ref: '#/components/headers/TraceId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ProfileErrorResponse'
+    PreconditionFailed:
+      description: If-Match does not match the current CreatorProfile version
+      x-error-codes: [PRECONDITION_FAILED]
+      headers:
+        ETag:
+          $ref: '#/components/headers/ETag'
+        Cache-Control:
+          $ref: '#/components/headers/NoStore'
+        X-Trace-Id:
+          $ref: '#/components/headers/TraceId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ProfileErrorResponse'
+    UnprocessableEntity:
+      description: Structure is valid but publish or policy requirements are incomplete
+      x-error-codes: [PROFILE_VALIDATION_FAILED, POLICY_ACCEPTANCE_REQUIRED]
+      headers:
+        Cache-Control:
+          $ref: '#/components/headers/NoStore'
+        X-Trace-Id:
+          $ref: '#/components/headers/TraceId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ProfileErrorResponse'
+    ServiceUnavailable:
+      description: Policy configuration, persistence, hold provider, or command outcome is unavailable
+      x-error-codes: [POLICY_CONFIGURATION_UNAVAILABLE, SERVICE_UNAVAILABLE]
+      headers:
+        Cache-Control:
+          $ref: '#/components/headers/NoStore'
+        Retry-After:
+          description: Whole seconds before a safe retry, if known.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 86400
+        X-Trace-Id:
+          $ref: '#/components/headers/TraceId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ProfileErrorResponse'
+  schemas:
+    OpaqueId:
+      type: string
+      minLength: 16
+      maxLength: 128
+      pattern: '^[A-Za-z0-9][A-Za-z0-9_-]{15,127}$'
+    Timestamp:
+      type: string
+      format: date-time
+      pattern: 'Z$'
+    ContentSha256:
+      type: string
+      pattern: '^[a-f0-9]{64}$'
+    EntityTag:
+      type: string
+      minLength: 4
+      maxLength: 64
+      pattern: '^"v[1-9][0-9]*"$'
+    IdempotencyKey:
+      type: string
+      minLength: 16
+      maxLength: 128
+      pattern: '^[A-Za-z0-9][A-Za-z0-9._~-]{15,127}$'
+      x-sensitive: true
+      x-log-policy: redact
+    CsrfToken:
+      type: string
+      minLength: 32
+      maxLength: 512
+      pattern: '^[A-Za-z0-9_-]+$'
+      x-sensitive: true
+      x-log-policy: redact
+    TraceId:
+      type: string
+      minLength: 16
+      maxLength: 128
+      pattern: '^[A-Za-z0-9_-]+$'
+    CreatorProfileStatus:
+      type: string
+      enum: [DRAFT, ACTIVE, PAUSED, ARCHIVED]
+    ProfileVersionStatus:
+      type: string
+      enum: [DRAFT, PUBLISHED, SUPERSEDED, DISCARDED, RETIRED]
+    CapabilityEvidenceStatus:
+      type: string
+      enum: [SELF_ASSERTED, PENDING_VERIFICATION, VERIFIED, REJECTED, EXPIRED, WITHDRAWN]
+    CapabilityEvidenceKind:
+      type: string
+      enum: [SELF_ASSERTION, PORTFOLIO_ARTIFACT, CERTIFICATION, WORK_SAMPLE, REFERENCE_ASSERTION]
+    PauseReasonCode:
+      type: string
+      enum: [OWNER_REQUEST, TEMPORARY_UNAVAILABILITY, SAFETY_REVIEW]
+    ArchiveReasonCode:
+      type: string
+      enum: [OWNER_REQUEST, ACCOUNT_CLOSURE, SAFETY_REVIEW]
+    ProfileErrorCode:
+      type: string
+      enum:
+        - INVALID_REQUEST
+        - AUTHENTICATION_REQUIRED
+        - SESSION_EXPIRED
+        - ACCESS_DENIED
+        - SAFETY_HOLD_BLOCKED
+        - RESOURCE_NOT_FOUND
+        - PROFILE_ALREADY_EXISTS
+        - INVALID_STATE_TRANSITION
+        - IDEMPOTENCY_KEY_REUSED
+        - TAXONOMY_BUNDLE_CHANGED
+        - POLICY_BUNDLE_CHANGED
+        - PRECONDITION_FAILED
+        - PROFILE_VALIDATION_FAILED
+        - POLICY_ACCEPTANCE_REQUIRED
+        - POLICY_CONFIGURATION_UNAVAILABLE
+        - SERVICE_UNAVAILABLE
+    FieldIssue:
+      type: object
+      additionalProperties: false
+      required: [path, code, message]
+      properties:
+        path:
+          type: string
+          minLength: 1
+          maxLength: 256
+          pattern: '^[A-Za-z0-9_\[\].-]+$'
+        code:
+          type: string
+          enum: [MISSING_REQUIRED, UNKNOWN_FIELD, INVALID_TYPE, INVALID_ENUM, INVALID_FORMAT, TOO_LARGE, CONFLICT]
+        message:
+          type: string
+          minLength: 1
+          maxLength: 300
+    ProfileErrorResponse:
+      type: object
+      additionalProperties: false
+      required: [code, message, trace_id, field_issues]
+      properties:
+        code:
+          $ref: '#/components/schemas/ProfileErrorCode'
+        message:
+          type: string
+          minLength: 1
+          maxLength: 500
+        trace_id:
+          $ref: '#/components/schemas/TraceId'
+        field_issues:
+          type: array
+          maxItems: 100
+          items:
+            $ref: '#/components/schemas/FieldIssue'
+    CreateCreatorProfileRequest:
+      type: object
+      additionalProperties: false
+      properties: {}
+    SaveCreatorProfileDraftRequest:
+      type: object
+      additionalProperties: false
+      required: [taxonomy_bundle_id, based_on_profile_version_id, content]
+      properties:
+        taxonomy_bundle_id:
+          $ref: '#/components/schemas/OpaqueId'
+        based_on_profile_version_id:
+          oneOf:
+            - $ref: '#/components/schemas/OpaqueId'
+            - type: 'null'
+        content:
+          $ref: '../domain/profile-version-v1.schema.json#/$defs/ProfileContent'
+    PublishCreatorProfileVersionRequest:
+      type: object
+      additionalProperties: false
+      required: [confirmed]
+      properties:
+        confirmed:
+          type: boolean
+          const: true
+    ResumeCreatorProfileRequest:
+      type: object
+      additionalProperties: false
+      properties: {}
+    PauseCreatorProfileRequest:
+      type: object
+      additionalProperties: false
+      required: [reason_code]
+      properties:
+        reason_code:
+          $ref: '#/components/schemas/PauseReasonCode'
+    ArchiveCreatorProfileRequest:
+      type: object
+      additionalProperties: false
+      required: [reason_code]
+      properties:
+        reason_code:
+          $ref: '#/components/schemas/ArchiveReasonCode'
+    CapabilityEvidenceDto:
+      type: object
+      additionalProperties: false
+      required:
+        - evidence_id
+        - evidence_kind
+        - object_label
+        - claimed_skill_codes
+        - status
+        - verified_at
+        - expires_at
+        - aggregate_version
+      properties:
+        evidence_id:
+          $ref: '#/components/schemas/OpaqueId'
+        evidence_kind:
+          $ref: '#/components/schemas/CapabilityEvidenceKind'
+        object_label:
+          type: string
+          minLength: 1
+          maxLength: 160
+          description: Safe label only; never a locator, URL, token, or provider response.
+        claimed_skill_codes:
+          type: array
+          maxItems: 100
+          uniqueItems: true
+          items:
+            type: string
+            minLength: 2
+            maxLength: 64
+            pattern: '^[A-Z][A-Z0-9_.:-]{1,63}$'
+        status:
+          $ref: '#/components/schemas/CapabilityEvidenceStatus'
+        verified_at:
+          oneOf:
+            - $ref: '#/components/schemas/Timestamp'
+            - type: 'null'
+        expires_at:
+          oneOf:
+            - $ref: '#/components/schemas/Timestamp'
+            - type: 'null'
+        aggregate_version:
+          type: integer
+          minimum: 1
+    ProfileVersionDto:
+      type: object
+      additionalProperties: false
+      required:
+        - profile_version_id
+        - profile_id
+        - version_no
+        - status
+        - based_on_profile_version_id
+        - profile_schema_version
+        - canonicalization_version
+        - taxonomy_bundle_id
+        - content_sha256
+        - content
+        - created_by_user_id
+        - asserted_at
+        - confirmed_by_user_id
+        - confirmed_at
+      properties:
+        profile_version_id:
+          $ref: '#/components/schemas/OpaqueId'
+        profile_id:
+          $ref: '#/components/schemas/OpaqueId'
+        version_no:
+          type: integer
+          minimum: 1
+        status:
+          $ref: '#/components/schemas/ProfileVersionStatus'
+        based_on_profile_version_id:
+          oneOf:
+            - $ref: '#/components/schemas/OpaqueId'
+            - type: 'null'
+        profile_schema_version:
+          type: integer
+          const: 1
+        canonicalization_version:
+          type: string
+          const: profile-version-json-v1
+        taxonomy_bundle_id:
+          $ref: '#/components/schemas/OpaqueId'
+        content_sha256:
+          $ref: '#/components/schemas/ContentSha256'
+        content:
+          $ref: '../domain/profile-version-v1.schema.json#/$defs/ProfileContent'
+        created_by_user_id:
+          $ref: '#/components/schemas/OpaqueId'
+        asserted_at:
+          $ref: '#/components/schemas/Timestamp'
+        confirmed_by_user_id:
+          oneOf:
+            - $ref: '#/components/schemas/OpaqueId'
+            - type: 'null'
+        confirmed_at:
+          oneOf:
+            - $ref: '#/components/schemas/Timestamp'
+            - type: 'null'
+    CreatorProfileDto:
+      type: object
+      additionalProperties: false
+      required:
+        - profile_id
+        - owner_user_id
+        - status
+        - aggregate_version
+        - current_draft
+        - current_published
+        - paused_at
+        - pause_reason_code
+        - archived_at
+        - archive_reason_code
+        - evidence
+        - created_at
+        - updated_at
+        - entity_tag
+      properties:
+        profile_id:
+          $ref: '#/components/schemas/OpaqueId'
+        owner_user_id:
+          $ref: '#/components/schemas/OpaqueId'
+        status:
+          $ref: '#/components/schemas/CreatorProfileStatus'
+        aggregate_version:
+          type: integer
+          minimum: 1
+        current_draft:
+          oneOf:
+            - $ref: '#/components/schemas/ProfileVersionDto'
+            - type: 'null'
+        current_published:
+          oneOf:
+            - $ref: '#/components/schemas/ProfileVersionDto'
+            - type: 'null'
+        paused_at:
+          oneOf:
+            - $ref: '#/components/schemas/Timestamp'
+            - type: 'null'
+        pause_reason_code:
+          oneOf:
+            - $ref: '#/components/schemas/PauseReasonCode'
+            - type: 'null'
+        archived_at:
+          oneOf:
+            - $ref: '#/components/schemas/Timestamp'
+            - type: 'null'
+        archive_reason_code:
+          oneOf:
+            - $ref: '#/components/schemas/ArchiveReasonCode'
+            - type: 'null'
+        evidence:
+          type: array
+          maxItems: 200
+          items:
+            $ref: '#/components/schemas/CapabilityEvidenceDto'
+        created_at:
+          $ref: '#/components/schemas/Timestamp'
+        updated_at:
+          $ref: '#/components/schemas/Timestamp'
+        entity_tag:
+          $ref: '#/components/schemas/EntityTag'

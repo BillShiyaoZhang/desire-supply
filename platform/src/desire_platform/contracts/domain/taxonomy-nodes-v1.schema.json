@@ -1,0 +1,104 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://desire-supply.local/contracts/domain/taxonomy-nodes-v1.schema.json",
+  "title": "Taxonomy nodes v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "canonicalization_version", "bundle_id", "family_code", "nodes"],
+  "properties": {
+    "schema_version": {"type": "integer", "const": 1},
+    "canonicalization_version": {"type": "string", "const": "taxonomy-nodes-json-v1"},
+    "bundle_id": {"$ref": "#/$defs/OpaqueId"},
+    "family_code": {"$ref": "#/$defs/Code"},
+    "nodes": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 100000,
+      "items": {"$ref": "#/$defs/Node"}
+    }
+  },
+  "$defs": {
+    "OpaqueId": {"type": "string", "minLength": 16, "maxLength": 128, "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{15,127}$"},
+    "Code": {"type": "string", "minLength": 2, "maxLength": 64, "pattern": "^[A-Z0-9][A-Z0-9_.:-]{1,63}$"},
+    "NodeKind": {
+      "type": "string",
+      "enum": [
+        "DOMAIN", "PROBLEM_TYPE", "TASK", "SKILL", "SKILL_LEVEL",
+        "TARGET_USER_CATEGORY", "WORK_MODE", "FEEDBACK_CADENCE",
+        "TEAM_PREFERENCE", "REGION", "LANGUAGE", "DATA_SENSITIVITY",
+        "AI_USE", "RISK", "DELIVERY_KIND", "REVIEW_REASON"
+      ]
+    },
+    "Attribute": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["key", "value_kind", "code_value", "integer_value"],
+          "properties": {
+            "key": {"type": "string", "enum": ["skill_family_code", "country_code"]},
+            "value_kind": {"type": "string", "const": "CODE"},
+            "code_value": {"$ref": "#/$defs/Code"},
+            "integer_value": {"type": "null"}
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["key", "value_kind", "code_value", "integer_value"],
+          "properties": {
+            "key": {"type": "string", "const": "classification_rank"},
+            "value_kind": {"type": "string", "const": "INTEGER"},
+            "code_value": {"type": "null"},
+            "integer_value": {"type": "integer", "minimum": 0, "maximum": 1000}
+          }
+        }
+      ]
+    },
+    "Node": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "code", "kind", "definition_code", "status",
+        "introduced_in_bundle_id", "deprecated_reason_code",
+        "replacement_codes", "attributes"
+      ],
+      "properties": {
+        "code": {"$ref": "#/$defs/Code"},
+        "kind": {"$ref": "#/$defs/NodeKind"},
+        "definition_code": {"$ref": "#/$defs/Code"},
+        "status": {"type": "string", "enum": ["ACTIVE", "DEPRECATED"]},
+        "introduced_in_bundle_id": {"$ref": "#/$defs/OpaqueId"},
+        "deprecated_reason_code": {
+          "oneOf": [{"$ref": "#/$defs/Code"}, {"type": "null"}]
+        },
+        "replacement_codes": {
+          "type": "array",
+          "maxItems": 5,
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/Code"}
+        },
+        "attributes": {
+          "type": "array",
+          "maxItems": 16,
+          "items": {"$ref": "#/$defs/Attribute"}
+        }
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"status": {"const": "ACTIVE"}}},
+          "then": {
+            "properties": {
+              "deprecated_reason_code": {"type": "null"},
+              "replacement_codes": {"maxItems": 0}
+            }
+          }
+        },
+        {
+          "if": {"properties": {"status": {"const": "DEPRECATED"}}},
+          "then": {"properties": {"deprecated_reason_code": {"$ref": "#/$defs/Code"}}}
+        }
+      ]
+    }
+  }
+}

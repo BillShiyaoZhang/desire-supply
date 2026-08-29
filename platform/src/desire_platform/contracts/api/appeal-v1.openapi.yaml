@@ -1,0 +1,1249 @@
+openapi: 3.1.0
+info:
+  title: Desire Appeal API
+  version: 1.0.0-draft
+  summary: Private applicant and independent review contract for immutable Trust outcomes
+  description: >-
+    Closed appeal contract. Browser requests carry no identity or authority
+    coordinates. Restricted narrative is write-only and public reads expose
+    only a recorded flag plus structured, party-safe facts.
+  x-contract-status: application-contract-and-http-tests-green
+jsonSchemaDialect: https://json-schema.org/draft/2020-12/schema
+servers:
+  - url: /
+tags:
+  - name: Appeal Applicant
+  - name: Appeal Review
+paths:
+  /v1/app/appeals:
+    post:
+      tags: [Appeal Applicant]
+      operationId: openAppeal
+      summary: Open one appeal against an eligible immutable Trust outcome
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/WorkspaceId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OpenAppealRequest'
+      responses:
+        '201':
+          $ref: '#/components/responses/CommandCommitted'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+    get:
+      tags: [Appeal Applicant]
+      operationId: findOwnAppealBySource
+      summary: Find the caller's zero-or-one appeal for an immutable source outcome
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/WorkspaceId'
+        - $ref: '#/components/parameters/SourceOutcomeVersionId'
+      responses:
+        '200':
+          $ref: '#/components/responses/OwnAppealRead'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /v1/app/appeals/{appeal_id}:
+    get:
+      tags: [Appeal Applicant]
+      operationId: readOwnAppeal
+      summary: Read the caller's party-safe appeal projection
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/AppealId'
+        - $ref: '#/components/parameters/WorkspaceId'
+      responses:
+        '200':
+          $ref: '#/components/responses/OwnAppealRead'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /v1/app/appeals/{appeal_id}/draft:
+    put:
+      tags: [Appeal Applicant]
+      operationId: saveAppealDraft
+      summary: Append a recoverable application draft version
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/AppealId'
+        - $ref: '#/components/parameters/WorkspaceId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '../domain/appeal-application-v1.schema.json'
+      responses:
+        '200':
+          $ref: '#/components/responses/CommandCommitted'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
+        '428':
+          $ref: '#/components/responses/PreconditionRequired'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /v1/app/appeals/{appeal_id}/submit:
+    post:
+      tags: [Appeal Applicant]
+      operationId: submitAppeal
+      summary: Freeze the exact application draft for independent review
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/AppealId'
+        - $ref: '#/components/parameters/WorkspaceId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubmitAppealRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/CommandCommitted'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
+        '428':
+          $ref: '#/components/responses/PreconditionRequired'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /v1/app/appeal-review/queue:
+    get:
+      tags: [Appeal Review]
+      operationId: listAppealQueue
+      summary: List at most 100 unassigned submitted appeals
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/WorkspaceId'
+      responses:
+        '200':
+          $ref: '#/components/responses/AppealQueueRead'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /v1/app/appeal-review/queue/{appeal_id}/claim:
+    post:
+      tags: [Appeal Review]
+      operationId: claimAppeal
+      summary: Claim one appeal after a server-side independence check
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/AppealId'
+        - $ref: '#/components/parameters/WorkspaceId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmptyCommandRequest'
+      responses:
+        '201':
+          $ref: '#/components/responses/CommandCommitted'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
+        '428':
+          $ref: '#/components/responses/PreconditionRequired'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /v1/app/appeal-review/assignments:
+    get:
+      tags: [Appeal Review]
+      operationId: listMyActiveAppealAssignments
+      summary: List the caller's active independent-review assignments
+      description: >-
+        Returns only an appeal navigation coordinate and assignment expiry.
+        Assignment, reviewer, applicant, duty, organization, source, and
+        restricted narrative facts are omitted. An authorized reviewer with
+        no active assignment receives an empty items array.
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/WorkspaceId'
+      responses:
+        '200':
+          $ref: '#/components/responses/ActiveAppealAssignmentsRead'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /v1/app/appeal-review/history:
+    get:
+      tags: [Appeal Review]
+      operationId: listMyCompletedAppealAssignments
+      summary: List the caller's 100 most recent completed appeal reviews
+      description: >-
+        The server applies a fixed limit of 100 and accepts no query
+        parameters. Items are strictly ordered by decided_at descending and
+        appeal_id descending. Internal authority and assignment coordinates
+        are omitted.
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/WorkspaceId'
+      responses:
+        '200':
+          $ref: '#/components/responses/CompletedAppealAssignmentsRead'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /v1/app/appeal-review/history/{appeal_id}:
+    get:
+      tags: [Appeal Review]
+      operationId: readMyCompletedAppeal
+      summary: Read one party-safe terminal appeal decision made by the caller
+      description: >-
+        Available only to the original deciding reviewer while the current
+        session and APPEAL_REVIEWER duty remain valid. Applicant, reviewer,
+        duty, organization, assignment, source, and restricted narrative
+        fields are omitted.
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/AppealId'
+        - $ref: '#/components/parameters/WorkspaceId'
+      responses:
+        '200':
+          $ref: '#/components/responses/CompletedAppealDetailRead'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /v1/app/appeal-review/appeals/{appeal_id}:
+    get:
+      tags: [Appeal Review]
+      operationId: readAssignedAppeal
+      summary: Read the caller's exact active assignment and party-safe source
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/AppealId'
+        - $ref: '#/components/parameters/WorkspaceId'
+      responses:
+        '200':
+          $ref: '#/components/responses/AssignedAppealRead'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /v1/app/appeal-review/appeals/{appeal_id}/assignment/release:
+    post:
+      tags: [Appeal Review]
+      operationId: releaseAppealAssignment
+      summary: Release the caller's active review assignment
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/AppealId'
+        - $ref: '#/components/parameters/WorkspaceId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReleaseAppealAssignmentRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/CommandCommitted'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
+        '428':
+          $ref: '#/components/responses/PreconditionRequired'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /v1/app/appeal-review/appeals/{appeal_id}/review-draft:
+    put:
+      tags: [Appeal Review]
+      operationId: saveAppealReviewDraft
+      summary: Append one structured independent review draft
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/AppealId'
+        - $ref: '#/components/parameters/WorkspaceId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '../domain/appeal-review-v1.schema.json'
+      responses:
+        '200':
+          $ref: '#/components/responses/CommandCommitted'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
+        '428':
+          $ref: '#/components/responses/PreconditionRequired'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /v1/app/appeal-review/appeals/{appeal_id}/decide:
+    post:
+      tags: [Appeal Review]
+      operationId: decideAppeal
+      summary: Publish the final decision from an exact review draft
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/AppealId'
+        - $ref: '#/components/parameters/WorkspaceId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DecideAppealRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/CommandCommitted'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
+        '428':
+          $ref: '#/components/responses/PreconditionRequired'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+components:
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: __Host-ds_session
+  parameters:
+    AppealId:
+      name: appeal_id
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/Uuid'
+    SourceOutcomeVersionId:
+      name: source_outcome_version_id
+      in: query
+      required: true
+      schema:
+        $ref: '#/components/schemas/Uuid'
+    WorkspaceId:
+      name: X-Workspace-Id
+      in: header
+      required: true
+      schema:
+        type: string
+        pattern: '^(?:org|personal|platform):[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema:
+        type: string
+        minLength: 16
+        maxLength: 128
+        pattern: '^[A-Za-z0-9][A-Za-z0-9._~-]{15,127}$'
+    IfMatch:
+      name: If-Match
+      in: header
+      required: true
+      schema:
+        $ref: '#/components/schemas/EntityTag'
+    CsrfToken:
+      name: X-CSRF-Token
+      in: header
+      required: true
+      schema:
+        type: string
+        minLength: 32
+        maxLength: 512
+        pattern: '^[A-Za-z0-9_-]{32,512}$'
+  schemas:
+    Uuid:
+      type: string
+      format: uuid
+      pattern: '^(?!00000000-0000-0000-0000-000000000000$)[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+    Sha256:
+      type: string
+      pattern: '^[0-9a-f]{64}$'
+    Timestamp:
+      type: string
+      format: date-time
+      pattern: 'Z$'
+    EntityTag:
+      type: string
+      pattern: '^"appeal-[1-9][0-9]*-[0-9a-f]{24}"$'
+    EmptyCommandRequest:
+      type: object
+      additionalProperties: false
+      maxProperties: 0
+    OpenAppealRequest:
+      type: object
+      additionalProperties: false
+      required: [source_outcome_version_id]
+      properties:
+        source_outcome_version_id:
+          $ref: '#/components/schemas/Uuid'
+    SubmitAppealRequest:
+      type: object
+      additionalProperties: false
+      required: [expected_draft_version]
+      properties:
+        expected_draft_version:
+          type: integer
+          minimum: 1
+    ReleaseAppealAssignmentRequest:
+      type: object
+      additionalProperties: false
+      required: [reason_code]
+      properties:
+        reason_code:
+          type: string
+          enum: [ASSIGNMENT_EXPIRED, CONFLICT_DECLARED, WORKLOAD_RELEASE]
+    DecideAppealRequest:
+      type: object
+      additionalProperties: false
+      required: [decision_code, expected_review_draft_version]
+      properties:
+        decision_code:
+          $ref: '#/components/schemas/AppealDecisionCode'
+        expected_review_draft_version:
+          type: integer
+          minimum: 1
+    AppealStatus:
+      type: string
+      enum: [DECIDED, DRAFT, IN_REVIEW, SUBMITTED, WITHDRAWN]
+    AppealGround:
+      type: string
+      enum: [NEW_MATERIAL_EVIDENCE, PROCEDURAL_ERROR, RULE_MISAPPLICATION]
+    RequestedAppealOutcome:
+      type: string
+      enum: [MODIFY_MEASURE, REMOVE_MEASURE, VACATE_AND_REMAND]
+    AppealDecisionCode:
+      type: string
+      enum: [AFFIRM, DISMISS, MODIFY, VACATE_AND_REMAND]
+    AppealEventType:
+      type: string
+      enum:
+        - AppealApplicationDraftSaved
+        - AppealDecisionPublished
+        - AppealOpened
+        - AppealReviewAssignmentReleased
+        - AppealReviewClaimed
+        - AppealReviewDraftSaved
+        - AppealSubmitted
+    AppealCommandResult:
+      type: object
+      additionalProperties: false
+      required:
+        - aggregate_version
+        - appeal_id
+        - appeal_status
+        - application_draft_version
+        - application_version
+        - completed_at
+        - decision_version_id
+        - event_types
+        - replayed
+        - review_draft_version
+      properties:
+        aggregate_version:
+          type: integer
+          minimum: 1
+        appeal_id:
+          $ref: '#/components/schemas/Uuid'
+        appeal_status:
+          $ref: '#/components/schemas/AppealStatus'
+        application_draft_version:
+          oneOf:
+            - type: integer
+              minimum: 1
+            - type: 'null'
+        application_version:
+          oneOf:
+            - type: integer
+              minimum: 1
+            - type: 'null'
+        completed_at:
+          $ref: '#/components/schemas/Timestamp'
+        decision_version_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+        event_types:
+          type: array
+          minItems: 1
+          maxItems: 1
+          uniqueItems: true
+          items:
+            $ref: '#/components/schemas/AppealEventType'
+        replayed:
+          type: boolean
+        review_draft_version:
+          oneOf:
+            - type: integer
+              minimum: 1
+            - type: 'null'
+    AppealCommandEnvelope:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          $ref: '#/components/schemas/AppealCommandResult'
+    AppealSourceProjection:
+      type: object
+      additionalProperties: false
+      required:
+        - action_codes
+        - appeal_deadline
+        - appeal_eligibility_code
+        - appeal_eligible
+        - case_id
+        - content_sha256
+        - decided_at
+        - demand_id
+        - demand_version_id
+        - evidence_packet_sha256
+        - evidence_packet_version_id
+        - outcome_code
+        - outcome_version_id
+        - policy_version
+        - reason_codes
+      properties:
+        action_codes:
+          type: array
+          maxItems: 3
+          uniqueItems: true
+          items:
+            type: string
+            enum: [REQUEST_MATCHING, SUBMIT_DEMAND, VERIFY_DEMAND]
+        appeal_deadline:
+          $ref: '#/components/schemas/Timestamp'
+        appeal_eligibility_code:
+          const: ELIGIBLE
+        appeal_eligible:
+          const: true
+        case_id:
+          $ref: '#/components/schemas/Uuid'
+        content_sha256:
+          $ref: '#/components/schemas/Sha256'
+        decided_at:
+          $ref: '#/components/schemas/Timestamp'
+        demand_id:
+          $ref: '#/components/schemas/Uuid'
+        demand_version_id:
+          $ref: '#/components/schemas/Uuid'
+        evidence_packet_sha256:
+          $ref: '#/components/schemas/Sha256'
+        evidence_packet_version_id:
+          $ref: '#/components/schemas/Uuid'
+        outcome_code:
+          type: string
+          enum: [NO_ACTION, PROTECTION_LIFTED, PROTECTION_MAINTAINED, PROTECTION_MODIFIED, REMEDIATION_REQUIRED]
+        outcome_version_id:
+          $ref: '#/components/schemas/Uuid'
+        policy_version:
+          type: string
+          pattern: '^[a-z][a-z0-9._-]{2,95}$'
+        reason_codes:
+          type: array
+          minItems: 1
+          maxItems: 32
+          uniqueItems: true
+          items:
+            type: string
+            enum: [INSUFFICIENT_VERIFIED_EVIDENCE, NO_POLICY_BREACH, POLICY_REQUIREMENT_NOT_MET, PRECAUTIONARY_ACTION_REQUIRED, RISK_MITIGATED]
+    AppealApplicationDraftProjection:
+      type: object
+      additionalProperties: false
+      required: [edited_at, grounds, new_evidence_reference_ids, requested_outcome, statement_recorded, version]
+      properties:
+        edited_at:
+          $ref: '#/components/schemas/Timestamp'
+        grounds:
+          type: array
+          minItems: 1
+          maxItems: 3
+          uniqueItems: true
+          items:
+            $ref: '#/components/schemas/AppealGround'
+        new_evidence_reference_ids:
+          type: array
+          maxItems: 32
+          uniqueItems: true
+          items:
+            $ref: '#/components/schemas/Uuid'
+        requested_outcome:
+          $ref: '#/components/schemas/RequestedAppealOutcome'
+        statement_recorded:
+          const: true
+        version:
+          type: integer
+          minimum: 1
+      allOf:
+        - if:
+            properties:
+              grounds:
+                contains:
+                  const: NEW_MATERIAL_EVIDENCE
+          then:
+            properties:
+              new_evidence_reference_ids:
+                minItems: 1
+    AppealSubmittedApplicationProjection:
+      type: object
+      additionalProperties: false
+      required: [grounds, new_evidence_reference_ids, requested_outcome, statement_recorded, submitted_at]
+      properties:
+        grounds:
+          type: array
+          minItems: 1
+          maxItems: 3
+          uniqueItems: true
+          items:
+            $ref: '#/components/schemas/AppealGround'
+        new_evidence_reference_ids:
+          type: array
+          maxItems: 32
+          uniqueItems: true
+          items:
+            $ref: '#/components/schemas/Uuid'
+        requested_outcome:
+          $ref: '#/components/schemas/RequestedAppealOutcome'
+        statement_recorded:
+          const: true
+        submitted_at:
+          $ref: '#/components/schemas/Timestamp'
+      allOf:
+        - if:
+            properties:
+              grounds:
+                contains:
+                  const: NEW_MATERIAL_EVIDENCE
+          then:
+            properties:
+              new_evidence_reference_ids:
+                minItems: 1
+    AppealDecisionProjection:
+      type: object
+      additionalProperties: false
+      required: [assessments, decided_at, decision_code, decision_sha256, decision_version_id, policy_version, reason_codes, remedy_delta_codes]
+      properties:
+        assessments:
+          type: array
+          minItems: 1
+          maxItems: 3
+          uniqueItems: true
+          items:
+            $ref: '#/components/schemas/AppealAssessmentProjection'
+        decided_at:
+          $ref: '#/components/schemas/Timestamp'
+        decision_code:
+          $ref: '#/components/schemas/AppealDecisionCode'
+        decision_sha256:
+          $ref: '#/components/schemas/Sha256'
+        decision_version_id:
+          $ref: '#/components/schemas/Uuid'
+        policy_version:
+          type: string
+          pattern: '^[a-z][a-z0-9._-]{2,95}$'
+        reason_codes:
+          type: array
+          minItems: 1
+          maxItems: 32
+          uniqueItems: true
+          items:
+            type: string
+            enum: [APPEAL_SCOPE_INVALID, NEW_EVIDENCE_REVIEWED, PROCEDURAL_REVIEW_COMPLETE, REMAND_REQUIRED, SOURCE_OUTCOME_SUPPORTED, SOURCE_OUTCOME_UNSUPPORTED]
+        remedy_delta_codes:
+          type: array
+          minItems: 1
+          maxItems: 32
+          uniqueItems: true
+          items:
+            type: string
+            enum: [NARROW_CORRECTIVE_MEASURE, NO_CHANGE, REMOVE_CORRECTIVE_MEASURE, REPLACE_CORRECTIVE_MEASURE, RETURN_TO_TRUST_REVIEW]
+    AppealOwnProjection:
+      type: object
+      additionalProperties: false
+      required: [aggregate_version, appeal_id, application, application_draft, decision, entity_tag, source, source_case_id, source_outcome_version_id, status]
+      properties:
+        aggregate_version:
+          type: integer
+          minimum: 1
+        appeal_id:
+          $ref: '#/components/schemas/Uuid'
+        application:
+          oneOf:
+            - $ref: '#/components/schemas/AppealSubmittedApplicationProjection'
+            - type: 'null'
+        application_draft:
+          oneOf:
+            - $ref: '#/components/schemas/AppealApplicationDraftProjection'
+            - type: 'null'
+        decision:
+          oneOf:
+            - $ref: '#/components/schemas/AppealDecisionProjection'
+            - type: 'null'
+        entity_tag:
+          $ref: '#/components/schemas/EntityTag'
+        source:
+          $ref: '#/components/schemas/AppealSourceProjection'
+        source_case_id:
+          $ref: '#/components/schemas/Uuid'
+        source_outcome_version_id:
+          $ref: '#/components/schemas/Uuid'
+        status:
+          $ref: '#/components/schemas/AppealStatus'
+      allOf:
+        - if:
+            properties:
+              status:
+                const: DRAFT
+          then:
+            properties:
+              application:
+                type: 'null'
+              decision:
+                type: 'null'
+        - if:
+            properties:
+              status:
+                enum: [SUBMITTED, IN_REVIEW]
+          then:
+            properties:
+              application:
+                $ref: '#/components/schemas/AppealSubmittedApplicationProjection'
+              decision:
+                type: 'null'
+        - if:
+            properties:
+              status:
+                const: DECIDED
+          then:
+            properties:
+              application:
+                $ref: '#/components/schemas/AppealSubmittedApplicationProjection'
+              decision:
+                $ref: '#/components/schemas/AppealDecisionProjection'
+        - if:
+            properties:
+              status:
+                const: WITHDRAWN
+          then:
+            properties:
+              decision:
+                type: 'null'
+    AppealQueueItem:
+      type: object
+      additionalProperties: false
+      required: [appeal_id, entity_tag, grounds, requested_outcome, source_case_id, source_outcome_version_id, submitted_at]
+      properties:
+        appeal_id:
+          $ref: '#/components/schemas/Uuid'
+        entity_tag:
+          $ref: '#/components/schemas/EntityTag'
+        grounds:
+          type: array
+          minItems: 1
+          maxItems: 3
+          uniqueItems: true
+          items:
+            $ref: '#/components/schemas/AppealGround'
+        requested_outcome:
+          $ref: '#/components/schemas/RequestedAppealOutcome'
+        source_case_id:
+          $ref: '#/components/schemas/Uuid'
+        source_outcome_version_id:
+          $ref: '#/components/schemas/Uuid'
+        submitted_at:
+          $ref: '#/components/schemas/Timestamp'
+    AppealQueueProjection:
+      type: object
+      additionalProperties: false
+      required: [entity_tag, items]
+      properties:
+        entity_tag:
+          $ref: '#/components/schemas/EntityTag'
+        items:
+          type: array
+          maxItems: 100
+          items:
+            $ref: '#/components/schemas/AppealQueueItem'
+    AppealActiveAssignmentItem:
+      type: object
+      additionalProperties: false
+      required: [appeal_id, assignment_expires_at]
+      properties:
+        appeal_id:
+          $ref: '#/components/schemas/Uuid'
+        assignment_expires_at:
+          $ref: '#/components/schemas/Timestamp'
+    AppealActiveAssignmentsProjection:
+      type: object
+      additionalProperties: false
+      required: [entity_tag, items]
+      properties:
+        entity_tag:
+          $ref: '#/components/schemas/EntityTag'
+        items:
+          type: array
+          maxItems: 100
+          uniqueItems: true
+          items:
+            $ref: '#/components/schemas/AppealActiveAssignmentItem'
+    AppealCompletedAssignmentItem:
+      type: object
+      additionalProperties: false
+      required: [appeal_id, decided_at, decision_code]
+      properties:
+        appeal_id:
+          $ref: '#/components/schemas/Uuid'
+        decided_at:
+          $ref: '#/components/schemas/Timestamp'
+        decision_code:
+          $ref: '#/components/schemas/AppealDecisionCode'
+    AppealCompletedAssignmentsProjection:
+      type: object
+      additionalProperties: false
+      required: [entity_tag, has_more, items]
+      properties:
+        entity_tag:
+          $ref: '#/components/schemas/EntityTag'
+        has_more:
+          type: boolean
+        items:
+          type: array
+          maxItems: 100
+          uniqueItems: true
+          items:
+            $ref: '#/components/schemas/AppealCompletedAssignmentItem'
+    AppealCompletedDetailProjection:
+      type: object
+      additionalProperties: false
+      required: [appeal_id, application, decision, entity_tag, review_note_recorded, status]
+      properties:
+        appeal_id:
+          $ref: '#/components/schemas/Uuid'
+        application:
+          $ref: '#/components/schemas/AppealSubmittedApplicationProjection'
+        decision:
+          $ref: '#/components/schemas/AppealDecisionProjection'
+        entity_tag:
+          $ref: '#/components/schemas/EntityTag'
+        review_note_recorded:
+          const: true
+        status:
+          const: DECIDED
+    AppealAssessmentProjection:
+      type: object
+      additionalProperties: false
+      required: [accepted_evidence_reference_ids, assessment_code, finding_codes, ground]
+      properties:
+        accepted_evidence_reference_ids:
+          type: array
+          maxItems: 32
+          uniqueItems: true
+          items:
+            $ref: '#/components/schemas/Uuid'
+        assessment_code:
+          type: string
+          enum: [ACCEPTED, PARTIALLY_ACCEPTED, REJECTED]
+        finding_codes:
+          type: array
+          minItems: 1
+          maxItems: 32
+          uniqueItems: true
+          items:
+            type: string
+            enum: [APPEAL_NOT_SUBSTANTIATED, NEW_EVIDENCE_MATERIAL, PROCEDURE_MATERIAL_ERROR, RULE_APPLICATION_ERROR, RULE_APPLIED_CORRECTLY]
+        ground:
+          $ref: '#/components/schemas/AppealGround'
+    AppealReviewDraftProjection:
+      type: object
+      additionalProperties: false
+      required: [assessments, edited_at, reason_codes, remedy_delta_codes, review_note_recorded, version]
+      properties:
+        assessments:
+          type: array
+          minItems: 1
+          maxItems: 3
+          uniqueItems: true
+          items:
+            $ref: '#/components/schemas/AppealAssessmentProjection'
+        edited_at:
+          $ref: '#/components/schemas/Timestamp'
+        reason_codes:
+          type: array
+          minItems: 1
+          maxItems: 32
+          uniqueItems: true
+          items:
+            type: string
+            enum: [APPEAL_SCOPE_INVALID, NEW_EVIDENCE_REVIEWED, PROCEDURAL_REVIEW_COMPLETE, REMAND_REQUIRED, SOURCE_OUTCOME_SUPPORTED, SOURCE_OUTCOME_UNSUPPORTED]
+        remedy_delta_codes:
+          type: array
+          minItems: 1
+          maxItems: 32
+          uniqueItems: true
+          items:
+            type: string
+            enum: [NARROW_CORRECTIVE_MEASURE, NO_CHANGE, REMOVE_CORRECTIVE_MEASURE, REPLACE_CORRECTIVE_MEASURE, RETURN_TO_TRUST_REVIEW]
+        review_note_recorded:
+          const: true
+        version:
+          type: integer
+          minimum: 1
+    AppealAssignedProjection:
+      type: object
+      additionalProperties: false
+      required: [appeal, application, assignment_expires_at, entity_tag, review_draft, source]
+      properties:
+        appeal:
+          $ref: '#/components/schemas/AppealOwnProjection'
+        application:
+          $ref: '#/components/schemas/AppealSubmittedApplicationProjection'
+        assignment_expires_at:
+          $ref: '#/components/schemas/Timestamp'
+        entity_tag:
+          $ref: '#/components/schemas/EntityTag'
+        review_draft:
+          oneOf:
+            - $ref: '#/components/schemas/AppealReviewDraftProjection'
+            - type: 'null'
+        source:
+          $ref: '#/components/schemas/AppealSourceProjection'
+    AppealOwnEnvelope:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          $ref: '#/components/schemas/AppealOwnProjection'
+    AppealQueueEnvelope:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          $ref: '#/components/schemas/AppealQueueProjection'
+    AppealActiveAssignmentsEnvelope:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          $ref: '#/components/schemas/AppealActiveAssignmentsProjection'
+    AppealAssignedEnvelope:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          $ref: '#/components/schemas/AppealAssignedProjection'
+    AppealCompletedAssignmentsEnvelope:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          $ref: '#/components/schemas/AppealCompletedAssignmentsProjection'
+    AppealCompletedDetailEnvelope:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          $ref: '#/components/schemas/AppealCompletedDetailProjection'
+    Error:
+      type: object
+      additionalProperties: false
+      required: [code]
+      properties:
+        code:
+          type: string
+          enum:
+            - APPEAL_NOT_AVAILABLE
+            - APPEAL_STATE_CONFLICT
+            - APPEAL_VALIDATION_FAILED
+            - ASSIGNMENT_UNAVAILABLE
+            - AUTHENTICATION_REQUIRED
+            - COMMAND_IN_PROGRESS
+            - COMMAND_OUTCOME_UNKNOWN
+            - CONFLICT_OF_INTEREST
+            - CSRF_INVALID
+            - CSRF_REQUIRED
+            - IDEMPOTENCY_KEY_REUSED
+            - INVALID_IDEMPOTENCY_KEY
+            - INVALID_REQUEST
+            - POLICY_ACCEPTANCE_REQUIRED
+            - PRECONDITION_REQUIRED
+            - RESOURCE_NOT_FOUND
+            - SERVICE_UNAVAILABLE
+            - SESSION_EXPIRED
+            - STALE_VERSION
+        path:
+          type: string
+          minLength: 1
+          maxLength: 256
+          pattern: '^/(?:body|headers|path|query)(?:/[A-Za-z0-9_.~-]+)*$'
+    ErrorEnvelope:
+      type: object
+      additionalProperties: false
+      required: [error]
+      properties:
+        error:
+          $ref: '#/components/schemas/Error'
+  headers:
+    CacheControlNoStore:
+      description: Sensitive responses are never cached.
+      required: true
+      schema:
+        type: string
+        const: no-store
+    EntityTag:
+      description: Exact aggregate version tag for a subsequent conditional write.
+      required: true
+      schema:
+        $ref: '#/components/schemas/EntityTag'
+  responses:
+    CommandCommitted:
+      description: The command was committed or exactly replayed.
+      headers:
+        Cache-Control:
+          $ref: '#/components/headers/CacheControlNoStore'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/AppealCommandEnvelope'
+    OwnAppealRead:
+      description: The caller's party-safe appeal projection.
+      headers:
+        Cache-Control:
+          $ref: '#/components/headers/CacheControlNoStore'
+        ETag:
+          $ref: '#/components/headers/EntityTag'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/AppealOwnEnvelope'
+    AppealQueueRead:
+      description: Safe appeal queue projection.
+      headers:
+        Cache-Control:
+          $ref: '#/components/headers/CacheControlNoStore'
+        ETag:
+          $ref: '#/components/headers/EntityTag'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/AppealQueueEnvelope'
+    ActiveAppealAssignmentsRead:
+      description: Minimal caller-owned active appeal assignment index.
+      headers:
+        Cache-Control:
+          $ref: '#/components/headers/CacheControlNoStore'
+        ETag:
+          $ref: '#/components/headers/EntityTag'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/AppealActiveAssignmentsEnvelope'
+    AssignedAppealRead:
+      description: The caller's exact active assignment projection.
+      headers:
+        Cache-Control:
+          $ref: '#/components/headers/CacheControlNoStore'
+        ETag:
+          $ref: '#/components/headers/EntityTag'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/AppealAssignedEnvelope'
+    CompletedAppealAssignmentsRead:
+      description: Minimal caller-owned completed appeal-review index.
+      headers:
+        Cache-Control:
+          $ref: '#/components/headers/CacheControlNoStore'
+        ETag:
+          $ref: '#/components/headers/EntityTag'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/AppealCompletedAssignmentsEnvelope'
+    CompletedAppealDetailRead:
+      description: Party-safe terminal decision made by the caller.
+      headers:
+        Cache-Control:
+          $ref: '#/components/headers/CacheControlNoStore'
+        ETag:
+          $ref: '#/components/headers/EntityTag'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/AppealCompletedDetailEnvelope'
+    BadRequest:
+      $ref: '#/components/responses/ErrorResponse'
+    Unauthorized:
+      $ref: '#/components/responses/ErrorResponse'
+    Forbidden:
+      $ref: '#/components/responses/ErrorResponse'
+    NotFound:
+      $ref: '#/components/responses/ErrorResponse'
+    Conflict:
+      $ref: '#/components/responses/ErrorResponse'
+    PreconditionFailed:
+      $ref: '#/components/responses/ErrorResponse'
+    PreconditionRequired:
+      $ref: '#/components/responses/ErrorResponse'
+    UnprocessableEntity:
+      $ref: '#/components/responses/ErrorResponse'
+    ServiceUnavailable:
+      $ref: '#/components/responses/ErrorResponse'
+    ErrorResponse:
+      description: Uniform closed error response.
+      headers:
+        Cache-Control:
+          $ref: '#/components/headers/CacheControlNoStore'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'

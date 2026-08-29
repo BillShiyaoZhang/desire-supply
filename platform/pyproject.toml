@@ -1,0 +1,67 @@
+[build-system]
+requires = ["setuptools==80.9.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "desire-supply-platform"
+version = "0.1.0"
+description = "Desire Supply target platform modular monolith"
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+    "psycopg[binary]==3.2.13",
+    "PyYAML==6.0.3",
+]
+
+[project.optional-dependencies]
+test = [
+    "pytest==8.4.2",
+]
+server = [
+    "pyjwt[crypto]==2.13.0",
+    "uvicorn==0.35.0",
+]
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+"desire_platform.contracts" = [
+    "api/*.yaml",
+    "config/*.json",
+    "domain/*.json",
+    "events/*.json",
+]
+"desire_platform.identity_access.adapters.postgres.migrations" = [
+    "*.sql",
+    "manifest.json",
+]
+"desire_platform.creator_profile.adapters.postgres.migrations" = [
+    "*.sql",
+    "manifest.json",
+]
+"desire_platform.demand.adapters.postgres.migrations" = [
+    "*.sql",
+    "manifest.json",
+]
+"desire_platform.matching.adapters.postgres.migrations" = [
+    "*.sql",
+    "manifest.json",
+]
+"desire_platform.trust_safety.adapters.postgres.migrations" = [
+    "*.sql",
+    "manifest.json",
+]
+"desire_platform.taxonomy.adapters.postgres.migrations" = [
+    "*.sql",
+    "manifest.json",
+]
+"desire_platform.internal_pilot.fixtures" = [
+    "*.json",
+]
+"desire_platform.matching.resources" = [
+    "*.json",
+]

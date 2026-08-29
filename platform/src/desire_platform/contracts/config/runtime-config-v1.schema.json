@@ -1,0 +1,168 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://desire.example/contracts/config/runtime-config-v1.schema.json",
+  "title": "Desire Runtime Configuration v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_name",
+    "identity",
+    "process",
+    "artifacts",
+    "database_profiles",
+    "key_requirements",
+    "budgets"
+  ],
+  "properties": {
+    "schema_name": {"const": "desire-runtime-config-v1"},
+    "identity": {"$ref": "#/$defs/RuntimeIdentity"},
+    "process": {"$ref": "#/$defs/ProcessConfiguration"},
+    "artifacts": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 128,
+      "items": {"$ref": "#/$defs/ArtifactRequirement"}
+    },
+    "database_profiles": {
+      "type": "array",
+      "maxItems": 64,
+      "items": {"$ref": "#/$defs/DatabaseProfile"}
+    },
+    "key_requirements": {
+      "type": "array",
+      "maxItems": 128,
+      "items": {"$ref": "#/$defs/KeyRequirement"}
+    },
+    "budgets": {"$ref": "#/$defs/RuntimeBudgets"}
+  },
+  "$defs": {
+    "OpaqueCode": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "CapabilityCode": {
+      "type": "string",
+      "pattern": "^[A-Z][A-Z0-9_]{0,63}$"
+    },
+    "RuntimeIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "environment_id",
+        "deployment_id",
+        "release_id",
+        "region",
+        "instance_id"
+      ],
+      "properties": {
+        "environment_id": {"$ref": "#/$defs/OpaqueCode"},
+        "deployment_id": {"$ref": "#/$defs/OpaqueCode"},
+        "release_id": {"$ref": "#/$defs/OpaqueCode"},
+        "region": {"$ref": "#/$defs/OpaqueCode"},
+        "instance_id": {"$ref": "#/$defs/OpaqueCode"}
+      }
+    },
+    "ProcessConfiguration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "capability_ids"],
+      "properties": {
+        "kind": {
+          "enum": [
+            "web-api",
+            "webhook-ingress",
+            "outbox-delivery",
+            "domain-process",
+            "migration",
+            "audit-recovery"
+          ]
+        },
+        "capability_ids": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 64,
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/CapabilityCode"}
+        }
+      }
+    },
+    "ArtifactRequirement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["artifact_id", "sha256"],
+      "properties": {
+        "artifact_id": {"$ref": "#/$defs/OpaqueCode"},
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      }
+    },
+    "DatabaseProfile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "capability_id",
+        "online_role",
+        "credential_ref",
+        "application_name",
+        "max_pool_size",
+        "checkout_timeout_ms",
+        "statement_timeout_ms",
+        "lock_timeout_ms",
+        "idle_in_transaction_timeout_ms"
+      ],
+      "properties": {
+        "capability_id": {"$ref": "#/$defs/CapabilityCode"},
+        "online_role": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]{0,62}$"
+        },
+        "credential_ref": {
+          "type": "string",
+          "pattern": "^secret://[a-z0-9][a-z0-9_-]{0,62}/[A-Za-z0-9][A-Za-z0-9._-]{0,126}#[A-Za-z0-9][A-Za-z0-9._-]{0,62}$"
+        },
+        "application_name": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_-]{0,62}$"
+        },
+        "max_pool_size": {"type": "integer", "minimum": 1, "maximum": 64},
+        "checkout_timeout_ms": {"type": "integer", "minimum": 50, "maximum": 30000},
+        "statement_timeout_ms": {"type": "integer", "minimum": 50, "maximum": 120000},
+        "lock_timeout_ms": {"type": "integer", "minimum": 10, "maximum": 30000},
+        "idle_in_transaction_timeout_ms": {"type": "integer", "minimum": 100, "maximum": 120000}
+      }
+    },
+    "KeyRequirement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["purpose", "active_key_id", "retained_key_ids"],
+      "properties": {
+        "purpose": {"$ref": "#/$defs/CapabilityCode"},
+        "active_key_id": {"$ref": "#/$defs/OpaqueCode"},
+        "retained_key_ids": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 32,
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/OpaqueCode"}
+        }
+      }
+    },
+    "RuntimeBudgets": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "startup_timeout_ms",
+        "readiness_timeout_ms",
+        "shutdown_timeout_ms"
+      ],
+      "properties": {
+        "startup_timeout_ms": {"type": "integer", "minimum": 100, "maximum": 300000},
+        "readiness_timeout_ms": {"type": "integer", "minimum": 50, "maximum": 30000},
+        "shutdown_timeout_ms": {"type": "integer", "minimum": 100, "maximum": 300000}
+      }
+    }
+  }
+}

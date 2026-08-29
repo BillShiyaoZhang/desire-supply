@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://desire-supply.local/contracts/domain/invitation-disclosure-v1.schema.json",
+  "title": "Matching invitation recipient disclosure v1",
+  "description": "Closed immutable recipient snapshot. Private floor, score, rank, other candidates, contact, links, HTML, review notes and evidence locators are not representable.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "canonicalization_version", "invitation_id", "attempt_id", "demand_id", "demand_version_id", "profile_id", "profile_version_id", "organization_preview", "opportunity", "offer", "constraints", "expires_at", "demand_content_sha256", "profile_content_sha256", "snapshot_sha256"],
+  "properties": {
+    "schema_version": {"type": "integer", "const": 1},
+    "canonicalization_version": {"type": "string", "const": "invitation-disclosure-json-v1"},
+    "invitation_id": {"$ref": "#/$defs/OpaqueId"},
+    "attempt_id": {"$ref": "#/$defs/OpaqueId"},
+    "demand_id": {"$ref": "#/$defs/OpaqueId"},
+    "demand_version_id": {"$ref": "#/$defs/OpaqueId"},
+    "profile_id": {"$ref": "#/$defs/OpaqueId"},
+    "profile_version_id": {"$ref": "#/$defs/OpaqueId"},
+    "organization_preview": {"$ref": "#/$defs/OrganizationPreview"},
+    "opportunity": {"$ref": "#/$defs/Opportunity"},
+    "offer": {"$ref": "#/$defs/Offer", "x-invariant": "minimum_amount_minor <= maximum_amount_minor"},
+    "constraints": {"$ref": "#/$defs/Constraints"},
+    "expires_at": {"$ref": "#/$defs/Timestamp"},
+    "demand_content_sha256": {"$ref": "#/$defs/Sha256"},
+    "profile_content_sha256": {"$ref": "#/$defs/Sha256"},
+    "snapshot_sha256": {"$ref": "#/$defs/Sha256", "x-sha256-of": "RFC8785 JCS root excluding snapshot_sha256"}
+  },
+  "$defs": {
+    "OpaqueId": {"type": "string", "minLength": 16, "maxLength": 128, "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{15,127}$"},
+    "Sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "Timestamp": {"type": "string", "format": "date-time", "pattern": "Z$"},
+    "Code": {"type": "string", "minLength": 2, "maxLength": 64, "pattern": "^[A-Z][A-Z0-9_.:-]{1,63}$"},
+    "CodeList": {"type": "array", "maxItems": 100, "uniqueItems": true, "items": {"$ref": "#/$defs/Code"}},
+    "Text120": {"type": "string", "minLength": 1, "maxLength": 120, "pattern": "^[^<>\\u0000-\\u001F\\u007F-\\u009F]+$"},
+    "Text500": {"type": "string", "minLength": 1, "maxLength": 500, "pattern": "^[^<>\\u0000-\\u001F\\u007F-\\u009F]+$"},
+    "TextList": {"type": "array", "maxItems": 50, "items": {"$ref": "#/$defs/Text500"}},
+    "MinorAmount": {"type": "integer", "minimum": 0, "maximum": 9007199254740991},
+    "OrganizationPreview": {
+      "type": "object", "additionalProperties": false,
+      "required": ["organization_id", "display_label"],
+      "properties": {"organization_id": {"$ref": "#/$defs/OpaqueId"}, "display_label": {"$ref": "#/$defs/Text120"}}
+    },
+    "Opportunity": {
+      "type": "object", "additionalProperties": false,
+      "required": ["title", "problem_summary", "deliverable_summaries", "acceptance_summaries"],
+      "properties": {"title": {"$ref": "#/$defs/Text120"}, "problem_summary": {"$ref": "#/$defs/Text500"}, "deliverable_summaries": {"$ref": "#/$defs/TextList"}, "acceptance_summaries": {"$ref": "#/$defs/TextList"}}
+    },
+    "Offer": {
+      "type": "object", "additionalProperties": false,
+      "required": ["currency", "minimum_amount_minor", "maximum_amount_minor", "schedule_code", "duration_weeks"],
+      "properties": {"currency": {"type": "string", "pattern": "^[A-Z]{3}$"}, "minimum_amount_minor": {"$ref": "#/$defs/MinorAmount"}, "maximum_amount_minor": {"$ref": "#/$defs/MinorAmount"}, "schedule_code": {"$ref": "#/$defs/Code"}, "duration_weeks": {"type": "integer", "minimum": 1, "maximum": 520}}
+    },
+    "Constraints": {
+      "type": "object", "additionalProperties": false,
+      "required": ["region_codes", "language_codes", "data_sensitivity_code", "ai_use_code"],
+      "properties": {"region_codes": {"$ref": "#/$defs/CodeList"}, "language_codes": {"$ref": "#/$defs/CodeList"}, "data_sensitivity_code": {"type": "string", "enum": ["PUBLIC", "INTERNAL", "HIGH", "RESTRICTED"]}, "ai_use_code": {"type": "string", "enum": ["PROHIBITED", "OPTIONAL", "REQUIRED"]}}
+    }
+  }
+}

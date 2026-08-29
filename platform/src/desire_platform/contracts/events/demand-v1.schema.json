@@ -1,0 +1,336 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://desire-supply.local/contracts/events/demand-v1.schema.json",
+  "title": "Desire Supply Demand v1 events",
+  "description": "Closed invalidation and coordination events for Demand. Raw content, text, amounts, currency, client or legacy references, assignment identities, review notes, provider evidence, receipts, and secrets are not representable.",
+  "type": "object",
+  "oneOf": [
+    {"$ref": "#/$defs/DemandCreatedEvent"},
+    {"$ref": "#/$defs/DemandVersionCreatedEvent"},
+    {"$ref": "#/$defs/DemandSubmittedEvent"},
+    {"$ref": "#/$defs/DemandReviewClaimedEvent"},
+    {"$ref": "#/$defs/DemandReviewAssignmentReleasedEvent"},
+    {"$ref": "#/$defs/DemandChangesRequestedEvent"},
+    {"$ref": "#/$defs/DemandVerifiedEvent"},
+    {"$ref": "#/$defs/DemandFundingRequestedEvent"},
+    {"$ref": "#/$defs/DemandFundingReviewClaimedEvent"},
+    {"$ref": "#/$defs/DemandFundingEvidenceConfirmedEvent"},
+    {"$ref": "#/$defs/DemandFundedEvent"},
+    {"$ref": "#/$defs/DemandFundingReviewAssignmentReleasedEvent"},
+    {"$ref": "#/$defs/DemandFundingReviewFindingSubmittedEvent"},
+    {"$ref": "#/$defs/DemandFundingResetEvent"},
+    {"$ref": "#/$defs/MatchingRequestedEvent"},
+    {"$ref": "#/$defs/DemandMatchingClosedWithoutSelectionEvent"},
+    {"$ref": "#/$defs/DemandMatchedEvent"},
+    {"$ref": "#/$defs/DemandCancelledEvent"},
+    {"$ref": "#/$defs/DemandExpiredEvent"}
+  ],
+  "$defs": {
+    "OpaqueId": {
+      "type": "string",
+      "minLength": 16,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{15,127}$"
+    },
+    "NullableOpaqueId": {
+      "oneOf": [{"$ref": "#/$defs/OpaqueId"}, {"type": "null"}]
+    },
+    "Timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "Z$"
+    },
+    "ContentSha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "AggregateVersion": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 2147483647
+    },
+    "ActorKind": {"type": "string", "enum": ["USER", "SYSTEM"]},
+    "EventType": {
+      "type": "string",
+      "enum": [
+        "DemandCreated",
+        "DemandVersionCreated",
+        "DemandSubmitted",
+        "DemandReviewClaimed",
+        "DemandReviewAssignmentReleased",
+        "DemandChangesRequested",
+        "DemandVerified",
+        "DemandFundingRequested",
+        "DemandFundingReviewClaimed",
+        "DemandFundingEvidenceConfirmed",
+        "DemandFunded",
+        "DemandFundingReviewAssignmentReleased",
+        "DemandFundingReviewFindingSubmitted",
+        "DemandFundingReset",
+        "MatchingRequested",
+        "DemandMatchingClosedWithoutSelection",
+        "DemandMatched",
+        "DemandCancelled",
+        "DemandExpired"
+      ]
+    },
+    "DemandStatus": {
+      "type": "string",
+      "enum": ["DRAFT", "SUBMITTED", "NEEDS_CHANGES", "VERIFIED", "FUNDING_PENDING", "FUNDED", "MATCHING", "MATCHED", "NO_MATCH", "CANCELLED", "EXPIRED"]
+    },
+    "ReasonCode": {
+      "type": "string",
+      "enum": ["OWNER_WITHDREW", "REQUIREMENTS_CHANGED", "REVIEW_CLOSED", "FUNDING_UNAVAILABLE", "SAFETY_RESTRICTION", "DEADLINE_REACHED"]
+    },
+    "EventEnvelope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "event_id",
+        "event_type",
+        "schema_version",
+        "occurred_at",
+        "aggregate_type",
+        "aggregate_id",
+        "aggregate_version",
+        "actor_kind",
+        "actor_id",
+        "original_actor_id",
+        "correlation_id",
+        "causation_id",
+        "trace_id",
+        "organization_id",
+        "payload"
+      ],
+      "properties": {
+        "event_id": {"$ref": "#/$defs/OpaqueId"},
+        "event_type": {"$ref": "#/$defs/EventType"},
+        "schema_version": {"type": "integer", "const": 1},
+        "occurred_at": {"$ref": "#/$defs/Timestamp"},
+        "aggregate_type": {"type": "string", "const": "Demand"},
+        "aggregate_id": {"$ref": "#/$defs/OpaqueId"},
+        "aggregate_version": {"$ref": "#/$defs/AggregateVersion"},
+        "actor_kind": {"$ref": "#/$defs/ActorKind"},
+        "actor_id": {"$ref": "#/$defs/OpaqueId"},
+        "original_actor_id": {"$ref": "#/$defs/NullableOpaqueId"},
+        "correlation_id": {"$ref": "#/$defs/OpaqueId"},
+        "causation_id": {"$ref": "#/$defs/OpaqueId"},
+        "trace_id": {"$ref": "#/$defs/OpaqueId"},
+        "organization_id": {"$ref": "#/$defs/OpaqueId"},
+        "payload": {}
+      }
+    },
+    "DemandCreatedPayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["demand_id", "organization_id", "status", "demand_version_id"],
+      "properties": {
+        "demand_id": {"$ref": "#/$defs/OpaqueId"},
+        "organization_id": {"$ref": "#/$defs/OpaqueId"},
+        "status": {"type": "string", "const": "DRAFT"},
+        "demand_version_id": {"$ref": "#/$defs/OpaqueId"}
+      }
+    },
+    "DemandVersionCreatedPayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["demand_id", "demand_version_id", "version_no", "content_sha256", "taxonomy_bundle_id"],
+      "properties": {
+        "demand_id": {"$ref": "#/$defs/OpaqueId"},
+        "demand_version_id": {"$ref": "#/$defs/OpaqueId"},
+        "version_no": {"type": "integer", "minimum": 1, "maximum": 2147483647},
+        "content_sha256": {"$ref": "#/$defs/ContentSha256"},
+        "taxonomy_bundle_id": {"$ref": "#/$defs/OpaqueId"}
+      }
+    },
+    "DemandSubmittedPayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["demand_id", "demand_version_id", "submission_id", "status"],
+      "properties": {
+        "demand_id": {"$ref": "#/$defs/OpaqueId"},
+        "demand_version_id": {"$ref": "#/$defs/OpaqueId"},
+        "submission_id": {"$ref": "#/$defs/OpaqueId"},
+        "status": {"type": "string", "const": "SUBMITTED"}
+      }
+    },
+    "DemandReviewClaimedPayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["demand_id", "demand_version_id", "status"],
+      "properties": {
+        "demand_id": {"$ref": "#/$defs/OpaqueId"},
+        "demand_version_id": {"$ref": "#/$defs/OpaqueId"},
+        "status": {"type": "string", "const": "SUBMITTED"}
+      }
+    },
+    "DemandReviewAssignmentReleasedPayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["demand_id", "demand_version_id", "assignment_id", "reason_code", "status"],
+      "properties": {
+        "demand_id": {"$ref": "#/$defs/OpaqueId"},
+        "demand_version_id": {"$ref": "#/$defs/OpaqueId"},
+        "assignment_id": {"$ref": "#/$defs/OpaqueId"},
+        "reason_code": {"type": "string", "enum": ["CONFLICT_DECLARED", "WORKLOAD_RELEASE"]},
+        "status": {"type": "string", "const": "SUBMITTED"}
+      }
+    },
+    "DemandChangesRequestedPayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["demand_id", "demand_version_id", "review_id", "reason_codes", "required_field_codes", "status"],
+      "properties": {
+        "demand_id": {"$ref": "#/$defs/OpaqueId"},
+        "demand_version_id": {"$ref": "#/$defs/OpaqueId"},
+        "review_id": {"$ref": "#/$defs/OpaqueId"},
+        "reason_codes": {"type": "array", "minItems": 1, "maxItems": 20, "uniqueItems": true, "items": {"type": "string", "maxLength": 64, "pattern": "^[A-Z][A-Z0-9_]{1,63}$"}},
+        "required_field_codes": {"type": "array", "minItems": 1, "maxItems": 50, "uniqueItems": true, "items": {"type": "string", "maxLength": 64, "pattern": "^[A-Z][A-Z0-9_]{1,63}$"}},
+        "status": {"type": "string", "const": "NEEDS_CHANGES"}
+      }
+    },
+    "DemandVerifiedPayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["demand_id", "demand_version_id", "review_id", "budget_health_code", "status"],
+      "properties": {
+        "demand_id": {"$ref": "#/$defs/OpaqueId"},
+        "demand_version_id": {"$ref": "#/$defs/OpaqueId"},
+        "review_id": {"$ref": "#/$defs/OpaqueId"},
+        "budget_health_code": {"type": "string", "enum": ["HEALTHY", "APPROVED_EXCEPTION"]},
+        "status": {"type": "string", "const": "VERIFIED"}
+      }
+    },
+    "DemandFundingRequestedPayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["demand_id", "demand_version_id", "funding_requirement_id", "status"],
+      "properties": {
+        "demand_id": {"$ref": "#/$defs/OpaqueId"},
+        "demand_version_id": {"$ref": "#/$defs/OpaqueId"},
+        "funding_requirement_id": {"$ref": "#/$defs/OpaqueId"},
+        "status": {"type": "string", "const": "FUNDING_PENDING"}
+      }
+    },
+    "DemandFundingReviewProgressPayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["demand_id", "demand_version_id", "funding_requirement_id", "confirmation_count", "status"],
+      "properties": {
+        "demand_id": {"$ref": "#/$defs/OpaqueId"},
+        "demand_version_id": {"$ref": "#/$defs/OpaqueId"},
+        "funding_requirement_id": {"$ref": "#/$defs/OpaqueId"},
+        "confirmation_count": {"type": "integer", "minimum": 0, "maximum": 1},
+        "status": {"type": "string", "const": "FUNDING_PENDING"}
+      }
+    },
+    "DemandFundingReviewAssignmentReleasedPayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["demand_id", "demand_version_id", "funding_requirement_id", "reason_code", "status"],
+      "properties": {
+        "demand_id": {"$ref": "#/$defs/OpaqueId"},
+        "demand_version_id": {"$ref": "#/$defs/OpaqueId"},
+        "funding_requirement_id": {"$ref": "#/$defs/OpaqueId"},
+        "reason_code": {"type": "string", "enum": ["CONFLICT_DECLARED", "WORKLOAD_RELEASE"]},
+        "status": {"type": "string", "const": "FUNDING_PENDING"}
+      }
+    },
+    "DemandFundingReviewFindingSubmittedPayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["demand_id", "demand_version_id", "funding_requirement_id", "disposition", "reason_codes", "required_field_codes", "revoked_peer_assignment_count", "status"],
+      "properties": {
+        "demand_id": {"$ref": "#/$defs/OpaqueId"},
+        "demand_version_id": {"$ref": "#/$defs/OpaqueId"},
+        "funding_requirement_id": {"$ref": "#/$defs/OpaqueId"},
+        "disposition": {"type": "string", "enum": ["DISCREPANCY", "REJECTED"]},
+        "reason_codes": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 3,
+          "uniqueItems": true,
+          "items": {"type": "string", "enum": ["BUDGET_PLAN_UNACCEPTABLE", "DECLARATION_CONFLICT", "EVIDENCE_REFERENCE_MISMATCH", "SYNTHETIC_SCOPE_VIOLATION", "TARGET_CONTENT_MISMATCH"]}
+        },
+        "required_field_codes": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 4,
+          "uniqueItems": true,
+          "items": {"type": "string", "enum": ["BUDGET", "DECLARATIONS", "RISK", "SCOPE"]}
+        },
+        "revoked_peer_assignment_count": {"type": "integer", "minimum": 0, "maximum": 1},
+        "status": {"type": "string", "enum": ["VERIFIED", "NEEDS_CHANGES"]}
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"disposition": {"const": "DISCREPANCY"}}},
+          "then": {"properties": {
+            "reason_codes": {"items": {"type": "string", "enum": ["EVIDENCE_REFERENCE_MISMATCH", "TARGET_CONTENT_MISMATCH"]}},
+            "status": {"const": "VERIFIED"}
+          }}
+        },
+        {
+          "if": {"properties": {"disposition": {"const": "REJECTED"}}},
+          "then": {"properties": {
+            "reason_codes": {"items": {"type": "string", "enum": ["BUDGET_PLAN_UNACCEPTABLE", "DECLARATION_CONFLICT", "SYNTHETIC_SCOPE_VIOLATION"]}},
+            "status": {"const": "NEEDS_CHANGES"}
+          }}
+        }
+      ]
+    },
+    "DemandFundingStatusPayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["demand_id", "demand_version_id", "funding_id", "status"],
+      "properties": {
+        "demand_id": {"$ref": "#/$defs/OpaqueId"},
+        "demand_version_id": {"$ref": "#/$defs/OpaqueId"},
+        "funding_id": {"$ref": "#/$defs/OpaqueId"},
+        "status": {"type": "string", "enum": ["FUNDED", "VERIFIED"]}
+      }
+    },
+    "MatchingRequestedPayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["demand_id", "demand_version_id", "funding_id", "matching_request_id", "composite_rule_requirement_id", "status"],
+      "properties": {
+        "demand_id": {"$ref": "#/$defs/OpaqueId"},
+        "demand_version_id": {"$ref": "#/$defs/OpaqueId"},
+        "funding_id": {"$ref": "#/$defs/OpaqueId"},
+        "matching_request_id": {"$ref": "#/$defs/OpaqueId"},
+        "composite_rule_requirement_id": {"$ref": "#/$defs/OpaqueId"},
+        "status": {"type": "string", "const": "MATCHING"}
+      }
+    },
+    "DemandStatusPayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["demand_id", "status", "reason_code"],
+      "properties": {
+        "demand_id": {"$ref": "#/$defs/OpaqueId"},
+        "status": {"$ref": "#/$defs/DemandStatus"},
+        "reason_code": {"oneOf": [{"$ref": "#/$defs/ReasonCode"}, {"type": "null"}]}
+      }
+    },
+    "DemandCreatedEvent": {"allOf": [{"$ref": "#/$defs/EventEnvelope"}, {"properties": {"event_type": {"const": "DemandCreated"}, "payload": {"$ref": "#/$defs/DemandCreatedPayload"}}}]},
+    "DemandVersionCreatedEvent": {"allOf": [{"$ref": "#/$defs/EventEnvelope"}, {"properties": {"event_type": {"const": "DemandVersionCreated"}, "payload": {"$ref": "#/$defs/DemandVersionCreatedPayload"}}}]},
+    "DemandSubmittedEvent": {"allOf": [{"$ref": "#/$defs/EventEnvelope"}, {"properties": {"event_type": {"const": "DemandSubmitted"}, "payload": {"$ref": "#/$defs/DemandSubmittedPayload"}}}]},
+    "DemandReviewClaimedEvent": {"allOf": [{"$ref": "#/$defs/EventEnvelope"}, {"properties": {"event_type": {"const": "DemandReviewClaimed"}, "payload": {"$ref": "#/$defs/DemandReviewClaimedPayload"}}}]},
+    "DemandReviewAssignmentReleasedEvent": {"allOf": [{"$ref": "#/$defs/EventEnvelope"}, {"properties": {"event_type": {"const": "DemandReviewAssignmentReleased"}, "payload": {"$ref": "#/$defs/DemandReviewAssignmentReleasedPayload"}}}]},
+    "DemandChangesRequestedEvent": {"allOf": [{"$ref": "#/$defs/EventEnvelope"}, {"properties": {"event_type": {"const": "DemandChangesRequested"}, "payload": {"$ref": "#/$defs/DemandChangesRequestedPayload"}}}]},
+    "DemandVerifiedEvent": {"allOf": [{"$ref": "#/$defs/EventEnvelope"}, {"properties": {"event_type": {"const": "DemandVerified"}, "payload": {"$ref": "#/$defs/DemandVerifiedPayload"}}}]},
+    "DemandFundingRequestedEvent": {"allOf": [{"$ref": "#/$defs/EventEnvelope"}, {"properties": {"event_type": {"const": "DemandFundingRequested"}, "payload": {"$ref": "#/$defs/DemandFundingRequestedPayload"}}}]},
+    "DemandFundingReviewClaimedEvent": {"allOf": [{"$ref": "#/$defs/EventEnvelope"}, {"properties": {"event_type": {"const": "DemandFundingReviewClaimed"}, "payload": {"allOf": [{"$ref": "#/$defs/DemandFundingReviewProgressPayload"}, {"properties": {"confirmation_count": {"const": 0}}}]}}}]},
+    "DemandFundingEvidenceConfirmedEvent": {"allOf": [{"$ref": "#/$defs/EventEnvelope"}, {"properties": {"event_type": {"const": "DemandFundingEvidenceConfirmed"}, "payload": {"allOf": [{"$ref": "#/$defs/DemandFundingReviewProgressPayload"}, {"properties": {"confirmation_count": {"const": 1}}}]}}}]},
+    "DemandFundedEvent": {"allOf": [{"$ref": "#/$defs/EventEnvelope"}, {"properties": {"event_type": {"const": "DemandFunded"}, "payload": {"allOf": [{"$ref": "#/$defs/DemandFundingStatusPayload"}, {"properties": {"status": {"const": "FUNDED"}}}]}}}]},
+    "DemandFundingReviewAssignmentReleasedEvent": {"allOf": [{"$ref": "#/$defs/EventEnvelope"}, {"properties": {"event_type": {"const": "DemandFundingReviewAssignmentReleased"}, "payload": {"$ref": "#/$defs/DemandFundingReviewAssignmentReleasedPayload"}}}]},
+    "DemandFundingReviewFindingSubmittedEvent": {"allOf": [{"$ref": "#/$defs/EventEnvelope"}, {"properties": {"event_type": {"const": "DemandFundingReviewFindingSubmitted"}, "payload": {"$ref": "#/$defs/DemandFundingReviewFindingSubmittedPayload"}}}]},
+    "DemandFundingResetEvent": {"allOf": [{"$ref": "#/$defs/EventEnvelope"}, {"properties": {"event_type": {"const": "DemandFundingReset"}, "payload": {"allOf": [{"$ref": "#/$defs/DemandFundingStatusPayload"}, {"properties": {"status": {"const": "VERIFIED"}}}]}}}]},
+    "MatchingRequestedEvent": {"allOf": [{"$ref": "#/$defs/EventEnvelope"}, {"properties": {"event_type": {"const": "MatchingRequested"}, "payload": {"$ref": "#/$defs/MatchingRequestedPayload"}}}]},
+    "DemandMatchingClosedWithoutSelectionEvent": {"allOf": [{"$ref": "#/$defs/EventEnvelope"}, {"properties": {"event_type": {"const": "DemandMatchingClosedWithoutSelection"}, "payload": {"allOf": [{"$ref": "#/$defs/DemandStatusPayload"}, {"properties": {"status": {"const": "NO_MATCH"}, "reason_code": {"type": "null"}}}]}}}]},
+    "DemandMatchedEvent": {"allOf": [{"$ref": "#/$defs/EventEnvelope"}, {"properties": {"event_type": {"const": "DemandMatched"}, "payload": {"allOf": [{"$ref": "#/$defs/DemandStatusPayload"}, {"properties": {"status": {"const": "MATCHED"}, "reason_code": {"type": "null"}}}]}}}]},
+    "DemandCancelledEvent": {"allOf": [{"$ref": "#/$defs/EventEnvelope"}, {"properties": {"event_type": {"const": "DemandCancelled"}, "payload": {"allOf": [{"$ref": "#/$defs/DemandStatusPayload"}, {"properties": {"status": {"const": "CANCELLED"}}}]}}}]},
+    "DemandExpiredEvent": {"allOf": [{"$ref": "#/$defs/EventEnvelope"}, {"properties": {"event_type": {"const": "DemandExpired"}, "payload": {"allOf": [{"$ref": "#/$defs/DemandStatusPayload"}, {"properties": {"status": {"const": "EXPIRED"}, "reason_code": {"const": "DEADLINE_REACHED"}}}]}}}]}
+  }
+}

@@ -1,0 +1,433 @@
+openapi: 3.1.0
+info:
+  title: Desire Supply Matching, Invitation and Selection API
+  version: 1.0.0-draft
+  summary: Recipient-scoped matching invitations and human selection
+  description: >-
+    Independent closed Matching v1 HTTP contract. Worker/process commands,
+    algorithm inputs, scores, ranks, excluded identities, private floors and
+    CompleteSelection coordination have no public route.
+  x-contract-status: contract-tests-green-domain-application-green-postgres-http-in-progress
+jsonSchemaDialect: https://json-schema.org/draft/2020-12/schema
+servers:
+  - url: /
+tags:
+  - name: Creator Invitations
+  - name: Candidate Selection
+  - name: Matching Review
+paths:
+  /v1/me/matching-invitations:
+    get:
+      tags: [Creator Invitations]
+      operationId: listMyMatchingInvitations
+      security: [{cookieAuth: []}]
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200': {$ref: '#/components/responses/RecipientInvitationListRead'}
+        '401': {$ref: '#/components/responses/ErrorResponse'}
+        '503': {$ref: '#/components/responses/ErrorResponse'}
+  /v1/me/matching-invitations/{invitation_id}:
+    get:
+      tags: [Creator Invitations]
+      operationId: getMyMatchingInvitation
+      security: [{cookieAuth: []}]
+      parameters:
+        - $ref: '#/components/parameters/InvitationId'
+      responses:
+        '200': {$ref: '#/components/responses/RecipientInvitationRead'}
+        '401': {$ref: '#/components/responses/ErrorResponse'}
+        '404': {$ref: '#/components/responses/ErrorResponse'}
+        '503': {$ref: '#/components/responses/ErrorResponse'}
+  /v1/me/matching-invitations/{invitation_id}/accept:
+    post:
+      tags: [Creator Invitations]
+      operationId: acceptMatchingInvitation
+      security: [{cookieAuth: []}]
+      x-safety-hold-action: RESPOND_INVITATION_ACCEPT
+      x-error-codes: [INVALID_REQUEST, AUTHENTICATION_REQUIRED, SESSION_EXPIRED, ACCESS_DENIED, SAFETY_HOLD_BLOCKED, RESOURCE_NOT_FOUND, INVALID_STATE_TRANSITION, IDEMPOTENCY_KEY_REUSED, MATCH_INPUT_CHANGED, PRECONDITION_FAILED, POLICY_ACCEPTANCE_REQUIRED, POLICY_CONFIGURATION_UNAVAILABLE, COMMAND_OUTCOME_UNKNOWN, SERVICE_UNAVAILABLE]
+      parameters:
+        - $ref: '#/components/parameters/InvitationId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/AcceptInvitationRequest'}
+      responses:
+        '200': {$ref: '#/components/responses/RecipientInvitationRead'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
+        '401': {$ref: '#/components/responses/ErrorResponse'}
+        '403': {$ref: '#/components/responses/ErrorResponse'}
+        '404': {$ref: '#/components/responses/ErrorResponse'}
+        '409': {$ref: '#/components/responses/ErrorResponse'}
+        '412': {$ref: '#/components/responses/ErrorResponse'}
+        '422': {$ref: '#/components/responses/ErrorResponse'}
+        '503': {$ref: '#/components/responses/ErrorResponse'}
+  /v1/me/matching-invitations/{invitation_id}/decline:
+    post:
+      tags: [Creator Invitations]
+      operationId: declineMatchingInvitation
+      security: [{cookieAuth: []}]
+      x-error-codes: [INVALID_REQUEST, AUTHENTICATION_REQUIRED, SESSION_EXPIRED, RESOURCE_NOT_FOUND, INVALID_STATE_TRANSITION, IDEMPOTENCY_KEY_REUSED, PRECONDITION_FAILED, COMMAND_OUTCOME_UNKNOWN, SERVICE_UNAVAILABLE]
+      parameters:
+        - $ref: '#/components/parameters/InvitationId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/DeclineInvitationRequest'}
+      responses:
+        '200': {$ref: '#/components/responses/RecipientInvitationRead'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
+        '401': {$ref: '#/components/responses/ErrorResponse'}
+        '404': {$ref: '#/components/responses/ErrorResponse'}
+        '409': {$ref: '#/components/responses/ErrorResponse'}
+        '412': {$ref: '#/components/responses/ErrorResponse'}
+        '503': {$ref: '#/components/responses/ErrorResponse'}
+  /v1/me/matching-invitations/{invitation_id}/withdraw:
+    post:
+      tags: [Creator Invitations]
+      operationId: withdrawMatchingInvitationAcceptance
+      security: [{cookieAuth: []}]
+      description: Creator-only safety-reducing withdrawal before a selection is made.
+      x-error-codes: [INVALID_REQUEST, AUTHENTICATION_REQUIRED, SESSION_EXPIRED, RESOURCE_NOT_FOUND, INVALID_STATE_TRANSITION, INVITATION_ALREADY_SELECTED, IDEMPOTENCY_KEY_REUSED, PRECONDITION_FAILED, COMMAND_OUTCOME_UNKNOWN, SERVICE_UNAVAILABLE]
+      parameters:
+        - $ref: '#/components/parameters/InvitationId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/WithdrawInvitationRequest'}
+      responses:
+        '200': {$ref: '#/components/responses/RecipientInvitationRead'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
+        '401': {$ref: '#/components/responses/ErrorResponse'}
+        '404': {$ref: '#/components/responses/ErrorResponse'}
+        '409': {$ref: '#/components/responses/ErrorResponse'}
+        '412': {$ref: '#/components/responses/ErrorResponse'}
+        '503': {$ref: '#/components/responses/ErrorResponse'}
+  /v1/organizations/{organization_id}/demands/{demand_id}/matching-attempts:
+    get:
+      tags: [Candidate Selection]
+      operationId: listDemandMatchingAttempts
+      security: [{cookieAuth: []}]
+      parameters:
+        - $ref: '#/components/parameters/OrganizationId'
+        - $ref: '#/components/parameters/DemandId'
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200': {$ref: '#/components/responses/AttemptListRead'}
+        '401': {$ref: '#/components/responses/ErrorResponse'}
+        '404': {$ref: '#/components/responses/ErrorResponse'}
+        '503': {$ref: '#/components/responses/ErrorResponse'}
+  /v1/organizations/{organization_id}/matching-attempts/{attempt_id}/selection:
+    get:
+      tags: [Candidate Selection]
+      operationId: getMatchingSelection
+      security: [{cookieAuth: []}]
+      parameters:
+        - $ref: '#/components/parameters/OrganizationId'
+        - $ref: '#/components/parameters/AttemptId'
+      responses:
+        '200': {$ref: '#/components/responses/SelectionRead'}
+        '401': {$ref: '#/components/responses/ErrorResponse'}
+        '404': {$ref: '#/components/responses/ErrorResponse'}
+        '503': {$ref: '#/components/responses/ErrorResponse'}
+  /v1/organizations/{organization_id}/selections/{selection_id}/choose:
+    post:
+      tags: [Candidate Selection]
+      operationId: chooseMatchingCreator
+      security: [{cookieAuth: []}]
+      x-safety-hold-action: CHOOSE_CREATOR
+      x-error-codes: [INVALID_REQUEST, AUTHENTICATION_REQUIRED, SESSION_EXPIRED, ACCESS_DENIED, SAFETY_HOLD_BLOCKED, RESOURCE_NOT_FOUND, SELECTOR_ASSIGNMENT_REQUIRED, INVALID_STATE_TRANSITION, IDEMPOTENCY_KEY_REUSED, MATCH_INPUT_CHANGED, MATCH_RULE_BUNDLE_CHANGED, FUNDING_FACT_CHANGED, PRECONDITION_FAILED, SELECTION_NOT_READY, POLICY_ACCEPTANCE_REQUIRED, POLICY_CONFIGURATION_UNAVAILABLE, COMMAND_OUTCOME_UNKNOWN, SERVICE_UNAVAILABLE]
+      parameters:
+        - $ref: '#/components/parameters/OrganizationId'
+        - $ref: '#/components/parameters/SelectionId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/ChooseSelectionRequest'}
+      responses:
+        '200': {$ref: '#/components/responses/SelectionRead'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
+        '401': {$ref: '#/components/responses/ErrorResponse'}
+        '403': {$ref: '#/components/responses/ErrorResponse'}
+        '404': {$ref: '#/components/responses/ErrorResponse'}
+        '409': {$ref: '#/components/responses/ErrorResponse'}
+        '412': {$ref: '#/components/responses/ErrorResponse'}
+        '422': {$ref: '#/components/responses/ErrorResponse'}
+        '503': {$ref: '#/components/responses/ErrorResponse'}
+  /v1/organizations/{organization_id}/selections/{selection_id}/close:
+    post:
+      tags: [Candidate Selection]
+      operationId: closeMatchingSelection
+      security: [{cookieAuth: []}]
+      x-error-codes: [INVALID_REQUEST, AUTHENTICATION_REQUIRED, SESSION_EXPIRED, RESOURCE_NOT_FOUND, SELECTOR_ASSIGNMENT_REQUIRED, INVALID_STATE_TRANSITION, IDEMPOTENCY_KEY_REUSED, PRECONDITION_FAILED, SELECTION_NOT_READY, COMMAND_OUTCOME_UNKNOWN, SERVICE_UNAVAILABLE]
+      parameters:
+        - $ref: '#/components/parameters/OrganizationId'
+        - $ref: '#/components/parameters/SelectionId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/CloseSelectionRequest'}
+      responses:
+        '200': {$ref: '#/components/responses/SelectionRead'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
+        '401': {$ref: '#/components/responses/ErrorResponse'}
+        '404': {$ref: '#/components/responses/ErrorResponse'}
+        '409': {$ref: '#/components/responses/ErrorResponse'}
+        '412': {$ref: '#/components/responses/ErrorResponse'}
+        '422': {$ref: '#/components/responses/ErrorResponse'}
+        '503': {$ref: '#/components/responses/ErrorResponse'}
+  /v1/operations/match-runs/{match_run_id}/invitations:
+    post:
+      tags: [Matching Review]
+      operationId: createMatchingInvitation
+      security: [{cookieAuth: []}]
+      x-safety-hold-action: CREATE_INVITATION
+      x-error-codes: [INVALID_REQUEST, AUTHENTICATION_REQUIRED, SESSION_EXPIRED, ACCESS_DENIED, SAFETY_HOLD_BLOCKED, RESOURCE_NOT_FOUND, INVALID_STATE_TRANSITION, IDEMPOTENCY_KEY_REUSED, MATCH_INPUT_CHANGED, INVITATION_ALREADY_EXISTS, PRECONDITION_FAILED, POLICY_CONFIGURATION_UNAVAILABLE, COMMAND_OUTCOME_UNKNOWN, SERVICE_UNAVAILABLE]
+      parameters:
+        - $ref: '#/components/parameters/MatchRunId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/CreateInvitationRequest'}
+      responses:
+        '201': {$ref: '#/components/responses/ReviewerInvitationRead'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
+        '401': {$ref: '#/components/responses/ErrorResponse'}
+        '403': {$ref: '#/components/responses/ErrorResponse'}
+        '404': {$ref: '#/components/responses/ErrorResponse'}
+        '409': {$ref: '#/components/responses/ErrorResponse'}
+        '412': {$ref: '#/components/responses/ErrorResponse'}
+        '503': {$ref: '#/components/responses/ErrorResponse'}
+  /v1/operations/matching-invitations/{invitation_id}/publish:
+    post:
+      tags: [Matching Review]
+      operationId: publishMatchingInvitation
+      security: [{cookieAuth: []}]
+      x-safety-hold-action: PUBLISH_INVITATION
+      x-error-codes: [INVALID_REQUEST, AUTHENTICATION_REQUIRED, SESSION_EXPIRED, ACCESS_DENIED, SAFETY_HOLD_BLOCKED, RESOURCE_NOT_FOUND, INVALID_STATE_TRANSITION, IDEMPOTENCY_KEY_REUSED, MATCH_INPUT_CHANGED, PRECONDITION_FAILED, POLICY_CONFIGURATION_UNAVAILABLE, COMMAND_OUTCOME_UNKNOWN, SERVICE_UNAVAILABLE]
+      parameters:
+        - $ref: '#/components/parameters/InvitationId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/PublishInvitationRequest'}
+      responses:
+        '200': {$ref: '#/components/responses/ReviewerInvitationRead'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
+        '401': {$ref: '#/components/responses/ErrorResponse'}
+        '403': {$ref: '#/components/responses/ErrorResponse'}
+        '404': {$ref: '#/components/responses/ErrorResponse'}
+        '409': {$ref: '#/components/responses/ErrorResponse'}
+        '412': {$ref: '#/components/responses/ErrorResponse'}
+        '503': {$ref: '#/components/responses/ErrorResponse'}
+  /v1/operations/matching-attempts/{attempt_id}/invalidate:
+    post:
+      tags: [Matching Review]
+      operationId: invalidateMatchingAttempt
+      security: [{cookieAuth: []}]
+      x-error-codes: [INVALID_REQUEST, AUTHENTICATION_REQUIRED, SESSION_EXPIRED, RESOURCE_NOT_FOUND, INVALID_STATE_TRANSITION, IDEMPOTENCY_KEY_REUSED, PRECONDITION_FAILED, COMMAND_OUTCOME_UNKNOWN, SERVICE_UNAVAILABLE]
+      parameters:
+        - $ref: '#/components/parameters/AttemptId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/InvalidateAttemptRequest'}
+      responses:
+        '200': {$ref: '#/components/responses/AttemptRead'}
+        '400': {$ref: '#/components/responses/ErrorResponse'}
+        '401': {$ref: '#/components/responses/ErrorResponse'}
+        '404': {$ref: '#/components/responses/ErrorResponse'}
+        '409': {$ref: '#/components/responses/ErrorResponse'}
+        '412': {$ref: '#/components/responses/ErrorResponse'}
+        '503': {$ref: '#/components/responses/ErrorResponse'}
+components:
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: __Host-session
+  parameters:
+    OrganizationId: {name: organization_id, in: path, required: true, schema: {$ref: '#/components/schemas/OpaqueId'}}
+    DemandId: {name: demand_id, in: path, required: true, schema: {$ref: '#/components/schemas/OpaqueId'}}
+    AttemptId: {name: attempt_id, in: path, required: true, schema: {$ref: '#/components/schemas/OpaqueId'}}
+    MatchRunId: {name: match_run_id, in: path, required: true, schema: {$ref: '#/components/schemas/OpaqueId'}}
+    InvitationId: {name: invitation_id, in: path, required: true, schema: {$ref: '#/components/schemas/OpaqueId'}}
+    SelectionId: {name: selection_id, in: path, required: true, schema: {$ref: '#/components/schemas/OpaqueId'}}
+    IdempotencyKey: {name: Idempotency-Key, in: header, required: true, schema: {type: string, minLength: 16, maxLength: 128}, description: Raw value is never persisted or logged.}
+    IfMatch: {name: If-Match, in: header, required: true, schema: {type: string, pattern: '^"v[1-9][0-9]*"$'}}
+    CsrfToken: {name: X-CSRF-Token, in: header, required: true, schema: {type: string, minLength: 32, maxLength: 256}}
+    Cursor: {name: cursor, in: query, required: false, schema: {type: string, minLength: 16, maxLength: 2048}}
+    Limit: {name: limit, in: query, required: false, schema: {type: integer, minimum: 1, maximum: 100, default: 25}}
+  schemas:
+    OpaqueId: {type: string, minLength: 16, maxLength: 128, pattern: '^[A-Za-z0-9][A-Za-z0-9_-]{15,127}$'}
+    Sha256: {type: string, pattern: '^[a-f0-9]{64}$'}
+    Timestamp: {type: string, format: date-time, pattern: 'Z$'}
+    AggregateVersion: {type: integer, minimum: 1, maximum: 2147483647}
+    Code: {type: string, minLength: 2, maxLength: 64, pattern: '^[A-Z][A-Z0-9_]{1,63}$'}
+    AcceptInvitationRequest:
+      type: object
+      additionalProperties: false
+      required: [snapshot_sha256]
+      properties: {snapshot_sha256: {$ref: '#/components/schemas/Sha256'}}
+    DeclineInvitationRequest:
+      type: object
+      additionalProperties: false
+      required: [snapshot_sha256, reason_code, note]
+      properties:
+        snapshot_sha256: {$ref: '#/components/schemas/Sha256'}
+        reason_code: {$ref: '#/components/schemas/Code'}
+        note: {oneOf: [{type: string, maxLength: 500, pattern: '^[^\x00-\x1F\x7F-\x9F]+$'}, {type: 'null'}]}
+    WithdrawInvitationRequest:
+      type: object
+      additionalProperties: false
+      required: [snapshot_sha256, reason_code, note]
+      properties:
+        snapshot_sha256: {$ref: '#/components/schemas/Sha256'}
+        reason_code: {$ref: '#/components/schemas/Code'}
+        note: {oneOf: [{type: string, maxLength: 500, pattern: '^[^\x00-\x1F\x7F-\x9F]+$'}, {type: 'null'}]}
+    ChooseSelectionRequest:
+      type: object
+      additionalProperties: false
+      required: [invitation_id, selection_basis_code, current_invitation_set_sha256, candidate_selector_assignment_id, candidate_selector_assignment_version]
+      properties:
+        invitation_id: {$ref: '#/components/schemas/OpaqueId'}
+        selection_basis_code: {$ref: '#/components/schemas/Code'}
+        current_invitation_set_sha256: {$ref: '#/components/schemas/Sha256'}
+        candidate_selector_assignment_id: {$ref: '#/components/schemas/OpaqueId'}
+        candidate_selector_assignment_version: {$ref: '#/components/schemas/AggregateVersion'}
+    CloseSelectionRequest:
+      type: object
+      additionalProperties: false
+      required: [reason_code, current_invitation_set_sha256, candidate_selector_assignment_id, candidate_selector_assignment_version]
+      properties:
+        reason_code: {$ref: '#/components/schemas/Code'}
+        current_invitation_set_sha256: {$ref: '#/components/schemas/Sha256'}
+        candidate_selector_assignment_id: {$ref: '#/components/schemas/OpaqueId'}
+        candidate_selector_assignment_version: {$ref: '#/components/schemas/AggregateVersion'}
+    CreateInvitationRequest:
+      type: object
+      additionalProperties: false
+      required: [match_run_id, creator_user_id, expires_at]
+      properties: {match_run_id: {$ref: '#/components/schemas/OpaqueId'}, creator_user_id: {$ref: '#/components/schemas/OpaqueId'}, expires_at: {$ref: '#/components/schemas/Timestamp'}}
+    PublishInvitationRequest:
+      type: object
+      additionalProperties: false
+      required: [snapshot_sha256]
+      properties: {snapshot_sha256: {$ref: '#/components/schemas/Sha256'}}
+    InvalidateAttemptRequest:
+      type: object
+      additionalProperties: false
+      required: [reason_code, input_baseline_sha256]
+      properties: {reason_code: {$ref: '#/components/schemas/Code'}, input_baseline_sha256: {$ref: '#/components/schemas/Sha256'}}
+    RecipientInvitationDto:
+      type: object
+      additionalProperties: false
+      required: [invitation_id, status, aggregate_version, updated_at, expires_at, snapshot_sha256, response_status, disclosure]
+      properties:
+        invitation_id: {$ref: '#/components/schemas/OpaqueId'}
+        status: {type: string, enum: [SENT, ACCEPTED, DECLINED, WITHDRAWN, EXPIRED, REVOKED]}
+        aggregate_version: {$ref: '#/components/schemas/AggregateVersion'}
+        updated_at: {$ref: '#/components/schemas/Timestamp'}
+        expires_at: {$ref: '#/components/schemas/Timestamp'}
+        snapshot_sha256: {$ref: '#/components/schemas/Sha256'}
+        response_status: {oneOf: [{type: string, enum: [ACCEPTED, DECLINED, WITHDRAWN]}, {type: 'null'}]}
+        disclosure: {$ref: '../domain/invitation-disclosure-v1.schema.json'}
+    ReviewerInvitationDto:
+      type: object
+      additionalProperties: false
+      required: [invitation_id, attempt_id, match_run_id, creator_user_id, status, aggregate_version, updated_at, expires_at, snapshot_sha256]
+      properties: {invitation_id: {$ref: '#/components/schemas/OpaqueId'}, attempt_id: {$ref: '#/components/schemas/OpaqueId'}, match_run_id: {$ref: '#/components/schemas/OpaqueId'}, creator_user_id: {$ref: '#/components/schemas/OpaqueId'}, status: {type: string, enum: [CREATED, SENT, ACCEPTED, DECLINED, WITHDRAWN, EXPIRED, REVOKED]}, aggregate_version: {$ref: '#/components/schemas/AggregateVersion'}, updated_at: {$ref: '#/components/schemas/Timestamp'}, expires_at: {$ref: '#/components/schemas/Timestamp'}, snapshot_sha256: {$ref: '#/components/schemas/Sha256'}}
+    AttemptDto:
+      type: object
+      additionalProperties: false
+      required: [attempt_id, demand_id, attempt_no, status, aggregate_version, updated_at]
+      properties: {attempt_id: {$ref: '#/components/schemas/OpaqueId'}, demand_id: {$ref: '#/components/schemas/OpaqueId'}, attempt_no: {type: integer, minimum: 1}, status: {type: string, enum: [OPEN, SELECTED, CLOSED_NO_SELECTION, INVALIDATED, CANCELLED]}, aggregate_version: {$ref: '#/components/schemas/AggregateVersion'}, updated_at: {$ref: '#/components/schemas/Timestamp'}}
+    SelectionDto:
+      type: object
+      additionalProperties: false
+      required: [selection_id, attempt_id, candidate_selector_assignment_id, candidate_selector_assignment_version, status, aggregate_version, updated_at, current_invitation_set_sha256, chosen_invitation_id, accepted_invitations]
+      properties:
+        selection_id: {$ref: '#/components/schemas/OpaqueId'}
+        attempt_id: {$ref: '#/components/schemas/OpaqueId'}
+        candidate_selector_assignment_id: {$ref: '#/components/schemas/OpaqueId'}
+        candidate_selector_assignment_version: {$ref: '#/components/schemas/AggregateVersion'}
+        status: {type: string, enum: [OPEN, PENDING_CHOICE, PENDING_CLOSE, SELECTED, CLOSED_NO_SELECTION, CANCELLED]}
+        aggregate_version: {$ref: '#/components/schemas/AggregateVersion'}
+        updated_at: {$ref: '#/components/schemas/Timestamp'}
+        current_invitation_set_sha256: {$ref: '#/components/schemas/Sha256'}
+        chosen_invitation_id: {oneOf: [{$ref: '#/components/schemas/OpaqueId'}, {type: 'null'}]}
+        accepted_invitations:
+          type: array
+          maxItems: 100
+          items: {$ref: '#/components/schemas/SelectionCandidateDto'}
+    SelectionCandidateDto:
+      type: object
+      additionalProperties: false
+      required: [invitation_id, creator_display_handle, profile_id, profile_version_id, accepted_at, capability_summary]
+      properties:
+        invitation_id: {$ref: '#/components/schemas/OpaqueId'}
+        creator_display_handle: {type: string, minLength: 1, maxLength: 120, pattern: '^[^<>\x00-\x1F\x7F-\x9F]+$'}
+        profile_id: {$ref: '#/components/schemas/OpaqueId'}
+        profile_version_id: {$ref: '#/components/schemas/OpaqueId'}
+        accepted_at: {$ref: '#/components/schemas/Timestamp'}
+        capability_summary: {type: string, minLength: 1, maxLength: 500, pattern: '^[^<>\x00-\x1F\x7F-\x9F]+$'}
+    RecipientInvitationList:
+      type: object
+      additionalProperties: false
+      required: [items, next_cursor]
+      properties: {items: {type: array, maxItems: 100, items: {$ref: '#/components/schemas/RecipientInvitationDto'}}, next_cursor: {oneOf: [{type: string, maxLength: 2048}, {type: 'null'}]}}
+    AttemptList:
+      type: object
+      additionalProperties: false
+      required: [items, next_cursor]
+      properties: {items: {type: array, maxItems: 100, items: {$ref: '#/components/schemas/AttemptDto'}}, next_cursor: {oneOf: [{type: string, maxLength: 2048}, {type: 'null'}]}}
+    Error:
+      type: object
+      additionalProperties: false
+      required: [code, message, trace_id]
+      properties:
+        code: {type: string, enum: [INVALID_REQUEST, AUTHENTICATION_REQUIRED, SESSION_EXPIRED, ACCESS_DENIED, SAFETY_HOLD_BLOCKED, RESOURCE_NOT_FOUND, INVALID_STATE_TRANSITION, INVITATION_ALREADY_SELECTED, SELECTOR_ASSIGNMENT_REQUIRED, IDEMPOTENCY_KEY_REUSED, MATCH_INPUT_CHANGED, MATCH_RULE_BUNDLE_CHANGED, FUNDING_FACT_CHANGED, INVITATION_ALREADY_EXISTS, PRECONDITION_FAILED, SELECTION_NOT_READY, POLICY_ACCEPTANCE_REQUIRED, POLICY_CONFIGURATION_UNAVAILABLE, COMMAND_OUTCOME_UNKNOWN, SERVICE_UNAVAILABLE]}
+        message: {type: string, minLength: 1, maxLength: 300}
+        trace_id: {$ref: '#/components/schemas/OpaqueId'}
+  responses:
+    RecipientInvitationListRead: {description: Recipient-only no-store list, headers: {Cache-Control: {schema: {type: string, const: no-store}}}, content: {application/json: {schema: {$ref: '#/components/schemas/RecipientInvitationList'}}}}
+    RecipientInvitationRead: {description: Recipient-only no-store invitation, headers: {Cache-Control: {schema: {type: string, const: no-store}}, ETag: {schema: {type: string, pattern: '^"v[1-9][0-9]*"$'}}}, content: {application/json: {schema: {$ref: '#/components/schemas/RecipientInvitationDto'}}}}
+    ReviewerInvitationRead: {description: Exact-assignment reviewer projection, headers: {Cache-Control: {schema: {type: string, const: no-store}}, ETag: {schema: {type: string, pattern: '^"v[1-9][0-9]*"$'}}}, content: {application/json: {schema: {$ref: '#/components/schemas/ReviewerInvitationDto'}}}}
+    AttemptRead: {description: Attempt projection, headers: {Cache-Control: {schema: {type: string, const: no-store}}, ETag: {schema: {type: string, pattern: '^"v[1-9][0-9]*"$'}}}, content: {application/json: {schema: {$ref: '#/components/schemas/AttemptDto'}}}}
+    AttemptListRead: {description: Exact active Candidate Selector attempt list, headers: {Cache-Control: {schema: {type: string, const: no-store}}}, content: {application/json: {schema: {$ref: '#/components/schemas/AttemptList'}}}}
+    SelectionRead: {description: Exact active Candidate Selector projection, headers: {Cache-Control: {schema: {type: string, const: no-store}}, ETag: {schema: {type: string, pattern: '^"v[1-9][0-9]*"$'}}}, content: {application/json: {schema: {$ref: '#/components/schemas/SelectionDto'}}}}
+    ErrorResponse: {description: Closed error, headers: {Cache-Control: {schema: {type: string, const: no-store}}}, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}

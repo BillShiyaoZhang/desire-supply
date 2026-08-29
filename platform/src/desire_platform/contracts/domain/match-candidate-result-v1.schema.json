@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://desire-supply.local/contracts/domain/match-candidate-result-v1.schema.json",
+  "title": "Closed match candidate result v1",
+  "description": "One immutable result per captured creator. Private floor, input values, amount, rank of another creator, prose and evidence locators are not representable.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "canonicalization_version", "attempt_id", "run_id", "creator_user_id", "profile_id", "profile_version_id", "profile_content_sha256", "eligibility", "exclusion_reason_codes", "components", "total_score", "rank", "evidence_facts", "candidate_result_sha256"],
+  "properties": {
+    "schema_version": {"type": "integer", "const": 1},
+    "canonicalization_version": {"type": "string", "const": "match-candidate-result-json-v1"},
+    "attempt_id": {"$ref": "#/$defs/OpaqueId"},
+    "run_id": {"$ref": "#/$defs/OpaqueId"},
+    "creator_user_id": {"$ref": "#/$defs/OpaqueId"},
+    "profile_id": {"$ref": "#/$defs/OpaqueId"},
+    "profile_version_id": {"$ref": "#/$defs/OpaqueId"},
+    "profile_content_sha256": {"$ref": "#/$defs/Sha256"},
+    "eligibility": {"type": "string", "enum": ["ELIGIBLE", "EXCLUDED"]},
+    "exclusion_reason_codes": {"type": "array", "maxItems": 15, "uniqueItems": true, "items": {"$ref": "#/$defs/HardFilterCode"}},
+    "components": {"type": "array", "maxItems": 6, "uniqueItems": true, "x-code-order-from": "matching-rule-release-v1.components", "x-ordinal-sequence": [1, 2, 3, 4, 5, 6], "items": {"$ref": "#/$defs/ComponentScore"}},
+    "total_score": {"oneOf": [{"$ref": "#/$defs/Score"}, {"type": "null"}]},
+    "rank": {"oneOf": [{"type": "integer", "minimum": 1, "maximum": 10000}, {"type": "null"}]},
+    "evidence_facts": {"type": "array", "maxItems": 100, "uniqueItems": true, "items": {"$ref": "#/$defs/EvidenceFact"}},
+    "candidate_result_sha256": {"$ref": "#/$defs/Sha256"}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"eligibility": {"const": "ELIGIBLE"}}, "required": ["eligibility"]},
+      "then": {
+        "properties": {
+          "exclusion_reason_codes": {"maxItems": 0},
+          "components": {"minItems": 6, "maxItems": 6},
+          "total_score": {"$ref": "#/$defs/Score"},
+          "rank": {"type": "integer", "minimum": 1, "maximum": 10000}
+        }
+      },
+      "else": {
+        "properties": {
+          "exclusion_reason_codes": {"minItems": 1},
+          "components": {"maxItems": 0},
+          "total_score": {"type": "null"},
+          "rank": {"type": "null"}
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "OpaqueId": {"type": "string", "minLength": 16, "maxLength": 128, "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{15,127}$"},
+    "Sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "Score": {"type": "string", "pattern": "^(?:[0-9]|[1-9][0-9]|100)\\.[0-9]{2}$"},
+    "Code": {"type": "string", "minLength": 2, "maxLength": 64, "pattern": "^[A-Z][A-Z0-9_.:-]{1,63}$"},
+    "HardFilterCode": {"type": "string", "enum": ["CREATOR_INACTIVE", "BOUNDARY_DOMAIN", "BOUNDARY_TASK", "MISSING_MUST_HAVE_SKILL", "DATE_CONFLICT", "CAPACITY_CONFLICT", "DURATION_CONFLICT", "CURRENCY_MISMATCH", "BELOW_PRIVATE_FLOOR", "DATA_POLICY_CONFLICT", "AI_POLICY_CONFLICT", "LANGUAGE_MISMATCH", "WORK_MODE_CONFLICT", "LOCATION_RESTRICTION", "CONFLICT_OF_INTEREST"]},
+    "ComponentCode": {"type": "string", "enum": ["interest", "capability", "availability", "compensation", "collaboration", "evidence_trust"]},
+    "ComponentScore": {
+      "type": "object", "additionalProperties": false,
+      "required": ["code", "ordinal", "score"],
+      "properties": {
+        "code": {"$ref": "#/$defs/ComponentCode"},
+        "ordinal": {"type": "integer", "minimum": 1, "maximum": 6},
+        "score": {"$ref": "#/$defs/Score"}
+      }
+    },
+    "EvidenceFact": {
+      "type": "object", "additionalProperties": false,
+      "required": ["code", "kind", "value", "source_version_digest"],
+      "properties": {
+        "code": {"$ref": "#/$defs/Code"},
+        "kind": {"type": "string", "enum": ["BOOLEAN", "CODE", "BUCKET"]},
+        "value": {"oneOf": [{"type": "boolean"}, {"$ref": "#/$defs/Code"}]},
+        "source_version_digest": {"$ref": "#/$defs/Sha256"}
+      },
+      "allOf": [
+        {"if": {"properties": {"kind": {"const": "BOOLEAN"}}, "required": ["kind"]}, "then": {"properties": {"value": {"type": "boolean"}}}, "else": {"properties": {"value": {"$ref": "#/$defs/Code"}}}}
+      ]
+    }
+  }
+}

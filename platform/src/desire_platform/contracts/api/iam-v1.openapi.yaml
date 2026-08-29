@@ -1,0 +1,2439 @@
+openapi: 3.1.0
+info:
+  title: Desire Supply Identity and Access API
+  version: 1.0.0-draft
+  summary: IAM-01 invited access, tenancy, policy consent, and BFF session contract
+  description: >-
+    Versioned executable contract for the synthetic IAM-01 implementation slice.
+    Contract tests are green, while API, PostgreSQL, and provider implementation
+    remains in progress. This contract does not enable real identity data or a real
+    identity provider. All objects are closed. Ordinary DTOs exclude secrets and
+    identity-provider claims; the few explicit no-store protocol responses that
+    must carry a capability, CSRF value, cookie, or provider authorization URL mark
+    every such carrier as sensitive and redact-only.
+  x-contract-status: contract-tests-green-implementation-in-progress
+jsonSchemaDialect: https://json-schema.org/draft/2020-12/schema
+x-iam-database-access:
+  ME_SELF_SUMMARY:
+    operation_id: getMe
+    mode: SECURITY_DEFINER
+    function: iam_api.read_me_self_summary
+    database_role: iam_app
+    rls_scope: SELF
+    search_path: [pg_catalog, iam, pg_temp]
+    dynamic_sql: false
+    public_execute: false
+    execute_grantees: [iam_app]
+    direct_organization_read: false
+    organization_field_allowlist:
+      - organization_id
+      - public_name
+      - type
+      - status
+      - aggregate_version
+  PUBLIC_POLICY_READ:
+    operation_id: getPolicyBundle
+    database_role: iam_app
+    rls_scope: PUBLIC_POLICY_READ
+    scope_keys: [policy_bundle_id]
+    allowed_statuses: [ACTIVE]
+    relations: [policy_bundles, policy_documents, consent_offers]
+    immutable_only: true
+    global_scope: false
+  POLICY_PUBLISH:
+    application_command: PublishPolicyBundle
+    database_role: iam_system
+    rls_scope: POLICY_PUBLISH
+    scope_keys: [selector_digest, policy_bundle_id]
+    global_scope: false
+    activation_entrypoint: application_command
+    initial_release_entrypoint: PublishPolicyBundle
+    fixture_direct_activation: false
+    migration_direct_activation: false
+servers:
+  - url: /
+tags:
+  - name: Authentication
+  - name: Access Invitations
+  - name: Policies and Consent
+  - name: Me and Sessions
+  - name: Organization Administration
+paths:
+  /v1/auth/oidc/authorizations:
+    post:
+      tags: [Authentication]
+      operationId: beginOidcAuthorization
+      summary: Begin a one-time OIDC Authorization Code + PKCE transaction
+      description: >-
+        Protocol exception: this endpoint does not require Idempotency-Key or
+        If-Match. Anonymous without a token is ordinary LOGIN; anonymous with an
+        exact invitation token is ENROLLMENT. A current cookie Session plus an
+        exact invitation token is STEP_UP and freezes that Session User as the
+        expected User. A cookie Session without a token is accepted only with
+        `reauthenticate: true`, producing a same-User STEP_UP with no invitation
+        authority. Every path binds the initiating browser.
+      security:
+        - cookieAuth: []
+        - {}
+      x-auth-purpose-matrix:
+        anonymous_without_invitation: LOGIN
+        anonymous_with_invitation: ENROLLMENT
+        cookie_without_invitation_and_reauthenticate_false: INVALID
+        cookie_without_invitation_and_reauthenticate_true: STEP_UP
+        cookie_with_invitation: STEP_UP
+      x-step-up-expected-user-source: current_session.user_id
+      x-oidc-browser-binding-cookie: __Host-ds_oidc
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BeginOidcAuthorizationRequest'
+      responses:
+        '201':
+          description: Auth transaction created
+          headers:
+            Set-Cookie:
+              description: >-
+                One-transaction __Host-ds_oidc browser-binding cookie; Secure,
+                HttpOnly, SameSite=Lax, Path=/, no Domain, and Max-Age=600.
+              schema:
+                type: string
+                x-sensitive: true
+                x-log-policy: redact
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
+            X-Trace-Id:
+              $ref: '#/components/headers/TraceId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BeginOidcAuthorizationResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /v1/auth/oidc/callback:
+    get:
+      tags: [Authentication]
+      operationId: completeOidcAuthorization
+      summary: Consume an OIDC callback and establish or rotate a BFF session
+      description: >-
+        Provider-driven protocol exception. State is required. Exactly one of
+        code or error must be present; the implementation rejects all other
+        combinations before creating a User or Session.
+      security: []
+      parameters:
+        - name: __Host-ds_oidc
+          in: cookie
+          required: true
+          description: >-
+            Opaque one-transaction browser binding. It is independent of state
+            and is cleared after a terminal callback.
+          x-sensitive: true
+          x-log-policy: redact
+          schema:
+            $ref: '#/components/schemas/ProtocolSecret'
+        - name: state
+          in: query
+          required: true
+          schema:
+            $ref: '#/components/schemas/ProtocolSecret'
+            x-sensitive: true
+            x-log-policy: redact
+        - name: code
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/ProtocolSecret'
+            x-sensitive: true
+            x-log-policy: redact
+        - name: error
+          in: query
+          required: false
+          schema:
+            type: string
+            enum:
+              - access_denied
+              - interaction_required
+              - login_required
+              - temporarily_unavailable
+              - server_error
+        - name: error_description
+          in: query
+          required: false
+          description: Never copied into logs or an API error response.
+          schema:
+            type: string
+            maxLength: 512
+            x-sensitive: true
+            x-log-policy: redact
+      responses:
+        '303':
+          description: Callback consumed; redirect to the registered same-origin path
+          headers:
+            Location:
+              $ref: '#/components/headers/SameOriginLocation'
+            Set-Cookie:
+              description: >-
+                Rotated __Host-ds_session cookie and terminal deletion of the
+                __Host-ds_oidc browser-binding cookie; values are never logged.
+              schema:
+                type: string
+                x-sensitive: true
+                x-log-policy: redact
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
+            X-Trace-Id:
+              $ref: '#/components/headers/TraceId'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /v1/auth/session:
+    get:
+      tags: [Authentication]
+      operationId: getSessionBootstrap
+      summary: Read the current BFF session bootstrap and masked CSRF token
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Current session bootstrap
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
+            X-Trace-Id:
+              $ref: '#/components/headers/TraceId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionBootstrapDto'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /v1/access-invitations/inspect:
+    post:
+      tags: [Access Invitations]
+      operationId: inspectAccessInvitation
+      summary: Inspect an access invitation without putting its token in a URL
+      description: >-
+        Safe query over POST. It performs no persistence, sets no session, and
+        creates no command receipt. Invalid, expired, revoked, accepted, or
+        otherwise unavailable invitations share one external error.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InspectAccessInvitationRequest'
+      responses:
+        '200':
+          description: Safe invitation preview
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
+            X-Trace-Id:
+              $ref: '#/components/headers/TraceId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccessInvitationPreviewDto'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/InvitationUnavailable'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /v1/access-invitations/{invitation_id}/accept:
+    post:
+      tags: [Access Invitations]
+      operationId: acceptAccessInvitation
+      summary: Atomically accept an invitation, exact policies, and explicit consent choices
+      description: >-
+        The body never accepts a capability token. The current rotated Session must
+        have verified_for_invitation_id equal to the path ID and
+        verified_contact_point_id equal to the invitation recipient_contact_id;
+        ordinary login or a binding for another invitation/contact is rejected when
+        executing a new command. If a prior execution is already COMPLETED, the same
+        authenticated User/key/hash may replay the safe body before onboarding guards;
+        no lost Session cookie or CSRF token is reconstructed.
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/InvitationId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AcceptAccessInvitationRequest'
+      responses:
+        '200':
+          description: Invitation accepted and authorization activated
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+            Set-Cookie:
+              description: >-
+                Rotated __Host-ds_session cookie on the first successful execution.
+                A completed-receipt replay returns the safe JSON body only and does
+                not reconstruct a lost raw Session handle or CSRF token.
+              schema:
+                type: string
+                x-sensitive: true
+                x-log-policy: redact
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
+            X-Trace-Id:
+              $ref: '#/components/headers/TraceId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccessInvitationAcceptanceDto'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/HoldAwareForbidden'
+        '404':
+          $ref: '#/components/responses/InvitationUnavailable'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '503':
+          $ref: '#/components/responses/HoldAwareServiceUnavailable'
+  /v1/access-invitations/{invitation_id}/revoke:
+    post:
+      tags: [Access Invitations, Organization Administration]
+      operationId: revokeAccessInvitation
+      summary: Revoke an issued organization access invitation
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/InvitationId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReasonRequest'
+      responses:
+        '200':
+          description: Invitation is in the revoked terminal state
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
+            X-Trace-Id:
+              $ref: '#/components/headers/TraceId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccessInvitationAdminDto'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /v1/policy-bundles/{policy_bundle_id}:
+    get:
+      tags: [Policies and Consent]
+      operationId: getPolicyBundle
+      summary: Read an immutable policy bundle and its exact document hashes
+      description: >-
+        PUBLIC_POLICY_READ is limited to the exact policy_bundle_id and returns
+        only an ACTIVE immutable bundle with its immutable documents and consent
+        offers; the public database role has no global policy-table scope.
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/PolicyBundleId'
+      responses:
+        '200':
+          description: Immutable policy bundle
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+            Cache-Control:
+              description: Immutable public content can be cached only by its exact ETag.
+              schema:
+                type: string
+                const: public, max-age=31536000, immutable
+            X-Trace-Id:
+              $ref: '#/components/headers/TraceId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PolicyBundleDto'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /v1/me:
+    get:
+      tags: [Me and Sessions]
+      operationId: getMe
+      summary: Read the current user's field-allowlisted identity and authorization projection
+      description: >-
+        Uses the hardened iam_api.read_me_self_summary SECURITY DEFINER projection
+        with a fixed search_path, no dynamic SQL, an organization-field allowlist,
+        PUBLIC EXECUTE revoked, and execute granted only to iam_app. The ordinary
+        SELF RLS scope cannot read organization rows directly.
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Current user projection
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
+            X-Trace-Id:
+              $ref: '#/components/headers/TraceId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MeDto'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /v1/me/policy-acceptances:
+    post:
+      tags: [Policies and Consent]
+      operationId: acceptCurrentPolicies
+      summary: Accept the current exact policy bundle after enrollment or a policy upgrade
+      description: >-
+        The nested policy requirement reference selects one exact stored authority
+        from /me.policy_requirements. The policy bundle must be that requirement's
+        locked current ACTIVE/effective bundle; no role, locale, jurisdiction, or
+        selector is inferred from request order.
+      x-concurrency-target: User
+      x-response-etag-target: User
+      x-policy-bundle-binding: EXACT_CURRENT_FOR_REQUIREMENT
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AcceptPoliciesRequest'
+      responses:
+        '200':
+          description: Current policy requirements are satisfied
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
+            X-Trace-Id:
+              $ref: '#/components/headers/TraceId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PolicyRequirementStatusDto'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /v1/me/consents:
+    get:
+      tags: [Policies and Consent]
+      operationId: listMyConsentGrants
+      summary: List the current user's safe consent grants and strong entity tags
+      description: >-
+        This is the reload-safe source for the ConsentGrant ETag required by
+        WithdrawConsent. It returns no internal recipient reference, evidence,
+        Session secret, or policy body.
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Safe paginated consent grants
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
+            X-Trace-Id:
+              $ref: '#/components/headers/TraceId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConsentGrantPageDto'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      tags: [Policies and Consent]
+      operationId: grantConsent
+      summary: Grant one explicit purpose- and scope-bound consent
+      description: >-
+        The requirement reference selects the exact stored authority and current
+        policy graph. Consent purpose, scope, categories, recipient, and expiry are
+        server-derived from the immutable offer and cannot be supplied by the client.
+      x-concurrency-target: User
+      x-response-etag-target: ConsentGrant
+      x-policy-bundle-binding: EXACT_CURRENT_FOR_REQUIREMENT
+      x-consent-scope-derivation: PLATFORM_PARTICIPATION_NULL_SCOPE
+      x-supported-consent-purposes: [PILOT_RESEARCH]
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GrantConsentRequest'
+      responses:
+        '201':
+          description: Consent grant recorded
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
+            X-Trace-Id:
+              $ref: '#/components/headers/TraceId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConsentGrantDto'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /v1/me/consents/{consent_grant_id}/withdraw:
+    post:
+      tags: [Policies and Consent]
+      operationId: withdrawConsent
+      summary: Append a withdrawal for one consent grant
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ConsentGrantId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReasonRequest'
+      responses:
+        '200':
+          description: Consent grant is in the withdrawn terminal state
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
+            X-Trace-Id:
+              $ref: '#/components/headers/TraceId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConsentGrantDto'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
+  /v1/me/sessions:
+    get:
+      tags: [Me and Sessions]
+      operationId: listMySessions
+      summary: List the current user's safe session projections
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Safe paginated sessions
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
+            X-Trace-Id:
+              $ref: '#/components/headers/TraceId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionPageDto'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /v1/me/sessions/{session_id}:
+    delete:
+      tags: [Me and Sessions]
+      operationId: revokeMySession
+      summary: Revoke one of the current user's sessions
+      description: Monotonic safety operation; repeated calls return the same safe terminal result.
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/SessionId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/CsrfToken'
+      responses:
+        '204':
+          description: Session is revoked
+          headers:
+            Set-Cookie:
+              description: >-
+                Clears __Host-ds_session only when the revoked target is the
+                current browser Session; no raw Session value is returned.
+              schema:
+                type: string
+                x-sensitive: true
+                x-log-policy: redact
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
+            X-Trace-Id:
+              $ref: '#/components/headers/TraceId'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /v1/organizations/{organization_id}:
+    get:
+      tags: [Organization Administration]
+      operationId: getOrganizationSummary
+      summary: Read a field-allowlisted organization summary and its command ETag
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OrganizationId'
+      responses:
+        '200':
+          description: Safe organization summary
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
+            X-Trace-Id:
+              $ref: '#/components/headers/TraceId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrganizationSummaryDto'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /v1/organizations/{organization_id}/public-name:
+    post:
+      tags: [Organization Administration]
+      operationId: updateOrganizationPublicName
+      summary: Correct the public name of one actively administered organization
+      description: >-
+        Requires the current Organization command ETag and recent multi-factor
+        authentication. The public_name must already be trimmed, NFC-normalized,
+        and contain no Unicode Cc or Cf code points.
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OrganizationId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateOrganizationPublicNameRequest'
+      responses:
+        '200':
+          description: Updated safe organization summary
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
+            X-Trace-Id:
+              $ref: '#/components/headers/TraceId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrganizationSummaryDto'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /v1/organizations/{organization_id}/access-invitations:
+    get:
+      tags: [Organization Administration, Access Invitations]
+      operationId: listOrganizationAccessInvitations
+      summary: List safe organization invitation projections
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OrganizationId'
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Safe paginated invitations
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
+            X-Trace-Id:
+              $ref: '#/components/headers/TraceId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccessInvitationPageDto'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+    post:
+      tags: [Organization Administration, Access Invitations]
+      operationId: issueOrganizationAccessInvitation
+      summary: Issue a same-organization membership invitation
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OrganizationId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IssueOrganizationAccessInvitationRequest'
+      responses:
+        '201':
+          description: Invitation issued; access_invitation_token is returned only through this command receipt scope
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
+            X-Trace-Id:
+              $ref: '#/components/headers/TraceId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IssueAccessInvitationResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/HoldAwareForbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '503':
+          $ref: '#/components/responses/HoldAwareServiceUnavailable'
+  /v1/organizations/{organization_id}/memberships:
+    get:
+      tags: [Organization Administration]
+      operationId: listOrganizationMemberships
+      summary: List safe organization membership projections
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OrganizationId'
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Safe paginated memberships
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
+            X-Trace-Id:
+              $ref: '#/components/headers/TraceId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MembershipPageDto'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /v1/memberships/{membership_id}/suspend:
+    post:
+      tags: [Organization Administration]
+      operationId: suspendMembership
+      summary: Suspend one same-organization membership
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/MembershipId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        $ref: '#/components/requestBodies/RequiredReason'
+      responses:
+        '200':
+          $ref: '#/components/responses/MembershipUpdated'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /v1/memberships/{membership_id}/resume:
+    post:
+      tags: [Organization Administration]
+      operationId: resumeMembership
+      summary: Resume one same-organization membership
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/MembershipId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        $ref: '#/components/requestBodies/RequiredReason'
+      responses:
+        '200':
+          $ref: '#/components/responses/MembershipUpdated'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/HoldAwareForbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
+        '503':
+          $ref: '#/components/responses/HoldAwareServiceUnavailable'
+  /v1/memberships/{membership_id}/revoke:
+    post:
+      tags: [Organization Administration]
+      operationId: revokeMembership
+      summary: Permanently revoke one same-organization membership
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/MembershipId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        $ref: '#/components/requestBodies/RequiredReason'
+      responses:
+        '200':
+          $ref: '#/components/responses/MembershipUpdated'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /v1/platform/users/{user_id}/suspend:
+    post:
+      tags: [Platform Access Administration]
+      operationId: suspendUser
+      summary: Suspend one existing OIDC/IAM user and revoke all of their sessions
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        $ref: '#/components/requestBodies/RequiredReason'
+      responses:
+        '200':
+          $ref: '#/components/responses/PlatformUserUpdated'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /v1/platform/users/{user_id}/resume:
+    post:
+      tags: [Platform Access Administration]
+      operationId: resumeUser
+      summary: Resume one suspended OIDC/IAM user without restoring prior sessions
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        $ref: '#/components/requestBodies/RequiredReason'
+      responses:
+        '200':
+          $ref: '#/components/responses/PlatformUserUpdated'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /v1/platform/users/{user_id}/revoke-all-sessions:
+    post:
+      tags: [Platform Access Administration]
+      operationId: revokeAllUserSessions
+      summary: Revoke every active session of one existing OIDC/IAM user
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        $ref: '#/components/requestBodies/RequiredReason'
+      responses:
+        '200':
+          $ref: '#/components/responses/PlatformUserUpdated'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+components:
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: __Host-ds_session
+      description: Opaque BFF session handle; never exposed to JavaScript or logs.
+      x-sensitive: true
+      x-log-policy: redact
+  parameters:
+    InvitationId:
+      name: invitation_id
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/OpaqueId'
+    PolicyBundleId:
+      name: policy_bundle_id
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/OpaqueId'
+    ConsentGrantId:
+      name: consent_grant_id
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/OpaqueId'
+    SessionId:
+      name: session_id
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/OpaqueId'
+    OrganizationId:
+      name: organization_id
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/OpaqueId'
+    MembershipId:
+      name: membership_id
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/OpaqueId'
+    UserId:
+      name: user_id
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/OpaqueId'
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: >-
+        Stored as a keyed digest and unique within principal, command name, and
+        command version. Target and the closed canonical request are payload-hashed.
+      schema:
+        $ref: '#/components/schemas/IdempotencyKey'
+    IfMatch:
+      name: If-Match
+      in: header
+      required: true
+      description: Strong ETag for the command target aggregate.
+      schema:
+        $ref: '#/components/schemas/EntityTag'
+    CsrfToken:
+      name: X-CSRF-Token
+      in: header
+      required: true
+      description: Masked synchronizer token bound to the current BFF session.
+      x-sensitive: true
+      x-log-policy: redact
+      schema:
+        $ref: '#/components/schemas/CsrfToken'
+    Cursor:
+      name: cursor
+      in: query
+      required: false
+      schema:
+        type: string
+        minLength: 108
+        maxLength: 1944
+        pattern: '^[A-Za-z0-9_-]{64,1900}\.[A-Za-z0-9_-]{43}$'
+    Limit:
+      name: limit
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 25
+  headers:
+    NoStore:
+      description: Sensitive or authentication response must not be cached.
+      schema:
+        type: string
+        const: no-store
+    TraceId:
+      description: Safe trace correlation identifier.
+      schema:
+        $ref: '#/components/schemas/TraceId'
+    ETag:
+      description: Strong aggregate entity tag.
+      schema:
+        $ref: '#/components/schemas/EntityTag'
+    SameOriginLocation:
+      description: Registered same-origin relative redirect path.
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 512
+        pattern: '^/(?!/)[A-Za-z0-9/_?&=.%~-]*$'
+  requestBodies:
+    RequiredReason:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ReasonRequest'
+  responses:
+    BadRequest:
+      description: Malformed request or protocol input
+      headers:
+        Cache-Control:
+          $ref: '#/components/headers/NoStore'
+        X-Trace-Id:
+          $ref: '#/components/headers/TraceId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Unauthorized:
+      description: Authentication is missing, expired, or revoked
+      headers:
+        Cache-Control:
+          $ref: '#/components/headers/NoStore'
+        X-Trace-Id:
+          $ref: '#/components/headers/TraceId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Forbidden:
+      description: Authenticated actor lacks a current policy, consent, MFA, or allowed action
+      headers:
+        Cache-Control:
+          $ref: '#/components/headers/NoStore'
+        X-Trace-Id:
+          $ref: '#/components/headers/TraceId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    HoldAwareForbidden:
+      description: >-
+        The authority-increasing action is forbidden. SAFETY_HOLD_BLOCKED denotes
+        an available BLOCK decision and is never used for decision unavailability.
+      x-error-codes:
+        - POLICY_ACCEPTANCE_REQUIRED
+        - MFA_STEP_UP_REQUIRED
+        - SAFETY_HOLD_BLOCKED
+      headers:
+        Cache-Control:
+          $ref: '#/components/headers/NoStore'
+        X-Trace-Id:
+          $ref: '#/components/headers/TraceId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFound:
+      description: Resource is missing or cannot be disclosed to this actor
+      headers:
+        Cache-Control:
+          $ref: '#/components/headers/NoStore'
+        X-Trace-Id:
+          $ref: '#/components/headers/TraceId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    InvitationUnavailable:
+      description: Invitation is invalid, unavailable, terminal, expired, or not bound to this actor
+      headers:
+        Cache-Control:
+          $ref: '#/components/headers/NoStore'
+        X-Trace-Id:
+          $ref: '#/components/headers/TraceId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/InvitationUnavailableError'
+    Conflict:
+      description: Idempotency, policy version, membership, or current state conflict
+      headers:
+        Cache-Control:
+          $ref: '#/components/headers/NoStore'
+        X-Trace-Id:
+          $ref: '#/components/headers/TraceId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    PreconditionFailed:
+      description: If-Match does not match the current aggregate version
+      headers:
+        Cache-Control:
+          $ref: '#/components/headers/NoStore'
+        ETag:
+          $ref: '#/components/headers/ETag'
+        X-Trace-Id:
+          $ref: '#/components/headers/TraceId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    UnprocessableEntity:
+      description: Structurally valid request violates a closed business contract
+      headers:
+        Cache-Control:
+          $ref: '#/components/headers/NoStore'
+        X-Trace-Id:
+          $ref: '#/components/headers/TraceId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    TooManyRequests:
+      description: Rate or abuse limit exceeded without account enumeration detail
+      headers:
+        Cache-Control:
+          $ref: '#/components/headers/NoStore'
+        Retry-After:
+          description: Whole seconds before a safe retry.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 86400
+        X-Trace-Id:
+          $ref: '#/components/headers/TraceId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    ServiceUnavailable:
+      description: >-
+        Identity provider, safety policy, or policy configuration is unavailable,
+        or a post-COMMIT driver failure has unknown outcome; success is never guessed.
+      headers:
+        Cache-Control:
+          $ref: '#/components/headers/NoStore'
+        Retry-After:
+          description: Whole seconds before a safe retry, if known.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 86400
+        X-Trace-Id:
+          $ref: '#/components/headers/TraceId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    HoldAwareServiceUnavailable:
+      description: >-
+        The safety decision required for an authority-increasing action could not
+        be obtained; this is distinct from an available BLOCK decision.
+      x-error-codes:
+        - POLICY_CONFIGURATION_UNAVAILABLE
+        - SAFETY_DECISION_UNAVAILABLE
+        - COMMAND_OUTCOME_UNKNOWN
+        - SERVICE_UNAVAILABLE
+      headers:
+        Cache-Control:
+          $ref: '#/components/headers/NoStore'
+        Retry-After:
+          description: Whole seconds before a safe retry, if known.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 86400
+        X-Trace-Id:
+          $ref: '#/components/headers/TraceId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    MembershipUpdated:
+      description: Membership state changed
+      headers:
+        ETag:
+          $ref: '#/components/headers/ETag'
+        Cache-Control:
+          $ref: '#/components/headers/NoStore'
+        X-Trace-Id:
+          $ref: '#/components/headers/TraceId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/MembershipAdminDto'
+    PlatformUserUpdated:
+      description: Existing OIDC/IAM user authority or session state changed
+      headers:
+        ETag:
+          $ref: '#/components/headers/ETag'
+        Cache-Control:
+          $ref: '#/components/headers/NoStore'
+        X-Trace-Id:
+          $ref: '#/components/headers/TraceId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/PlatformUserAdminDto'
+  schemas:
+    OpaqueId:
+      type: string
+      minLength: 16
+      maxLength: 128
+      pattern: '^[A-Za-z0-9][A-Za-z0-9_-]{15,127}$'
+    Timestamp:
+      type: string
+      format: date-time
+    ContentSha256:
+      type: string
+      pattern: '^[a-f0-9]{64}$'
+    EntityTag:
+      type: string
+      minLength: 4
+      maxLength: 64
+      pattern: '^"v[1-9][0-9]*"$'
+    IdempotencyKey:
+      type: string
+      minLength: 16
+      maxLength: 128
+      pattern: '^[A-Za-z0-9][A-Za-z0-9._~-]{15,127}$'
+    CsrfToken:
+      type: string
+      minLength: 32
+      maxLength: 512
+      pattern: '^[A-Za-z0-9_-]+$'
+      x-sensitive: true
+      x-log-policy: redact
+    ProtocolSecret:
+      type: string
+      minLength: 32
+      maxLength: 2048
+      pattern: '^[A-Za-z0-9._~-]+$'
+      writeOnly: true
+      x-sensitive: true
+      x-log-policy: redact
+    CapabilityTokenResponse:
+      type: string
+      minLength: 32
+      maxLength: 2048
+      pattern: '^[A-Za-z0-9._~-]+$'
+      description: >-
+        One-time capability returned only by the issue command and its exact receipt
+        replay; it is never logged, audited, or exposed by a read endpoint.
+      x-sensitive: true
+      x-log-policy: redact
+    TraceId:
+      type: string
+      minLength: 16
+      maxLength: 128
+      pattern: '^[A-Za-z0-9_-]+$'
+    UserStatus:
+      type: string
+      enum: [PENDING_ENROLLMENT, ACTIVE, SUSPENDED, CLOSED]
+    OrganizationStatus:
+      type: string
+      enum: [PENDING_ADMIN, ACTIVE, SUSPENDED, CLOSED]
+    OrganizationType:
+      type: string
+      enum: [BUSINESS, NONPROFIT, COMMUNITY, CREATOR_TEAM]
+    MembershipStatus:
+      type: string
+      enum: [ACTIVE, SUSPENDED, REVOKED]
+    AccessInvitationStatus:
+      type: string
+      enum: [ISSUED, ACCEPTED, REVOKED, EXPIRED]
+    SessionStatus:
+      type: string
+      enum: [ACTIVE, REVOKED, EXPIRED]
+    ConsentStatus:
+      type: string
+      enum: [ACTIVE, WITHDRAWN, EXPIRED]
+    AccessInvitationPurpose:
+      type: string
+      enum: [CREATOR_ENROLLMENT, ORGANIZATION_MEMBERSHIP]
+    UserRole:
+      type: string
+      enum: [CREATOR]
+    OrganizationRole:
+      type: string
+      enum: [ORG_ADMIN, DEMAND_OWNER]
+    RoleCode:
+      type: string
+      enum:
+        - CREATOR
+        - ORG_ADMIN
+        - DEMAND_OWNER
+    PolicyKind:
+      type: string
+      enum: [TERMS, PRIVACY_NOTICE, COMMUNITY_TRANSACTION_COVENANT, CONSENT_TEXT]
+    PolicyLegalEffect:
+      type: string
+      enum: [NOTICE_ACKNOWLEDGEMENT, CONTRACT_ACCEPTANCE, CONSENT_TEXT]
+    PolicyDocumentStatus:
+      type: string
+      enum: [DRAFT, ACTIVE, SUPERSEDED, RETIRED]
+    ConsentPurpose:
+      type: string
+      enum: [PILOT_RESEARCH, AI_ASSISTED_PROCESSING, DISCLOSE_PROFILE_FIELDS_TO_PARTY]
+    ConsentScopeType:
+      type: string
+      enum: [PLATFORM_PARTICIPATION, ORGANIZATION, PROJECT, RECIPIENT_DISCLOSURE]
+    DataCategory:
+      type: string
+      enum: [PROFILE, MATCHING, RESEARCH, AI_INPUT, CONTACT, PROJECT]
+    ReasonCode:
+      type: string
+      minLength: 3
+      maxLength: 64
+      pattern: '^[A-Z][A-Z0-9_]{2,63}$'
+    ErrorCode:
+      type: string
+      enum:
+        - INVALID_REQUEST
+        - AUTHENTICATION_REQUIRED
+        - SESSION_EXPIRED
+        - AUTH_TRANSACTION_INVALID
+        - AUTHENTICATION_REJECTED
+        - POLICY_ACCEPTANCE_REQUIRED
+        - CONSENT_REQUIRED_FOR_PURPOSE
+        - MFA_STEP_UP_REQUIRED
+        - RESOURCE_NOT_FOUND
+        - ACCESS_INVITATION_UNAVAILABLE
+        - IDEMPOTENCY_KEY_REUSED
+        - POLICY_BUNDLE_CHANGED
+        - MEMBERSHIP_ALREADY_EXISTS
+        - INVALID_STATE_TRANSITION
+        - LAST_ACTIVE_ORG_ADMIN
+        - SELF_MANAGEMENT_FORBIDDEN
+        - LAST_ACTIVE_ACCESS_ADMIN
+        - PRECONDITION_FAILED
+        - RATE_LIMITED
+        - IDENTITY_PROVIDER_UNAVAILABLE
+        - POLICY_CONFIGURATION_UNAVAILABLE
+        - SAFETY_HOLD_BLOCKED
+        - SAFETY_DECISION_UNAVAILABLE
+        - COMMAND_OUTCOME_UNKNOWN
+        - SERVICE_UNAVAILABLE
+    FieldIssue:
+      type: object
+      additionalProperties: false
+      required: [path, code, message]
+      properties:
+        path:
+          type: string
+          minLength: 1
+          maxLength: 256
+          pattern: '^[A-Za-z0-9_\[\].-]+$'
+        code:
+          type: string
+          enum: [MISSING_REQUIRED, UNKNOWN_FIELD, INVALID_TYPE, INVALID_ENUM, INVALID_FORMAT, TOO_LARGE, CONFLICT]
+        message:
+          type: string
+          minLength: 1
+          maxLength: 300
+    ErrorResponse:
+      type: object
+      additionalProperties: false
+      required: [code, message, trace_id, field_issues]
+      properties:
+        code:
+          $ref: '#/components/schemas/ErrorCode'
+        message:
+          type: string
+          minLength: 1
+          maxLength: 500
+        trace_id:
+          $ref: '#/components/schemas/TraceId'
+        field_issues:
+          type: array
+          maxItems: 100
+          items:
+            $ref: '#/components/schemas/FieldIssue'
+        current_policy_bundle_id:
+          oneOf:
+            - $ref: '#/components/schemas/OpaqueId'
+            - type: 'null'
+    InvitationUnavailableError:
+      type: object
+      additionalProperties: false
+      required: [code, message, trace_id, field_issues]
+      properties:
+        code:
+          type: string
+          const: ACCESS_INVITATION_UNAVAILABLE
+        message:
+          type: string
+          const: Access invitation is unavailable.
+        trace_id:
+          $ref: '#/components/schemas/TraceId'
+        field_issues:
+          type: array
+          maxItems: 0
+          items:
+            $ref: '#/components/schemas/FieldIssue'
+    SafetyHoldBlockedError:
+      type: object
+      additionalProperties: false
+      required: [code, message, trace_id, field_issues]
+      properties:
+        code:
+          type: string
+          const: SAFETY_HOLD_BLOCKED
+        message:
+          type: string
+          const: The action is blocked by a safety hold.
+        trace_id:
+          $ref: '#/components/schemas/TraceId'
+        field_issues:
+          type: array
+          maxItems: 0
+          items:
+            $ref: '#/components/schemas/FieldIssue'
+    SafetyDecisionUnavailableError:
+      type: object
+      additionalProperties: false
+      required: [code, message, trace_id, field_issues]
+      properties:
+        code:
+          type: string
+          const: SAFETY_DECISION_UNAVAILABLE
+        message:
+          type: string
+          const: The required safety decision is unavailable.
+        trace_id:
+          $ref: '#/components/schemas/TraceId'
+        field_issues:
+          type: array
+          maxItems: 0
+          items:
+            $ref: '#/components/schemas/FieldIssue'
+    BeginOidcAuthorizationRequest:
+      type: object
+      additionalProperties: false
+      required: [return_to]
+      properties:
+        access_invitation_token:
+          $ref: '#/components/schemas/ProtocolSecret'
+          x-sensitive: true
+          x-log-policy: redact
+        reauthenticate:
+          type: boolean
+          default: false
+          description: >-
+            Closed authenticated same-User STEP_UP intent. It requires the
+            current Session cookie and cannot be combined with an invitation
+            token.
+        return_to:
+          type: string
+          minLength: 1
+          maxLength: 512
+          pattern: '^/(?!/)[A-Za-z0-9/_?&=.%~-]*$'
+    BeginOidcAuthorizationResponse:
+      type: object
+      additionalProperties: false
+      required: [auth_transaction_id, authorization_url, expires_at]
+      properties:
+        auth_transaction_id:
+          $ref: '#/components/schemas/OpaqueId'
+        authorization_url:
+          type: string
+          format: uri
+          minLength: 16
+          maxLength: 4096
+          x-sensitive: true
+          x-log-policy: redact
+        expires_at:
+          $ref: '#/components/schemas/Timestamp'
+    SessionBootstrapDto:
+      type: object
+      additionalProperties: false
+      required: [session, user_status, csrf_token]
+      properties:
+        session:
+          $ref: '#/components/schemas/SessionDto'
+        user_status:
+          $ref: '#/components/schemas/UserStatus'
+        csrf_token:
+          allOf:
+            - $ref: '#/components/schemas/CsrfToken'
+          writeOnly: false
+          x-sensitive: true
+          x-log-policy: redact
+    InspectAccessInvitationRequest:
+      type: object
+      additionalProperties: false
+      required: [access_invitation_token]
+      properties:
+        access_invitation_token:
+          $ref: '#/components/schemas/ProtocolSecret'
+          x-sensitive: true
+          x-log-policy: redact
+    PolicyAcceptanceInput:
+      type: object
+      additionalProperties: false
+      required: [document_id, content_sha256, affirmed]
+      properties:
+        document_id:
+          $ref: '#/components/schemas/OpaqueId'
+        content_sha256:
+          $ref: '#/components/schemas/ContentSha256'
+        affirmed:
+          type: boolean
+          const: true
+    ConsentOfferChoiceInput:
+      type: object
+      additionalProperties: false
+      required: [consent_offer_id, document_id, content_sha256, affirmed]
+      properties:
+        consent_offer_id:
+          $ref: '#/components/schemas/OpaqueId'
+        document_id:
+          $ref: '#/components/schemas/OpaqueId'
+        content_sha256:
+          $ref: '#/components/schemas/ContentSha256'
+        affirmed:
+          type: boolean
+          const: true
+    AcceptAccessInvitationRequest:
+      type: object
+      additionalProperties: false
+      required: [policy_bundle_id, policy_acceptances, consent_grants]
+      properties:
+        policy_bundle_id:
+          $ref: '#/components/schemas/OpaqueId'
+        policy_acceptances:
+          type: array
+          minItems: 1
+          maxItems: 20
+          uniqueItems: true
+          items:
+            $ref: '#/components/schemas/PolicyAcceptanceInput'
+        consent_grants:
+          type: array
+          maxItems: 20
+          uniqueItems: true
+          items:
+            $ref: '#/components/schemas/ConsentOfferChoiceInput'
+    AcceptPoliciesRequest:
+      type: object
+      additionalProperties: false
+      required: [policy_requirement, policy_bundle_id, policy_acceptances]
+      properties:
+        policy_requirement:
+          $ref: '#/components/schemas/PolicyRequirementReferenceInput'
+        policy_bundle_id:
+          $ref: '#/components/schemas/OpaqueId'
+        policy_acceptances:
+          type: array
+          minItems: 1
+          maxItems: 20
+          uniqueItems: true
+          items:
+            $ref: '#/components/schemas/PolicyAcceptanceInput'
+    GrantConsentRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - policy_requirement
+        - policy_bundle_id
+        - consent_offer_id
+        - document_id
+        - content_sha256
+        - affirmed
+      properties:
+        policy_requirement:
+          $ref: '#/components/schemas/PolicyRequirementReferenceInput'
+        policy_bundle_id:
+          $ref: '#/components/schemas/OpaqueId'
+        consent_offer_id:
+          $ref: '#/components/schemas/OpaqueId'
+        document_id:
+          $ref: '#/components/schemas/OpaqueId'
+        content_sha256:
+          $ref: '#/components/schemas/ContentSha256'
+        affirmed:
+          type: boolean
+          const: true
+    ReasonRequest:
+      type: object
+      additionalProperties: false
+      required: [reason_code]
+      properties:
+        reason_code:
+          $ref: '#/components/schemas/ReasonCode'
+        reason_note:
+          oneOf:
+            - type: string
+              minLength: 1
+              maxLength: 500
+            - type: 'null'
+    UpdateOrganizationPublicNameRequest:
+      type: object
+      additionalProperties: false
+      required: [public_name, reason_code]
+      properties:
+        public_name:
+          type: string
+          minLength: 1
+          maxLength: 160
+          description: Trimmed NFC text containing no Unicode Cc or Cf code points.
+          pattern: '^(?!.*[\u0000-\u001F\u007F-\u009F])\S(?:.*\S)?$'
+        reason_code:
+          type: string
+          const: PUBLIC_NAME_CORRECTION
+    OrganizationSummaryDto:
+      type: object
+      additionalProperties: false
+      required: [organization_id, public_name, type, status, aggregate_version, entity_tag]
+      properties:
+        organization_id:
+          $ref: '#/components/schemas/OpaqueId'
+        public_name:
+          type: string
+          minLength: 1
+          maxLength: 160
+        type:
+          $ref: '#/components/schemas/OrganizationType'
+        status:
+          $ref: '#/components/schemas/OrganizationStatus'
+        aggregate_version:
+          type: integer
+          minimum: 1
+        entity_tag:
+          $ref: '#/components/schemas/EntityTag'
+    OrganizationInvitationPreviewDto:
+      type: object
+      additionalProperties: false
+      required: [public_name]
+      properties:
+        public_name:
+          type: string
+          minLength: 1
+          maxLength: 160
+    PolicyRequirementScopeType:
+      type: string
+      enum: [USER_ROLE, ORGANIZATION_ROLE]
+    PolicyRequirementReferenceInput:
+      type: object
+      additionalProperties: false
+      description: >-
+        Exact stored authority reference copied from one /me.policy_requirements
+        item. This scope selects a policy requirement; it is not a client-selected
+        ConsentGrant authorization scope.
+      required: [selector_digest, scope_type, scope_id]
+      properties:
+        selector_digest:
+          $ref: '#/components/schemas/ContentSha256'
+        scope_type:
+          $ref: '#/components/schemas/PolicyRequirementScopeType'
+        scope_id:
+          oneOf:
+            - $ref: '#/components/schemas/OpaqueId'
+            - type: 'null'
+      oneOf:
+        - properties:
+            scope_type:
+              const: USER_ROLE
+            scope_id:
+              type: 'null'
+        - properties:
+            scope_type:
+              const: ORGANIZATION_ROLE
+            scope_id:
+              $ref: '#/components/schemas/OpaqueId'
+    PolicyRequirementStatusDto:
+      type: object
+      additionalProperties: false
+      required:
+        - selector_digest
+        - purpose
+        - role
+        - scope_type
+        - scope_id
+        - satisfied
+        - required_policy_bundle_id
+        - missing_document_ids
+      properties:
+        selector_digest:
+          $ref: '#/components/schemas/ContentSha256'
+        purpose:
+          $ref: '#/components/schemas/AccessInvitationPurpose'
+        role:
+          $ref: '#/components/schemas/RoleCode'
+        scope_type:
+          $ref: '#/components/schemas/PolicyRequirementScopeType'
+        scope_id:
+          oneOf:
+            - $ref: '#/components/schemas/OpaqueId'
+            - type: 'null'
+        satisfied:
+          type: boolean
+        required_policy_bundle_id:
+          oneOf:
+            - $ref: '#/components/schemas/OpaqueId'
+            - type: 'null'
+        missing_document_ids:
+          type: array
+          maxItems: 20
+          uniqueItems: true
+          items:
+            $ref: '#/components/schemas/OpaqueId'
+    MembershipSelfDto:
+      type: object
+      additionalProperties: false
+      required: [membership_id, organization, status, roles, aggregate_version, entity_tag]
+      properties:
+        membership_id:
+          $ref: '#/components/schemas/OpaqueId'
+        organization:
+          $ref: '#/components/schemas/OrganizationSummaryDto'
+        status:
+          $ref: '#/components/schemas/MembershipStatus'
+        roles:
+          type: array
+          minItems: 1
+          maxItems: 2
+          uniqueItems: true
+          items:
+            $ref: '#/components/schemas/OrganizationRole'
+        aggregate_version:
+          type: integer
+          minimum: 1
+        entity_tag:
+          $ref: '#/components/schemas/EntityTag'
+    MeDto:
+      type: object
+      additionalProperties: false
+      required:
+        - user_id
+        - status
+        - display_handle
+        - user_roles
+        - memberships
+        - policy_requirements
+        - aggregate_version
+        - entity_tag
+      properties:
+        user_id:
+          $ref: '#/components/schemas/OpaqueId'
+        status:
+          $ref: '#/components/schemas/UserStatus'
+        display_handle:
+          type: string
+          minLength: 2
+          maxLength: 80
+          pattern: '^[A-Za-z0-9][A-Za-z0-9_-]{1,79}$'
+        user_roles:
+          type: array
+          maxItems: 1
+          uniqueItems: true
+          items:
+            $ref: '#/components/schemas/UserRole'
+        memberships:
+          type: array
+          maxItems: 100
+          items:
+            $ref: '#/components/schemas/MembershipSelfDto'
+        policy_requirements:
+          type: array
+          maxItems: 100
+          uniqueItems: true
+          items:
+            $ref: '#/components/schemas/PolicyRequirementStatusDto'
+        aggregate_version:
+          type: integer
+          minimum: 1
+        entity_tag:
+          $ref: '#/components/schemas/EntityTag'
+    AccessInvitationPreviewDto:
+      type: object
+      additionalProperties: false
+      required:
+        - invitation_id
+        - purpose
+        - organization
+        - target_role
+        - expires_at
+        - required_policy_bundle_id
+        - status
+        - aggregate_version
+        - entity_tag
+      properties:
+        invitation_id:
+          $ref: '#/components/schemas/OpaqueId'
+        purpose:
+          $ref: '#/components/schemas/AccessInvitationPurpose'
+        organization:
+          oneOf:
+            - $ref: '#/components/schemas/OrganizationInvitationPreviewDto'
+            - type: 'null'
+        target_role:
+          $ref: '#/components/schemas/RoleCode'
+        expires_at:
+          $ref: '#/components/schemas/Timestamp'
+        required_policy_bundle_id:
+          $ref: '#/components/schemas/OpaqueId'
+        status:
+          type: string
+          const: ISSUED
+        aggregate_version:
+          type: integer
+          minimum: 1
+        entity_tag:
+          $ref: '#/components/schemas/EntityTag'
+    AccessInvitationAdminDto:
+      type: object
+      additionalProperties: false
+      required:
+        - invitation_id
+        - purpose
+        - organization_id
+        - target_role
+        - masked_recipient_label
+        - is_initial_admin
+        - status
+        - expires_at
+        - created_at
+        - required_policy_bundle_id
+        - aggregate_version
+        - entity_tag
+      properties:
+        invitation_id:
+          $ref: '#/components/schemas/OpaqueId'
+        purpose:
+          $ref: '#/components/schemas/AccessInvitationPurpose'
+        organization_id:
+          oneOf:
+            - $ref: '#/components/schemas/OpaqueId'
+            - type: 'null'
+        target_role:
+          $ref: '#/components/schemas/RoleCode'
+        masked_recipient_label:
+          type: string
+          minLength: 3
+          maxLength: 80
+          description: Irreversible display mask; never the full contact locator.
+        is_initial_admin:
+          type: boolean
+        status:
+          $ref: '#/components/schemas/AccessInvitationStatus'
+        expires_at:
+          $ref: '#/components/schemas/Timestamp'
+        created_at:
+          $ref: '#/components/schemas/Timestamp'
+        required_policy_bundle_id:
+          $ref: '#/components/schemas/OpaqueId'
+          description: Current effective selector result at projection time; not merely the issued bundle.
+        aggregate_version:
+          type: integer
+          minimum: 1
+        entity_tag:
+          $ref: '#/components/schemas/EntityTag'
+    AccessInvitationAcceptanceDto:
+      type: object
+      additionalProperties: false
+      required: [invitation, me, activated_scope]
+      properties:
+        invitation:
+          $ref: '#/components/schemas/AccessInvitationAdminDto'
+        me:
+          $ref: '#/components/schemas/MeDto'
+        activated_scope:
+          type: string
+          enum: [USER_ROLE, ORGANIZATION_MEMBERSHIP]
+    IssueOrganizationAccessInvitationRequest:
+      type: object
+      additionalProperties: false
+      required: [recipient, target_role, expires_at]
+      properties:
+        recipient:
+          $ref: '#/components/schemas/RecipientInput'
+        target_role:
+          $ref: '#/components/schemas/OrganizationRole'
+        expires_at:
+          $ref: '#/components/schemas/Timestamp'
+    RecipientInput:
+      type: object
+      additionalProperties: false
+      required: [type, value]
+      properties:
+        type:
+          type: string
+          const: EMAIL
+        value:
+          type: string
+          format: email
+          minLength: 3
+          maxLength: 254
+          writeOnly: true
+    IssueAccessInvitationResponse:
+      type: object
+      additionalProperties: false
+      required: [invitation, access_invitation_token, join_fragment_url]
+      properties:
+        invitation:
+          $ref: '#/components/schemas/AccessInvitationAdminDto'
+        access_invitation_token:
+          $ref: '#/components/schemas/CapabilityTokenResponse'
+          x-sensitive: true
+          x-log-policy: redact
+        join_fragment_url:
+          type: string
+          minLength: 32
+          maxLength: 4096
+          pattern: '^/(?!/)[^#]*#[A-Za-z0-9/_?&=.%~-]+$'
+          x-sensitive: true
+          x-log-policy: redact
+    PolicyDocumentDto:
+      type: object
+      additionalProperties: false
+      required:
+        - document_id
+        - kind
+        - semantic_version
+        - locale
+        - content_sha256
+        - legal_effect
+        - body
+      properties:
+        document_id:
+          $ref: '#/components/schemas/OpaqueId'
+        kind:
+          $ref: '#/components/schemas/PolicyKind'
+        semantic_version:
+          type: string
+          minLength: 1
+          maxLength: 64
+          pattern: '^[0-9]+\.[0-9]+\.[0-9]+(?:-[A-Za-z0-9.-]+)?$'
+        locale:
+          type: string
+          minLength: 2
+          maxLength: 35
+          pattern: '^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})*$'
+        content_sha256:
+          $ref: '#/components/schemas/ContentSha256'
+        legal_effect:
+          $ref: '#/components/schemas/PolicyLegalEffect'
+        body:
+          type: string
+          minLength: 1
+          maxLength: 200000
+    ConsentOfferDto:
+      type: object
+      additionalProperties: false
+      required:
+        - consent_offer_id
+        - purpose
+        - scope_type
+        - data_categories
+        - document_id
+        - content_sha256
+        - recipient_label
+        - expiry_rule
+        - not_after
+        - canonical_offer_sha256
+        - optional
+      properties:
+        consent_offer_id:
+          $ref: '#/components/schemas/OpaqueId'
+        purpose:
+          $ref: '#/components/schemas/ConsentPurpose'
+        scope_type:
+          $ref: '#/components/schemas/ConsentScopeType'
+        data_categories:
+          type: array
+          minItems: 1
+          maxItems: 20
+          uniqueItems: true
+          items:
+            $ref: '#/components/schemas/DataCategory'
+        document_id:
+          $ref: '#/components/schemas/OpaqueId'
+        content_sha256:
+          $ref: '#/components/schemas/ContentSha256'
+        recipient_label:
+          type: string
+          minLength: 1
+          maxLength: 160
+          description: Safe public label; never an internal recipient reference or contact locator.
+        expiry_rule:
+          type: string
+          enum:
+            - FIXED_NOT_AFTER
+            - EARLIER_OF_GRANTED_AT_PLUS_365_DAYS_OR_NOT_AFTER
+        not_after:
+          $ref: '#/components/schemas/Timestamp'
+        canonical_offer_sha256:
+          $ref: '#/components/schemas/ContentSha256'
+          description: >-
+            Digest of all server-canonical authorization facts, including the
+            versioned internal recipient binding, without exposing that reference.
+        optional:
+          type: boolean
+          const: true
+    PolicyBundleDto:
+      type: object
+      additionalProperties: false
+      required:
+        - policy_bundle_id
+        - purpose
+        - jurisdiction
+        - locale
+        - documents
+        - consent_offers
+        - effective_at
+        - entity_tag
+      properties:
+        policy_bundle_id:
+          $ref: '#/components/schemas/OpaqueId'
+        purpose:
+          $ref: '#/components/schemas/AccessInvitationPurpose'
+        jurisdiction:
+          type: string
+          minLength: 2
+          maxLength: 32
+          pattern: '^[A-Z0-9_-]+$'
+        locale:
+          type: string
+          minLength: 2
+          maxLength: 35
+        documents:
+          type: array
+          minItems: 1
+          maxItems: 20
+          items:
+            $ref: '#/components/schemas/PolicyDocumentDto'
+        consent_offers:
+          type: array
+          maxItems: 20
+          items:
+            $ref: '#/components/schemas/ConsentOfferDto'
+        effective_at:
+          $ref: '#/components/schemas/Timestamp'
+        entity_tag:
+          $ref: '#/components/schemas/EntityTag'
+    ConsentGrantDto:
+      type: object
+      additionalProperties: false
+      required:
+        - consent_grant_id
+        - consent_offer_id
+        - purpose
+        - scope_type
+        - scope_id
+        - data_categories
+        - recipient_label
+        - document_id
+        - content_sha256
+        - granted_at
+        - expires_at
+        - status
+        - aggregate_version
+        - entity_tag
+      properties:
+        consent_grant_id:
+          $ref: '#/components/schemas/OpaqueId'
+        consent_offer_id:
+          $ref: '#/components/schemas/OpaqueId'
+        purpose:
+          $ref: '#/components/schemas/ConsentPurpose'
+        scope_type:
+          $ref: '#/components/schemas/ConsentScopeType'
+        scope_id:
+          oneOf:
+            - $ref: '#/components/schemas/OpaqueId'
+            - type: 'null'
+        data_categories:
+          type: array
+          minItems: 1
+          maxItems: 20
+          uniqueItems: true
+          items:
+            $ref: '#/components/schemas/DataCategory'
+        recipient_label:
+          type: string
+          minLength: 1
+          maxLength: 160
+          description: Safe public label; never an internal recipient reference or contact locator.
+        document_id:
+          $ref: '#/components/schemas/OpaqueId'
+        content_sha256:
+          $ref: '#/components/schemas/ContentSha256'
+        granted_at:
+          $ref: '#/components/schemas/Timestamp'
+        expires_at:
+          $ref: '#/components/schemas/Timestamp'
+        status:
+          $ref: '#/components/schemas/ConsentStatus'
+        aggregate_version:
+          type: integer
+          minimum: 1
+        entity_tag:
+          $ref: '#/components/schemas/EntityTag'
+    SessionDto:
+      type: object
+      additionalProperties: false
+      required:
+        - session_id
+        - created_at
+        - last_activity_at
+        - expires_at
+        - is_current
+        - device_label
+        - status
+      properties:
+        session_id:
+          $ref: '#/components/schemas/OpaqueId'
+        created_at:
+          $ref: '#/components/schemas/Timestamp'
+        last_activity_at:
+          $ref: '#/components/schemas/Timestamp'
+        expires_at:
+          $ref: '#/components/schemas/Timestamp'
+        is_current:
+          type: boolean
+        device_label:
+          type: string
+          minLength: 1
+          maxLength: 80
+          description: Coarse allowlisted label; never a full User-Agent or fingerprint.
+        status:
+          $ref: '#/components/schemas/SessionStatus'
+    MembershipAdminDto:
+      type: object
+      additionalProperties: false
+      required:
+        - membership_id
+        - organization_id
+        - user_id
+        - display_handle
+        - status
+        - roles
+        - aggregate_version
+        - entity_tag
+      properties:
+        membership_id:
+          $ref: '#/components/schemas/OpaqueId'
+        organization_id:
+          $ref: '#/components/schemas/OpaqueId'
+        user_id:
+          $ref: '#/components/schemas/OpaqueId'
+        display_handle:
+          type: string
+          minLength: 2
+          maxLength: 80
+          pattern: '^[A-Za-z0-9][A-Za-z0-9_-]{1,79}$'
+        status:
+          $ref: '#/components/schemas/MembershipStatus'
+        roles:
+          type: array
+          minItems: 1
+          maxItems: 2
+          uniqueItems: true
+          items:
+            $ref: '#/components/schemas/OrganizationRole'
+        aggregate_version:
+          type: integer
+          minimum: 1
+        entity_tag:
+          $ref: '#/components/schemas/EntityTag'
+    PlatformUserAdminDto:
+      type: object
+      additionalProperties: false
+      description: >-
+        Safe ACCESS_ADMIN command result over the existing OIDC/IAM User. Session
+        counts describe only rows revoked by this exact idempotent command.
+      required:
+        - user_id
+        - display_handle
+        - status
+        - aggregate_version
+        - entity_tag
+        - revoked_session_count
+        - revoked_session_family_count
+      properties:
+        user_id:
+          $ref: '#/components/schemas/OpaqueId'
+        display_handle:
+          type: string
+          minLength: 2
+          maxLength: 80
+          pattern: '^[A-Za-z0-9][A-Za-z0-9_-]{1,79}$'
+        status:
+          $ref: '#/components/schemas/UserStatus'
+        aggregate_version:
+          type: integer
+          minimum: 1
+        entity_tag:
+          $ref: '#/components/schemas/EntityTag'
+        revoked_session_count:
+          type: integer
+          minimum: 0
+        revoked_session_family_count:
+          type: integer
+          minimum: 0
+    PageInfoDto:
+      type: object
+      additionalProperties: false
+      required: [next_cursor]
+      properties:
+        next_cursor:
+          oneOf:
+            - type: string
+              minLength: 108
+              maxLength: 1944
+              pattern: '^[A-Za-z0-9_-]{64,1900}\.[A-Za-z0-9_-]{43}$'
+            - type: 'null'
+    SessionPageDto:
+      type: object
+      additionalProperties: false
+      required: [items, page]
+      properties:
+        items:
+          type: array
+          maxItems: 100
+          items:
+            $ref: '#/components/schemas/SessionDto'
+        page:
+          $ref: '#/components/schemas/PageInfoDto'
+    ConsentGrantPageDto:
+      type: object
+      additionalProperties: false
+      required: [items, page]
+      properties:
+        items:
+          type: array
+          maxItems: 100
+          items:
+            $ref: '#/components/schemas/ConsentGrantDto'
+        page:
+          $ref: '#/components/schemas/PageInfoDto'
+    AccessInvitationPageDto:
+      type: object
+      additionalProperties: false
+      required: [items, page]
+      properties:
+        items:
+          type: array
+          maxItems: 100
+          items:
+            $ref: '#/components/schemas/AccessInvitationAdminDto'
+        page:
+          $ref: '#/components/schemas/PageInfoDto'
+    MembershipPageDto:
+      type: object
+      additionalProperties: false
+      required: [items, page]
+      properties:
+        items:
+          type: array
+          maxItems: 100
+          items:
+            $ref: '#/components/schemas/MembershipAdminDto'
+        page:
+          $ref: '#/components/schemas/PageInfoDto'

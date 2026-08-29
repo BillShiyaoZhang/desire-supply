@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://desire-supply.local/contracts/domain/taxonomy-edges-v1.schema.json",
+  "title": "Taxonomy edges v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "canonicalization_version", "bundle_id", "family_code", "edges"],
+  "properties": {
+    "schema_version": {"type": "integer", "const": 1},
+    "canonicalization_version": {"type": "string", "const": "taxonomy-edges-json-v1"},
+    "bundle_id": {"$ref": "#/$defs/OpaqueId"},
+    "family_code": {"$ref": "#/$defs/Code"},
+    "edges": {
+      "type": "array",
+      "maxItems": 500000,
+      "items": {"$ref": "#/$defs/Edge"}
+    }
+  },
+  "$defs": {
+    "OpaqueId": {"type": "string", "minLength": 16, "maxLength": 128, "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{15,127}$"},
+    "Code": {"type": "string", "minLength": 2, "maxLength": 64, "pattern": "^[A-Z0-9][A-Z0-9_.:-]{1,63}$"},
+    "Edge": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["edge_kind", "from_code", "to_code", "ordinal"],
+      "properties": {
+        "edge_kind": {"type": "string", "enum": ["BROADER_THAN", "NARROWER_THAN", "REQUIRES", "INCOMPATIBLE_WITH", "RELATED_TO", "ALLOWED_LEVEL", "LOCATED_IN"]},
+        "from_code": {"$ref": "#/$defs/Code"},
+        "to_code": {"$ref": "#/$defs/Code"},
+        "ordinal": {"type": "integer", "minimum": 1, "maximum": 2147483647}
+      }
+    }
+  }
+}

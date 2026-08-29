@@ -1,0 +1,712 @@
+openapi: 3.1.0
+info:
+  title: Desire Supply Demand API
+  version: 1.0.0-draft
+  summary: Organization-owned Demand and immutable version contract
+  description: >-
+    Independent executable contract for Demand v1. Contract tests are GREEN
+    while domain and application behavior is an intentional semantic RED.
+    Every request, response, and error object is closed and private no-store.
+  x-contract-status: contract-tests-green-domain-application-red
+jsonSchemaDialect: https://json-schema.org/draft/2020-12/schema
+servers:
+  - url: /
+tags:
+  - name: Demand Owner
+  - name: Demand Review
+  - name: Demand Operations
+paths:
+  /v1/organizations/{organization_id}/demands:
+    post:
+      tags: [Demand Owner]
+      operationId: createDemand
+      summary: Create a private Demand and immutable version 1
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OrganizationId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateDemandRequest'
+      responses:
+        '201':
+          $ref: '#/components/responses/DemandCreated'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /v1/organizations/{organization_id}/demands/{demand_id}:
+    get:
+      tags: [Demand Owner]
+      operationId: getDemand
+      summary: Read the exact organization owner's safe Demand projection
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OrganizationId'
+        - $ref: '#/components/parameters/DemandId'
+      responses:
+        '200':
+          $ref: '#/components/responses/DemandRead'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /v1/organizations/{organization_id}/demands/{demand_id}/versions:
+    post:
+      tags: [Demand Owner]
+      operationId: createDemandVersion
+      summary: Append an immutable full replacement of the current draft
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OrganizationId'
+        - $ref: '#/components/parameters/DemandId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateDemandVersionRequest'
+      responses:
+        '201':
+          $ref: '#/components/responses/DemandCreated'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /v1/organizations/{organization_id}/demands/{demand_id}/submit:
+    post:
+      tags: [Demand Owner]
+      operationId: submitDemand
+      summary: Submit the exact current immutable version for review
+      x-safety-hold-action: SUBMIT_DEMAND
+      x-content-policy-required: true
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OrganizationId'
+        - $ref: '#/components/parameters/DemandId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmptyCommandRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/DemandUpdated'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/HoldAwareForbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /v1/organizations/{organization_id}/demands/{demand_id}/cancel:
+    post:
+      tags: [Demand Owner]
+      operationId: cancelDemand
+      summary: Irreversibly cancel a Demand without claiming a refund completed
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OrganizationId'
+        - $ref: '#/components/parameters/DemandId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CancelDemandRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/DemandUpdated'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /v1/operations/demand-review-assignments/{assignment_id}/demand:
+    get:
+      tags: [Demand Review]
+      operationId: getAssignedDemand
+      summary: Read the exact active assignment's submitted Demand projection
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/AssignmentId'
+      responses:
+        '200':
+          $ref: '#/components/responses/DemandReviewRead'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /v1/operations/demand-review-assignments/{assignment_id}/release:
+    post:
+      tags: [Demand Review]
+      operationId: releaseDemandReviewAssignment
+      summary: Release the caller's active review assignment back to the queue
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/AssignmentId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReleaseDemandReviewAssignmentRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/DemandUpdated'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /v1/operations/demand-review-assignments/{assignment_id}/request-changes:
+    post:
+      tags: [Demand Review]
+      operationId: requestDemandChanges
+      summary: Append a structured exact-version review requiring changes
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/AssignmentId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RequestDemandChangesRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/DemandUpdated'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /v1/operations/demand-review-assignments/{assignment_id}/verify:
+    post:
+      tags: [Demand Review]
+      operationId: verifyDemand
+      summary: Verify the exact submitted version under assignment and duty separation
+      x-safety-hold-action: VERIFY_DEMAND
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/AssignmentId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VerifyDemandRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/DemandUpdated'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/HoldAwareForbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /v1/operations/demands/{demand_id}/request-funding:
+    post:
+      tags: [Demand Operations]
+      operationId: requestInitialDemandFunding
+      summary: Create an opaque exact-version funding requirement
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/DemandId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmptyCommandRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/DemandUpdated'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /v1/operations/demands/{demand_id}/request-matching:
+    post:
+      tags: [Demand Operations]
+      operationId: requestDemandMatching
+      summary: Freeze exact version, funding, and composite rule requirements
+      x-safety-hold-action: REQUEST_MATCHING
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/DemandId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmptyCommandRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/DemandUpdated'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/HoldAwareForbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+components:
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: __Host-desire_session
+  parameters:
+    OrganizationId:
+      name: organization_id
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/OpaqueId'
+    DemandId:
+      name: demand_id
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/OpaqueId'
+    AssignmentId:
+      name: assignment_id
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/OpaqueId'
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema:
+        type: string
+        minLength: 16
+        maxLength: 128
+    IfMatch:
+      name: If-Match
+      in: header
+      required: true
+      schema:
+        type: string
+        pattern: '^"v[1-9][0-9]*"$'
+    CsrfToken:
+      name: X-CSRF-Token
+      in: header
+      required: true
+      schema:
+        type: string
+        minLength: 32
+        maxLength: 256
+  schemas:
+    OpaqueId:
+      type: string
+      minLength: 16
+      maxLength: 128
+      pattern: '^[A-Za-z0-9][A-Za-z0-9_-]{15,127}$'
+    ContentSha256:
+      type: string
+      pattern: '^[a-f0-9]{64}$'
+    DemandStatus:
+      type: string
+      enum: [DRAFT, SUBMITTED, NEEDS_CHANGES, VERIFIED, FUNDING_PENDING, FUNDED, MATCHING, MATCHED, NO_MATCH, CANCELLED, EXPIRED]
+    EmptyCommandRequest:
+      type: object
+      additionalProperties: false
+      maxProperties: 0
+    CreateDemandRequest:
+      type: object
+      additionalProperties: false
+      required: [client_reference, taxonomy_bundle_id, content]
+      properties:
+        client_reference:
+          type: string
+          minLength: 1
+          maxLength: 128
+        taxonomy_bundle_id:
+          $ref: '#/components/schemas/OpaqueId'
+        content:
+          $ref: '../domain/demand-content-v1.schema.json#/$defs/DemandContent'
+    CreateDemandVersionRequest:
+      type: object
+      additionalProperties: false
+      required: [based_on_demand_version_id, taxonomy_bundle_id, content]
+      properties:
+        based_on_demand_version_id:
+          $ref: '#/components/schemas/OpaqueId'
+        taxonomy_bundle_id:
+          $ref: '#/components/schemas/OpaqueId'
+        content:
+          $ref: '../domain/demand-content-v1.schema.json#/$defs/DemandContent'
+    RequestDemandChangesRequest:
+      type: object
+      additionalProperties: false
+      required: [reason_codes, required_field_codes]
+      properties:
+        reason_codes:
+          type: array
+          minItems: 1
+          maxItems: 20
+          uniqueItems: true
+          items:
+            type: string
+            enum: [CONTENT_INCOMPLETE, SCOPE_UNCLEAR, ACCEPTANCE_UNCLEAR, BUDGET_UNHEALTHY, RISK_UNRESOLVED, DATA_PLAN_REQUIRED]
+        required_field_codes:
+          type: array
+          minItems: 1
+          maxItems: 50
+          uniqueItems: true
+          items:
+            type: string
+            enum: [PROBLEM, SCOPE, ACCEPTANCE, SKILLS, MATCHING, SCHEDULE, BUDGET, MILESTONE_PLAN, RISK, AI, COLLABORATION, LOCATION, DECLARATIONS]
+    ReleaseDemandReviewAssignmentRequest:
+      type: object
+      additionalProperties: false
+      required: [reason_code]
+      properties:
+        reason_code:
+          type: string
+          enum: [CONFLICT_DECLARED, WORKLOAD_RELEASE]
+    VerifyDemandRequest:
+      type: object
+      additionalProperties: false
+      required: [identity_subject_verified, payment_subject_verified, decision_authority_verified, budget_health_verified, budget_health_code, risk_code]
+      properties:
+        identity_subject_verified:
+          type: boolean
+          const: true
+        payment_subject_verified:
+          type: boolean
+          const: true
+        decision_authority_verified:
+          type: boolean
+          const: true
+        budget_health_verified:
+          type: boolean
+          const: true
+        budget_health_code:
+          type: string
+          enum: [HEALTHY, APPROVED_EXCEPTION]
+        risk_code:
+          type: string
+          enum: [STANDARD, ELEVATED_APPROVED]
+    CancelDemandRequest:
+      type: object
+      additionalProperties: false
+      required: [reason_code]
+      properties:
+        reason_code:
+          type: string
+          enum: [OWNER_WITHDREW, REQUIREMENTS_CHANGED, REVIEW_CLOSED, FUNDING_UNAVAILABLE, SAFETY_RESTRICTION]
+    DemandCommandResponse:
+      type: object
+      additionalProperties: false
+      required: [demand_id, organization_id, demand_version_id, status, aggregate_version, etag, replayed]
+      properties:
+        demand_id:
+          $ref: '#/components/schemas/OpaqueId'
+        organization_id:
+          $ref: '#/components/schemas/OpaqueId'
+        demand_version_id:
+          oneOf:
+            - $ref: '#/components/schemas/OpaqueId'
+            - type: 'null'
+        status:
+          $ref: '#/components/schemas/DemandStatus'
+        aggregate_version:
+          type: integer
+          minimum: 1
+          maximum: 2147483647
+        etag:
+          type: string
+          pattern: '^"v[1-9][0-9]*"$'
+        replayed:
+          type: boolean
+    DemandOwnerProjection:
+      type: object
+      additionalProperties: false
+      required: [demand_id, organization_id, status, aggregate_version, current_version_id, content_sha256, content, review_requirements]
+      properties:
+        demand_id:
+          $ref: '#/components/schemas/OpaqueId'
+        organization_id:
+          $ref: '#/components/schemas/OpaqueId'
+        status:
+          $ref: '#/components/schemas/DemandStatus'
+        aggregate_version:
+          type: integer
+          minimum: 1
+        current_version_id:
+          $ref: '#/components/schemas/OpaqueId'
+        content_sha256:
+          $ref: '#/components/schemas/ContentSha256'
+        content:
+          $ref: '../domain/demand-content-v1.schema.json#/$defs/DemandContent'
+        review_requirements:
+          oneOf:
+            - $ref: '#/components/schemas/RequestDemandChangesRequest'
+            - type: 'null'
+    DemandReviewProjection:
+      type: object
+      additionalProperties: false
+      required: [demand_id, organization_id, status, aggregate_version, demand_version_id, submission_id, content_sha256, content]
+      properties:
+        demand_id:
+          $ref: '#/components/schemas/OpaqueId'
+        organization_id:
+          $ref: '#/components/schemas/OpaqueId'
+        status:
+          type: string
+          const: SUBMITTED
+        aggregate_version:
+          type: integer
+          minimum: 1
+        demand_version_id:
+          $ref: '#/components/schemas/OpaqueId'
+        submission_id:
+          $ref: '#/components/schemas/OpaqueId'
+        content_sha256:
+          $ref: '#/components/schemas/ContentSha256'
+        content:
+          $ref: '../domain/demand-content-v1.schema.json#/$defs/DemandContent'
+    ErrorCode:
+      type: string
+      enum: [INVALID_REQUEST, AUTHENTICATION_REQUIRED, SESSION_EXPIRED, ACCESS_DENIED, SAFETY_HOLD_BLOCKED, RESOURCE_NOT_FOUND, DEMAND_ALREADY_EXISTS, INVALID_STATE_TRANSITION, IDEMPOTENCY_KEY_REUSED, TAXONOMY_BUNDLE_CHANGED, FUNDING_FACT_CHANGED, MATCHING_RULE_BUNDLE_CHANGED, PRECONDITION_FAILED, DEMAND_VALIDATION_FAILED, POLICY_ACCEPTANCE_REQUIRED, REVIEW_CONFLICT, FUNDING_REQUIRED, POLICY_CONFIGURATION_UNAVAILABLE, SERVICE_UNAVAILABLE]
+    ErrorResponse:
+      type: object
+      additionalProperties: false
+      required: [code, message, trace_id]
+      properties:
+        code:
+          $ref: '#/components/schemas/ErrorCode'
+        message:
+          type: string
+          minLength: 1
+          maxLength: 200
+        trace_id:
+          $ref: '#/components/schemas/OpaqueId'
+  headers:
+    ETag:
+      schema:
+        type: string
+        pattern: '^"v[1-9][0-9]*"$'
+    CacheControl:
+      required: true
+      schema:
+        type: string
+        const: no-store
+  responses:
+    DemandCreated:
+      description: Demand or immutable version created
+      headers:
+        ETag:
+          $ref: '#/components/headers/ETag'
+        Cache-Control:
+          $ref: '#/components/headers/CacheControl'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/DemandCommandResponse'
+    DemandUpdated:
+      description: Demand command completed
+      headers:
+        ETag:
+          $ref: '#/components/headers/ETag'
+        Cache-Control:
+          $ref: '#/components/headers/CacheControl'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/DemandCommandResponse'
+    DemandRead:
+      description: Owner-safe Demand projection
+      headers:
+        ETag:
+          $ref: '#/components/headers/ETag'
+        Cache-Control:
+          $ref: '#/components/headers/CacheControl'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/DemandOwnerProjection'
+    DemandReviewRead:
+      description: Exact assignment-safe Demand projection
+      headers:
+        ETag:
+          $ref: '#/components/headers/ETag'
+        Cache-Control:
+          $ref: '#/components/headers/CacheControl'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/DemandReviewProjection'
+    BadRequest:
+      description: Invalid closed request
+      $ref: '#/components/responses/Error'
+    Unauthorized:
+      description: Authentication required or expired
+      $ref: '#/components/responses/Error'
+    Forbidden:
+      description: Access denied
+      $ref: '#/components/responses/Error'
+    HoldAwareForbidden:
+      description: Access denied or SafetyHold blocked
+      $ref: '#/components/responses/Error'
+    NotFound:
+      description: Unknown or undisclosable resource
+      $ref: '#/components/responses/Error'
+    Conflict:
+      description: State, uniqueness, rule, funding, or idempotency conflict
+      $ref: '#/components/responses/Error'
+    PreconditionFailed:
+      description: Strong aggregate ETag is stale
+      $ref: '#/components/responses/Error'
+    UnprocessableEntity:
+      description: Closed business validation rejection
+      $ref: '#/components/responses/Error'
+    ServiceUnavailable:
+      description: Dependency unavailable or safe outcome cannot be established
+      $ref: '#/components/responses/Error'
+    Error:
+      description: Closed Demand error
+      headers:
+        Cache-Control:
+          $ref: '#/components/headers/CacheControl'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'

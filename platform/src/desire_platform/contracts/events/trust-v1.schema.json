@@ -1,0 +1,119 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.desire.example/events/trust-v1.schema.json",
+  "title": "Trust event envelope v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "actor_id",
+    "actor_kind",
+    "aggregate_id",
+    "aggregate_type",
+    "aggregate_version",
+    "causation_id",
+    "correlation_id",
+    "event_id",
+    "event_type",
+    "occurred_at",
+    "organization_id",
+    "original_actor_id",
+    "payload",
+    "schema_version",
+    "trace_id"
+  ],
+  "properties": {
+    "actor_id": {"$ref": "#/$defs/Uuid"},
+    "actor_kind": {"const": "USER"},
+    "aggregate_id": {"$ref": "#/$defs/Uuid"},
+    "aggregate_type": {"const": "SafetyCase"},
+    "aggregate_version": {"type": "integer", "minimum": 1},
+    "causation_id": {"$ref": "#/$defs/Uuid"},
+    "correlation_id": {"$ref": "#/$defs/Uuid"},
+    "event_id": {"$ref": "#/$defs/Uuid"},
+    "event_type": {
+      "type": "string",
+      "enum": [
+        "SafetyHoldPlaced",
+        "SafetyHoldReleased",
+        "TrustCaseAssignmentReleased",
+        "TrustCaseClaimed",
+        "TrustCaseOutcomePublished",
+        "TrustHoldReleaseClaimed",
+        "TrustReportSubmitted",
+        "TrustTriageDraftSaved",
+        "TrustTriagePublished"
+      ]
+    },
+    "occurred_at": {"$ref": "#/$defs/Timestamp"},
+    "organization_id": {"$ref": "#/$defs/Uuid"},
+    "original_actor_id": {
+      "oneOf": [{"$ref": "#/$defs/Uuid"}, {"type": "null"}]
+    },
+    "payload": {"$ref": "#/$defs/Payload"},
+    "schema_version": {"const": 1},
+    "trace_id": {"$ref": "#/$defs/Uuid"}
+  },
+  "$defs": {
+    "Uuid": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^(?!00000000-0000-0000-0000-000000000000$)[0-9a-f-]{36}$"
+    },
+    "Sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "Timestamp": {"type": "string", "format": "date-time", "pattern": "Z$"},
+    "Payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["case_id", "case_status"],
+      "properties": {
+        "action_codes": {
+          "type": "array",
+          "maxItems": 3,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "enum": ["REQUEST_MATCHING", "SUBMIT_DEMAND", "VERIFY_DEMAND"]
+          }
+        },
+        "appeal_deadline": {
+          "oneOf": [{"$ref": "#/$defs/Timestamp"}, {"type": "null"}]
+        },
+        "appeal_eligible": {"type": "boolean"},
+        "appeal_eligibility_code": {
+          "type": "string",
+          "enum": ["ELIGIBLE", "NOT_ELIGIBLE"]
+        },
+        "assignment_expires_at": {"$ref": "#/$defs/Timestamp"},
+        "assignment_id": {"$ref": "#/$defs/Uuid"},
+        "case_id": {"$ref": "#/$defs/Uuid"},
+        "case_status": {
+          "type": "string",
+          "enum": ["DECIDED", "IN_REVIEW", "OPEN", "TRIAGING"]
+        },
+        "content_sha256": {"$ref": "#/$defs/Sha256"},
+        "demand_id": {"$ref": "#/$defs/Uuid"},
+        "demand_version_id": {"$ref": "#/$defs/Uuid"},
+        "expires_at": {"$ref": "#/$defs/Timestamp"},
+        "hold_id": {"$ref": "#/$defs/Uuid"},
+        "hold_status": {"type": "string", "enum": ["ACTIVE", "RELEASED"]},
+        "hold_version": {"type": "integer", "minimum": 1},
+        "organization_id": {"$ref": "#/$defs/Uuid"},
+        "outcome_code": {
+          "type": "string",
+          "enum": [
+            "NO_ACTION",
+            "PROTECTION_LIFTED",
+            "PROTECTION_MAINTAINED",
+            "PROTECTION_MODIFIED",
+            "REMEDIATION_REQUIRED"
+          ]
+        },
+        "outcome_version": {"type": "integer", "minimum": 1},
+        "outcome_version_id": {"$ref": "#/$defs/Uuid"},
+        "report_id": {"$ref": "#/$defs/Uuid"},
+        "triage_draft_version": {"type": "integer", "minimum": 1},
+        "triage_version": {"type": "integer", "minimum": 1}
+      }
+    }
+  }
+}

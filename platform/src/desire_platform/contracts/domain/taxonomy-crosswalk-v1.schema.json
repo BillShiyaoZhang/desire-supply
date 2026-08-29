@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://desire-supply.local/contracts/domain/taxonomy-crosswalk-v1.schema.json",
+  "title": "Taxonomy crosswalk v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "canonicalization_version", "crosswalk_id", "source_bundle_id", "target_bundle_id", "compatibility_level", "mappings"],
+  "properties": {
+    "schema_version": {"type": "integer", "const": 1},
+    "canonicalization_version": {"type": "string", "const": "taxonomy-crosswalk-json-v1"},
+    "crosswalk_id": {"$ref": "#/$defs/OpaqueId"},
+    "source_bundle_id": {"$ref": "#/$defs/OpaqueId"},
+    "target_bundle_id": {"$ref": "#/$defs/OpaqueId"},
+    "compatibility_level": {"type": "string", "enum": ["PATCH_COMPATIBLE", "MINOR_COMPATIBLE", "MAJOR_BREAKING"]},
+    "mappings": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 100000,
+      "items": {"$ref": "#/$defs/Mapping"}
+    }
+  },
+  "$defs": {
+    "OpaqueId": {"type": "string", "minLength": 16, "maxLength": 128, "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{15,127}$"},
+    "Code": {"type": "string", "minLength": 2, "maxLength": 64, "pattern": "^[A-Z0-9][A-Z0-9_.:-]{1,63}$"},
+    "Mapping": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_code", "target_codes", "mapping_kind", "confidence_code", "review_reason_code"],
+      "properties": {
+        "source_code": {"$ref": "#/$defs/Code"},
+        "target_codes": {"type": "array", "maxItems": 5, "uniqueItems": true, "items": {"$ref": "#/$defs/Code"}},
+        "mapping_kind": {"type": "string", "enum": ["EXACT", "NARROWER", "BROADER", "SPLIT", "MERGE", "NO_SUCCESSOR"]},
+        "confidence_code": {"$ref": "#/$defs/Code"},
+        "review_reason_code": {"$ref": "#/$defs/Code"}
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"mapping_kind": {"const": "NO_SUCCESSOR"}}},
+          "then": {"properties": {"target_codes": {"maxItems": 0}}},
+          "else": {"properties": {"target_codes": {"minItems": 1}}}
+        },
+        {
+          "if": {"properties": {"mapping_kind": {"const": "EXACT"}}},
+          "then": {"properties": {"target_codes": {"minItems": 1, "maxItems": 1}}}
+        }
+      ]
+    }
+  }
+}

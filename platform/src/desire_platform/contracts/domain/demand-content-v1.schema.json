@@ -1,0 +1,308 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://desire-supply.local/contracts/domain/demand-content-v1.schema.json",
+  "title": "Demand canonical content v1",
+  "description": "Closed RFC 8785 hash surface for one immutable DemandVersion. Lifecycle, actors, review, funding, receipts, provider facts, raw client references, and secrets are outside this object.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "demand_schema_version",
+    "canonicalization_version",
+    "demand_id",
+    "version_no",
+    "taxonomy_bundle_id",
+    "content"
+  ],
+  "properties": {
+    "demand_schema_version": {"type": "integer", "const": 1},
+    "canonicalization_version": {"type": "string", "const": "demand-content-json-v1"},
+    "demand_id": {"$ref": "#/$defs/OpaqueId"},
+    "version_no": {"type": "integer", "minimum": 1, "maximum": 2147483647},
+    "taxonomy_bundle_id": {"$ref": "#/$defs/OpaqueId"},
+    "content": {"$ref": "#/$defs/DemandContent"}
+  },
+  "$defs": {
+    "OpaqueId": {
+      "type": "string",
+      "minLength": 16,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{15,127}$"
+    },
+    "TaxonomyCode": {
+      "type": "string",
+      "minLength": 2,
+      "maxLength": 64,
+      "pattern": "^[A-Z][A-Z0-9_.:-]{1,63}$"
+    },
+    "RegionCode": {
+      "type": "string",
+      "minLength": 2,
+      "maxLength": 32,
+      "pattern": "^[A-Z0-9][A-Z0-9-]{1,31}$"
+    },
+    "ItemId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^[a-z][a-z0-9_-]{0,63}$"
+    },
+    "Text120": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120,
+      "pattern": "^[^\\u0000-\\u001F\\u007F-\\u009F]+$"
+    },
+    "Text500": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 500,
+      "pattern": "^[^\\u0000-\\u001F\\u007F-\\u009F]+$"
+    },
+    "Text2000": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2000,
+      "pattern": "^[^\\u0000-\\u001F\\u007F-\\u009F]+$"
+    },
+    "Text4000": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4000,
+      "pattern": "^[^\\u0000-\\u001F\\u007F-\\u009F]+$"
+    },
+    "CodeList": {
+      "type": "array",
+      "maxItems": 32,
+      "uniqueItems": true,
+      "items": {"$ref": "#/$defs/TaxonomyCode"}
+    },
+    "Problem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["background", "domain_code", "problem_type_codes", "target_user_category_codes", "desired_outcomes"],
+      "properties": {
+        "background": {"$ref": "#/$defs/Text4000"},
+        "domain_code": {"$ref": "#/$defs/TaxonomyCode"},
+        "problem_type_codes": {"$ref": "#/$defs/CodeList"},
+        "target_user_category_codes": {"$ref": "#/$defs/CodeList"},
+        "desired_outcomes": {
+          "type": "array",
+          "maxItems": 20,
+          "items": {"$ref": "#/$defs/Text500"}
+        }
+      }
+    },
+    "Deliverable": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["item_id", "description"],
+      "properties": {
+        "item_id": {"$ref": "#/$defs/ItemId"},
+        "description": {"$ref": "#/$defs/Text500"}
+      }
+    },
+    "Scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["deliverables", "out_of_scope"],
+      "properties": {
+        "deliverables": {
+          "type": "array",
+          "maxItems": 50,
+          "items": {"$ref": "#/$defs/Deliverable"}
+        },
+        "out_of_scope": {
+          "type": "array",
+          "maxItems": 50,
+          "items": {"$ref": "#/$defs/Text500"}
+        }
+      }
+    },
+    "Criterion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["criterion_id", "description"],
+      "properties": {
+        "criterion_id": {"$ref": "#/$defs/ItemId"},
+        "description": {"$ref": "#/$defs/Text500"}
+      }
+    },
+    "Acceptance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["criteria", "response_days", "owner_role_code"],
+      "properties": {
+        "criteria": {
+          "type": "array",
+          "maxItems": 50,
+          "items": {"$ref": "#/$defs/Criterion"}
+        },
+        "response_days": {"type": "integer", "minimum": 1, "maximum": 30},
+        "owner_role_code": {"type": "string", "const": "DEMAND_OWNER"}
+      }
+    },
+    "SkillRequirement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["skill_code", "minimum_level_code"],
+      "properties": {
+        "skill_code": {"$ref": "#/$defs/TaxonomyCode"},
+        "minimum_level_code": {"type": "string", "enum": ["FOUNDATION", "WORKING", "ADVANCED", "EXPERT"]}
+      }
+    },
+    "SkillRequirements": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["must_have", "nice_to_have"],
+      "properties": {
+        "must_have": {"type": "array", "maxItems": 50, "items": {"$ref": "#/$defs/SkillRequirement"}},
+        "nice_to_have": {"type": "array", "maxItems": 50, "items": {"$ref": "#/$defs/SkillRequirement"}}
+      }
+    },
+    "Matching": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["problem_codes", "domain_codes", "task_codes"],
+      "properties": {
+        "problem_codes": {"$ref": "#/$defs/CodeList"},
+        "domain_codes": {"$ref": "#/$defs/CodeList"},
+        "task_codes": {"$ref": "#/$defs/CodeList"}
+      }
+    },
+    "Schedule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["start_date", "due_date", "estimated_days", "weekly_hours", "duration_weeks"],
+      "properties": {
+        "start_date": {"type": "string", "format": "date", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"},
+        "due_date": {"type": "string", "format": "date", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"},
+        "estimated_days": {"type": "integer", "minimum": 1, "maximum": 366},
+        "weekly_hours": {"type": "integer", "minimum": 1, "maximum": 80},
+        "duration_weeks": {"type": "integer", "minimum": 1, "maximum": 104}
+      }
+    },
+    "Budget": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["minimum_amount_minor", "maximum_amount_minor", "direct_cost_amount_minor", "currency"],
+      "properties": {
+        "minimum_amount_minor": {"type": "integer", "minimum": 0, "maximum": 9007199254740991},
+        "maximum_amount_minor": {"type": "integer", "minimum": 0, "maximum": 9007199254740991},
+        "direct_cost_amount_minor": {"type": "integer", "minimum": 0, "maximum": 9007199254740991},
+        "currency": {"type": "string", "pattern": "^[A-Z]{3}$"}
+      }
+    },
+    "MilestonePlanItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["item_id", "label", "percent"],
+      "properties": {
+        "item_id": {"$ref": "#/$defs/ItemId"},
+        "label": {"$ref": "#/$defs/Text120"},
+        "percent": {"type": "integer", "minimum": 1, "maximum": 100}
+      }
+    },
+    "MilestonePlan": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["items"],
+      "properties": {
+        "items": {"type": "array", "maxItems": 50, "items": {"$ref": "#/$defs/MilestonePlanItem"}}
+      }
+    },
+    "Risk": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["uncertainty_code", "urgency_code", "dependency_codes", "data_sensitivity", "data_handling_plan"],
+      "properties": {
+        "uncertainty_code": {"type": "string", "enum": ["LOW", "MEDIUM", "HIGH"]},
+        "urgency_code": {"type": "string", "enum": ["LOW", "MEDIUM", "HIGH"]},
+        "dependency_codes": {"$ref": "#/$defs/CodeList"},
+        "data_sensitivity": {"type": "string", "enum": ["PUBLIC", "INTERNAL", "HIGH", "RESTRICTED"]},
+        "data_handling_plan": {"oneOf": [{"$ref": "#/$defs/Text2000"}, {"type": "null"}]}
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"data_sensitivity": {"enum": ["HIGH", "RESTRICTED"]}}, "required": ["data_sensitivity"]},
+          "then": {"properties": {"data_handling_plan": {"$ref": "#/$defs/Text2000"}}}
+        }
+      ]
+    },
+    "AiPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["allowed", "required", "data_model_policy", "human_review_code"],
+      "properties": {
+        "allowed": {"type": "boolean"},
+        "required": {"type": "boolean"},
+        "data_model_policy": {"oneOf": [{"$ref": "#/$defs/Text2000"}, {"type": "null"}]},
+        "human_review_code": {"type": "string", "enum": ["NEVER", "RISK_BASED", "ALWAYS"]}
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"required": {"const": true}}, "required": ["required"]},
+          "then": {"properties": {"allowed": {"const": true}}}
+        },
+        {
+          "if": {"properties": {"allowed": {"const": true}}, "required": ["allowed"]},
+          "then": {"properties": {"data_model_policy": {"$ref": "#/$defs/Text2000"}}}
+        }
+      ]
+    },
+    "Collaboration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["languages", "work_mode", "feedback_cadence", "team_preference"],
+      "properties": {
+        "languages": {
+          "type": "array",
+          "maxItems": 20,
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 2, "maxLength": 35, "pattern": "^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})*$"}
+        },
+        "work_mode": {"type": "string", "enum": ["REMOTE", "HYBRID", "ONSITE", "FLEXIBLE"]},
+        "feedback_cadence": {"type": "string", "enum": ["ASYNC", "DAILY", "TWICE_WEEKLY", "WEEKLY"]},
+        "team_preference": {"type": "string", "enum": ["SOLO", "PAIR", "SMALL_TEAM", "ANY"]}
+      }
+    },
+    "Location": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["demand_region_code", "allowed_creator_region_codes"],
+      "properties": {
+        "demand_region_code": {"$ref": "#/$defs/RegionCode"},
+        "allowed_creator_region_codes": {"type": "array", "maxItems": 50, "uniqueItems": true, "items": {"$ref": "#/$defs/RegionCode"}}
+      }
+    },
+    "Declarations": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["decision_authority", "data_rights", "procurement_intent"],
+      "properties": {
+        "decision_authority": {"type": "boolean"},
+        "data_rights": {"type": "boolean"},
+        "procurement_intent": {"type": "boolean"}
+      }
+    },
+    "DemandContent": {
+      "type": "object",
+      "additionalProperties": false,
+      "maxProperties": 13,
+      "properties": {
+        "problem": {"$ref": "#/$defs/Problem"},
+        "scope": {"$ref": "#/$defs/Scope"},
+        "acceptance": {"$ref": "#/$defs/Acceptance"},
+        "skills": {"$ref": "#/$defs/SkillRequirements"},
+        "matching": {"$ref": "#/$defs/Matching"},
+        "schedule": {"$ref": "#/$defs/Schedule"},
+        "budget": {"$ref": "#/$defs/Budget"},
+        "milestone_plan": {"$ref": "#/$defs/MilestonePlan"},
+        "risk": {"$ref": "#/$defs/Risk"},
+        "ai": {"$ref": "#/$defs/AiPolicy"},
+        "collaboration": {"$ref": "#/$defs/Collaboration"},
+        "location": {"$ref": "#/$defs/Location"},
+        "declarations": {"$ref": "#/$defs/Declarations"}
+      }
+    }
+  }
+}

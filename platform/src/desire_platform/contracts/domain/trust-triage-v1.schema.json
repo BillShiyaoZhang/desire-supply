@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.desire.example/domain/trust-triage-v1.schema.json",
+  "title": "Trust triage draft v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "investigation_step_codes",
+    "issue_codes",
+    "jurisdiction_code",
+    "priority_code",
+    "proposed_hold_actions",
+    "proposed_hold_ttl_minutes",
+    "restricted_note",
+    "severity_code"
+  ],
+  "properties": {
+    "investigation_step_codes": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 16,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "enum": ["CHECK_ACCESS_SCOPE", "CHECK_DEMAND_VERSION", "CHECK_POLICY_REQUIREMENTS", "CHECK_SYNTHETIC_EVIDENCE", "REQUEST_PARTY_CLARIFICATION"]
+      }
+    },
+    "issue_codes": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 16,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "enum": ["DATA_HANDLING_GAP", "FRAUD_INDICATOR", "HARASSMENT_INDICATOR", "RETALIATION_INDICATOR", "SCOPE_DISCLOSURE_RISK", "WORKFLOW_INTEGRITY_GAP"]
+      }
+    },
+    "jurisdiction_code": {
+      "type": "string",
+      "enum": ["LEGAL_REVIEW_REQUIRED", "ORGANIZATION_POLICY", "PLATFORM_INTERNAL"]
+    },
+    "priority_code": {"type": "string", "enum": ["P0", "P1", "P2", "P3"]},
+    "proposed_hold_actions": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 3,
+      "uniqueItems": true,
+      "items": {"type": "string", "enum": ["REQUEST_MATCHING", "SUBMIT_DEMAND", "VERIFY_DEMAND"]}
+    },
+    "proposed_hold_ttl_minutes": {"type": "integer", "minimum": 15, "maximum": 10080},
+    "restricted_note": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4000,
+      "writeOnly": true
+    },
+    "severity_code": {"type": "string", "enum": ["CRITICAL", "HIGH", "LOW", "MEDIUM"]}
+  }
+}

@@ -1,0 +1,128 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://desire-supply.local/contracts/domain/taxonomy-release-v1.schema.json",
+  "title": "Taxonomy release manifest v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "canonicalization_version",
+    "bundle_id",
+    "family_code",
+    "semantic_version",
+    "selector",
+    "compatibility_level",
+    "predecessor_bundle_id",
+    "effective_at",
+    "effective_until",
+    "artifacts"
+  ],
+  "properties": {
+    "schema_version": {"type": "integer", "const": 1},
+    "canonicalization_version": {"type": "string", "const": "taxonomy-release-json-v1"},
+    "bundle_id": {"$ref": "#/$defs/OpaqueId"},
+    "family_code": {"$ref": "#/$defs/Code"},
+    "semantic_version": {"type": "string", "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$", "maxLength": 32},
+    "selector": {"$ref": "#/$defs/Selector"},
+    "compatibility_level": {"$ref": "#/$defs/CompatibilityLevel"},
+    "predecessor_bundle_id": {"$ref": "#/$defs/NullableOpaqueId"},
+    "effective_at": {"$ref": "#/$defs/Timestamp"},
+    "effective_until": {"$ref": "#/$defs/NullableTimestamp"},
+    "artifacts": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 23,
+      "items": {"$ref": "#/$defs/ArtifactDescriptor"}
+    }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"predecessor_bundle_id": {"type": "null"}}},
+      "then": {
+        "properties": {
+          "compatibility_level": {"type": "string", "const": "INITIAL"},
+          "semantic_version": {"type": "string", "const": "1.0.0"}
+        }
+      },
+      "else": {
+        "properties": {
+          "compatibility_level": {"type": "string", "enum": ["PATCH_COMPATIBLE", "MINOR_COMPATIBLE", "MAJOR_BREAKING"]}
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "OpaqueId": {"type": "string", "minLength": 16, "maxLength": 128, "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{15,127}$"},
+    "NullableOpaqueId": {"oneOf": [{"$ref": "#/$defs/OpaqueId"}, {"type": "null"}]},
+    "Code": {"type": "string", "minLength": 2, "maxLength": 64, "pattern": "^[A-Z0-9][A-Z0-9_.:-]{1,63}$"},
+    "Sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "Timestamp": {"type": "string", "format": "date-time", "pattern": "Z$"},
+    "NullableTimestamp": {"oneOf": [{"$ref": "#/$defs/Timestamp"}, {"type": "null"}]},
+    "Locale": {"type": "string", "minLength": 2, "maxLength": 35, "pattern": "^[A-Za-z]{2,8}(-[A-Za-z0-9]{1,8})*$"},
+    "CompatibilityLevel": {"type": "string", "enum": ["INITIAL", "PATCH_COMPATIBLE", "MINOR_COMPATIBLE", "MAJOR_BREAKING"]},
+    "Selector": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["jurisdiction_code", "locale_set_digest", "semantic_major", "intended_consumer_set_digest", "selector_digest"],
+      "properties": {
+        "jurisdiction_code": {"$ref": "#/$defs/Code"},
+        "locale_set_digest": {"$ref": "#/$defs/Sha256"},
+        "semantic_major": {"type": "integer", "minimum": 0, "maximum": 2147483647},
+        "intended_consumer_set_digest": {"$ref": "#/$defs/Sha256"},
+        "selector_digest": {"$ref": "#/$defs/Sha256"}
+      }
+    },
+    "ArtifactDescriptor": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["artifact_kind", "schema_name", "locale", "sha256", "item_count"],
+          "properties": {
+            "artifact_kind": {"type": "string", "const": "NODES"},
+            "schema_name": {"type": "string", "const": "taxonomy-nodes-v1"},
+            "locale": {"type": "null"},
+            "sha256": {"$ref": "#/$defs/Sha256"},
+            "item_count": {"type": "integer", "minimum": 1, "maximum": 100000}
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["artifact_kind", "schema_name", "locale", "sha256", "item_count"],
+          "properties": {
+            "artifact_kind": {"type": "string", "const": "EDGES"},
+            "schema_name": {"type": "string", "const": "taxonomy-edges-v1"},
+            "locale": {"type": "null"},
+            "sha256": {"$ref": "#/$defs/Sha256"},
+            "item_count": {"type": "integer", "minimum": 0, "maximum": 500000}
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["artifact_kind", "schema_name", "locale", "sha256", "item_count"],
+          "properties": {
+            "artifact_kind": {"type": "string", "const": "LABELS"},
+            "schema_name": {"type": "string", "const": "taxonomy-labels-v1"},
+            "locale": {"$ref": "#/$defs/Locale"},
+            "sha256": {"$ref": "#/$defs/Sha256"},
+            "item_count": {"type": "integer", "minimum": 1, "maximum": 100000}
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["artifact_kind", "schema_name", "locale", "sha256", "item_count"],
+          "properties": {
+            "artifact_kind": {"type": "string", "const": "CROSSWALK"},
+            "schema_name": {"type": "string", "const": "taxonomy-crosswalk-v1"},
+            "locale": {"type": "null"},
+            "sha256": {"$ref": "#/$defs/Sha256"},
+            "item_count": {"type": "integer", "minimum": 1, "maximum": 100000}
+          }
+        }
+      ]
+    }
+  }
+}

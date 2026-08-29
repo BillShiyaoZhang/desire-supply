@@ -1,0 +1,97 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://desire-supply.local/contracts/domain/matching-rule-release-v1.schema.json",
+  "title": "Matching rule release canonical manifest v1",
+  "description": "Closed reviewed release manifest. Signature material, credentials, approval bodies, Demand/Profile content and private compensation facts are not representable.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "canonicalization_version", "bundle_id", "semantic_version",
+    "selector_digest", "jurisdiction_code", "locale", "demand_type_code",
+    "taxonomy_family_code", "engine_identifier", "engine_major",
+    "engine_artifact_sha256", "taxonomy_bundle_id", "budget_rule_version",
+    "matching_rule_version", "reason_code_version", "explanation_template_version",
+    "hard_filters", "components", "invitation_limit", "golden_vectors",
+    "effective_at", "effective_until"
+  ],
+  "properties": {
+    "schema_version": {"type": "integer", "const": 1},
+    "canonicalization_version": {"type": "string", "const": "matching-rule-release-json-v1"},
+    "bundle_id": {"$ref": "#/$defs/OpaqueId"},
+    "semantic_version": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$", "maxLength": 32},
+    "selector_digest": {"$ref": "#/$defs/Sha256"},
+    "jurisdiction_code": {"$ref": "#/$defs/Code"},
+    "locale": {"type": "string", "pattern": "^[a-z]{2}(?:-[A-Z]{2})?$", "maxLength": 16},
+    "demand_type_code": {"$ref": "#/$defs/Code"},
+    "taxonomy_family_code": {"$ref": "#/$defs/Code"},
+    "engine_identifier": {"type": "string", "const": "deterministic-matcher-v1"},
+    "engine_major": {"type": "integer", "const": 1},
+    "engine_artifact_sha256": {"$ref": "#/$defs/Sha256"},
+    "taxonomy_bundle_id": {"$ref": "#/$defs/OpaqueId"},
+    "budget_rule_version": {"$ref": "#/$defs/VersionCode"},
+    "matching_rule_version": {"$ref": "#/$defs/VersionCode"},
+    "reason_code_version": {"$ref": "#/$defs/VersionCode"},
+    "explanation_template_version": {"$ref": "#/$defs/VersionCode"},
+    "hard_filters": {
+      "type": "array", "minItems": 15, "maxItems": 15, "uniqueItems": true,
+      "x-exact-code-order": ["CREATOR_INACTIVE", "BOUNDARY_DOMAIN", "BOUNDARY_TASK", "MISSING_MUST_HAVE_SKILL", "DATE_CONFLICT", "CAPACITY_CONFLICT", "DURATION_CONFLICT", "CURRENCY_MISMATCH", "BELOW_PRIVATE_FLOOR", "DATA_POLICY_CONFLICT", "AI_POLICY_CONFLICT", "LANGUAGE_MISMATCH", "WORK_MODE_CONFLICT", "LOCATION_RESTRICTION", "CONFLICT_OF_INTEREST"],
+      "x-ordinal-sequence": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
+      "items": {"$ref": "#/$defs/HardFilter"}
+    },
+    "components": {
+      "type": "array", "minItems": 6, "maxItems": 6, "uniqueItems": true,
+      "x-exact-code-order": ["interest", "capability", "availability", "compensation", "collaboration", "evidence_trust"],
+      "x-ordinal-sequence": [1, 2, 3, 4, 5, 6],
+      "x-weight-bps-sum": 10000,
+      "items": {"$ref": "#/$defs/Component"}
+    },
+    "invitation_limit": {"type": "integer", "minimum": 1, "maximum": 100},
+    "golden_vectors": {
+      "type": "array", "minItems": 3, "maxItems": 100, "uniqueItems": true,
+      "x-sorted-by": "vector_id:utf8-bytes",
+      "x-required-coverage": ["excluded", "same-score-tie", "budget-override"],
+      "items": {"$ref": "#/$defs/GoldenVector"}
+    },
+    "effective_at": {"$ref": "#/$defs/Timestamp"},
+    "effective_until": {"oneOf": [{"$ref": "#/$defs/Timestamp"}, {"type": "null"}]}
+  },
+  "$defs": {
+    "OpaqueId": {"type": "string", "minLength": 16, "maxLength": 128, "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{15,127}$"},
+    "Sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "Timestamp": {"type": "string", "format": "date-time", "pattern": "Z$"},
+    "Code": {"type": "string", "minLength": 2, "maxLength": 64, "pattern": "^[A-Z][A-Z0-9_.:-]{1,63}$"},
+    "VersionCode": {"type": "string", "minLength": 1, "maxLength": 64, "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,63}$"},
+    "HardFilterCode": {
+      "type": "string",
+      "enum": ["CREATOR_INACTIVE", "BOUNDARY_DOMAIN", "BOUNDARY_TASK", "MISSING_MUST_HAVE_SKILL", "DATE_CONFLICT", "CAPACITY_CONFLICT", "DURATION_CONFLICT", "CURRENCY_MISMATCH", "BELOW_PRIVATE_FLOOR", "DATA_POLICY_CONFLICT", "AI_POLICY_CONFLICT", "LANGUAGE_MISMATCH", "WORK_MODE_CONFLICT", "LOCATION_RESTRICTION", "CONFLICT_OF_INTEREST"]
+    },
+    "ComponentCode": {"type": "string", "enum": ["interest", "capability", "availability", "compensation", "collaboration", "evidence_trust"]},
+    "HardFilter": {
+      "type": "object", "additionalProperties": false,
+      "required": ["code", "ordinal", "enabled"],
+      "properties": {
+        "code": {"$ref": "#/$defs/HardFilterCode"},
+        "ordinal": {"type": "integer", "minimum": 1, "maximum": 15},
+        "enabled": {"type": "boolean"}
+      }
+    },
+    "Component": {
+      "type": "object", "additionalProperties": false,
+      "required": ["code", "ordinal", "weight_bps"],
+      "properties": {
+        "code": {"$ref": "#/$defs/ComponentCode"},
+        "ordinal": {"type": "integer", "minimum": 1, "maximum": 6},
+        "weight_bps": {"type": "integer", "minimum": 0, "maximum": 10000}
+      }
+    },
+    "GoldenVector": {
+      "type": "object", "additionalProperties": false,
+      "required": ["vector_id", "input_sha256", "expected_result_sha256"],
+      "properties": {
+        "vector_id": {"$ref": "#/$defs/OpaqueId"},
+        "input_sha256": {"$ref": "#/$defs/Sha256"},
+        "expected_result_sha256": {"$ref": "#/$defs/Sha256"}
+      }
+    }
+  }
+}

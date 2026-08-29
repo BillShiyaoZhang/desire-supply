@@ -1,0 +1,118 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://desire-supply.local/contracts/events/taxonomy-v1.schema.json",
+  "title": "Taxonomy v1 events",
+  "description": "Closed invalidation events. Artifact bodies, definitions, labels, mappings, signatures, approvals, credentials, locators and raw idempotency keys are not representable.",
+  "$ref": "#/$defs/EventEnvelope",
+  "oneOf": [
+    {"$ref": "#/$defs/TaxonomyBundlePublishedEvent"},
+    {"$ref": "#/$defs/TaxonomyBundleSupersededEvent"},
+    {"$ref": "#/$defs/TaxonomyBundleRetiredEvent"},
+    {"$ref": "#/$defs/TaxonomyCrosswalkPublishedEvent"}
+  ],
+  "$defs": {
+    "OpaqueId": {"type": "string", "minLength": 16, "maxLength": 128, "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{15,127}$"},
+    "NullableOpaqueId": {"oneOf": [{"$ref": "#/$defs/OpaqueId"}, {"type": "null"}]},
+    "Code": {"type": "string", "minLength": 2, "maxLength": 64, "pattern": "^[A-Z0-9][A-Z0-9_.:-]{1,63}$"},
+    "Sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "Timestamp": {"type": "string", "format": "date-time", "pattern": "Z$"},
+    "AggregateVersion": {"type": "integer", "minimum": 1, "maximum": 2147483647},
+    "EventType": {"type": "string", "enum": ["TaxonomyBundlePublished", "TaxonomyBundleSuperseded", "TaxonomyBundleRetired", "TaxonomyCrosswalkPublished"]},
+    "EventEnvelope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "event_id", "event_type", "schema_version", "occurred_at",
+        "aggregate_type", "aggregate_id", "aggregate_version",
+        "actor_kind", "actor_id", "original_actor_id", "correlation_id",
+        "causation_id", "trace_id", "organization_id", "payload"
+      ],
+      "properties": {
+        "event_id": {"$ref": "#/$defs/OpaqueId"},
+        "event_type": {"$ref": "#/$defs/EventType"},
+        "schema_version": {"type": "integer", "const": 1},
+        "occurred_at": {"$ref": "#/$defs/Timestamp"},
+        "aggregate_type": {"type": "string", "enum": ["TaxonomyBundle", "TaxonomyCrosswalk"]},
+        "aggregate_id": {"$ref": "#/$defs/OpaqueId"},
+        "aggregate_version": {"$ref": "#/$defs/AggregateVersion"},
+        "actor_kind": {"type": "string", "const": "SYSTEM"},
+        "actor_id": {"$ref": "#/$defs/OpaqueId"},
+        "original_actor_id": {"$ref": "#/$defs/NullableOpaqueId"},
+        "correlation_id": {"$ref": "#/$defs/OpaqueId"},
+        "causation_id": {"$ref": "#/$defs/OpaqueId"},
+        "trace_id": {"$ref": "#/$defs/OpaqueId"},
+        "organization_id": {"type": "null"},
+        "payload": {}
+      }
+    },
+    "BundlePublishedPayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["bundle_id", "family_code", "semantic_version", "selector_digest", "release_manifest_sha256", "effective_at", "status"],
+      "properties": {
+        "bundle_id": {"$ref": "#/$defs/OpaqueId"},
+        "family_code": {"$ref": "#/$defs/Code"},
+        "semantic_version": {"type": "string", "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"},
+        "selector_digest": {"$ref": "#/$defs/Sha256"},
+        "release_manifest_sha256": {"$ref": "#/$defs/Sha256"},
+        "effective_at": {"$ref": "#/$defs/Timestamp"},
+        "status": {"type": "string", "const": "ACTIVE"}
+      }
+    },
+    "BundleSupersededPayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["bundle_id", "successor_bundle_id", "status"],
+      "properties": {
+        "bundle_id": {"$ref": "#/$defs/OpaqueId"},
+        "successor_bundle_id": {"$ref": "#/$defs/OpaqueId"},
+        "status": {"type": "string", "const": "SUPERSEDED"}
+      }
+    },
+    "BundleRetiredPayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["bundle_id", "status", "reason_code"],
+      "properties": {
+        "bundle_id": {"$ref": "#/$defs/OpaqueId"},
+        "status": {"type": "string", "const": "RETIRED"},
+        "reason_code": {"$ref": "#/$defs/Code"}
+      }
+    },
+    "CrosswalkPublishedPayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["crosswalk_id", "source_bundle_id", "target_bundle_id", "manifest_sha256"],
+      "properties": {
+        "crosswalk_id": {"$ref": "#/$defs/OpaqueId"},
+        "source_bundle_id": {"$ref": "#/$defs/OpaqueId"},
+        "target_bundle_id": {"$ref": "#/$defs/OpaqueId"},
+        "manifest_sha256": {"$ref": "#/$defs/Sha256"}
+      }
+    },
+    "TaxonomyBundlePublishedEvent": {
+      "allOf": [
+        {"$ref": "#/$defs/EventEnvelope"},
+        {"properties": {"event_type": {"const": "TaxonomyBundlePublished"}, "aggregate_type": {"const": "TaxonomyBundle"}, "payload": {"$ref": "#/$defs/BundlePublishedPayload"}}}
+      ]
+    },
+    "TaxonomyBundleSupersededEvent": {
+      "allOf": [
+        {"$ref": "#/$defs/EventEnvelope"},
+        {"properties": {"event_type": {"const": "TaxonomyBundleSuperseded"}, "aggregate_type": {"const": "TaxonomyBundle"}, "payload": {"$ref": "#/$defs/BundleSupersededPayload"}}}
+      ]
+    },
+    "TaxonomyBundleRetiredEvent": {
+      "allOf": [
+        {"$ref": "#/$defs/EventEnvelope"},
+        {"properties": {"event_type": {"const": "TaxonomyBundleRetired"}, "aggregate_type": {"const": "TaxonomyBundle"}, "payload": {"$ref": "#/$defs/BundleRetiredPayload"}}}
+      ]
+    },
+    "TaxonomyCrosswalkPublishedEvent": {
+      "allOf": [
+        {"$ref": "#/$defs/EventEnvelope"},
+        {"properties": {"event_type": {"const": "TaxonomyCrosswalkPublished"}, "aggregate_type": {"const": "TaxonomyCrosswalk"}, "payload": {"$ref": "#/$defs/CrosswalkPublishedPayload"}}}
+      ]
+    }
+  }
+}

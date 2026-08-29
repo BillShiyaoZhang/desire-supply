@@ -1,0 +1,198 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://desire-supply.local/contracts/events/profile-v1.schema.json",
+  "title": "Desire Supply Creator Profile v1 events",
+  "description": "Closed invalidation events for Creator Profile. Content, skills, availability, compensation, boundaries, conflicts, evidence references, legacy references, locators, raw requests, and secrets are not representable.",
+  "$ref": "#/$defs/EventEnvelope",
+  "oneOf": [
+    {"$ref": "#/$defs/CreatorProfileCreatedEvent"},
+    {"$ref": "#/$defs/CreatorProfilePublishedEvent"},
+    {"$ref": "#/$defs/CreatorProfilePausedEvent"},
+    {"$ref": "#/$defs/CreatorProfileResumedEvent"},
+    {"$ref": "#/$defs/CreatorProfileArchivedEvent"}
+  ],
+  "$defs": {
+    "OpaqueId": {
+      "type": "string",
+      "minLength": 16,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{15,127}$"
+    },
+    "NullableOpaqueId": {
+      "oneOf": [{"$ref": "#/$defs/OpaqueId"}, {"type": "null"}]
+    },
+    "Timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "Z$"
+    },
+    "ContentSha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "AggregateVersion": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 2147483647
+    },
+    "ActorKind": {"type": "string", "enum": ["USER", "SYSTEM"]},
+    "EventType": {
+      "type": "string",
+      "enum": [
+        "CreatorProfileCreated",
+        "CreatorProfilePublished",
+        "CreatorProfilePaused",
+        "CreatorProfileResumed",
+        "CreatorProfileArchived"
+      ]
+    },
+    "EventEnvelope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "event_id",
+        "event_type",
+        "schema_version",
+        "occurred_at",
+        "aggregate_type",
+        "aggregate_id",
+        "aggregate_version",
+        "actor_kind",
+        "actor_id",
+        "original_actor_id",
+        "correlation_id",
+        "causation_id",
+        "trace_id",
+        "organization_id",
+        "payload"
+      ],
+      "properties": {
+        "event_id": {"$ref": "#/$defs/OpaqueId"},
+        "event_type": {"$ref": "#/$defs/EventType"},
+        "schema_version": {"type": "integer", "const": 1},
+        "occurred_at": {"$ref": "#/$defs/Timestamp"},
+        "aggregate_type": {"type": "string", "const": "CreatorProfile"},
+        "aggregate_id": {"$ref": "#/$defs/OpaqueId"},
+        "aggregate_version": {"$ref": "#/$defs/AggregateVersion"},
+        "actor_kind": {"$ref": "#/$defs/ActorKind"},
+        "actor_id": {"$ref": "#/$defs/OpaqueId"},
+        "original_actor_id": {"$ref": "#/$defs/NullableOpaqueId"},
+        "correlation_id": {"$ref": "#/$defs/OpaqueId"},
+        "causation_id": {"$ref": "#/$defs/OpaqueId"},
+        "trace_id": {"$ref": "#/$defs/OpaqueId"},
+        "organization_id": {"type": "null"},
+        "payload": {}
+      }
+    },
+    "CreatorProfileCreatedPayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["profile_id", "owner_user_id", "status"],
+      "properties": {
+        "profile_id": {"$ref": "#/$defs/OpaqueId"},
+        "owner_user_id": {"$ref": "#/$defs/OpaqueId"},
+        "status": {"type": "string", "const": "DRAFT"}
+      }
+    },
+    "CreatorProfilePublishedPayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "profile_id",
+        "profile_version_id",
+        "version_no",
+        "content_sha256",
+        "taxonomy_bundle_id",
+        "status"
+      ],
+      "properties": {
+        "profile_id": {"$ref": "#/$defs/OpaqueId"},
+        "profile_version_id": {"$ref": "#/$defs/OpaqueId"},
+        "version_no": {"type": "integer", "minimum": 1, "maximum": 2147483647},
+        "content_sha256": {"$ref": "#/$defs/ContentSha256"},
+        "taxonomy_bundle_id": {"$ref": "#/$defs/OpaqueId"},
+        "status": {"type": "string", "const": "ACTIVE"}
+      }
+    },
+    "CreatorProfileStatusPayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["profile_id", "owner_user_id", "status"],
+      "properties": {
+        "profile_id": {"$ref": "#/$defs/OpaqueId"},
+        "owner_user_id": {"$ref": "#/$defs/OpaqueId"},
+        "status": {"type": "string", "enum": ["ACTIVE", "PAUSED", "ARCHIVED"]}
+      }
+    },
+    "CreatorProfileCreatedEvent": {
+      "allOf": [
+        {"$ref": "#/$defs/EventEnvelope"},
+        {
+          "properties": {
+            "event_type": {"const": "CreatorProfileCreated"},
+            "payload": {"$ref": "#/$defs/CreatorProfileCreatedPayload"}
+          }
+        }
+      ]
+    },
+    "CreatorProfilePublishedEvent": {
+      "allOf": [
+        {"$ref": "#/$defs/EventEnvelope"},
+        {
+          "properties": {
+            "event_type": {"const": "CreatorProfilePublished"},
+            "payload": {"$ref": "#/$defs/CreatorProfilePublishedPayload"}
+          }
+        }
+      ]
+    },
+    "CreatorProfilePausedEvent": {
+      "allOf": [
+        {"$ref": "#/$defs/EventEnvelope"},
+        {
+          "properties": {
+            "event_type": {"const": "CreatorProfilePaused"},
+            "payload": {
+              "allOf": [
+                {"$ref": "#/$defs/CreatorProfileStatusPayload"},
+                {"properties": {"status": {"const": "PAUSED"}}}
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "CreatorProfileResumedEvent": {
+      "allOf": [
+        {"$ref": "#/$defs/EventEnvelope"},
+        {
+          "properties": {
+            "event_type": {"const": "CreatorProfileResumed"},
+            "payload": {
+              "allOf": [
+                {"$ref": "#/$defs/CreatorProfileStatusPayload"},
+                {"properties": {"status": {"const": "ACTIVE"}}}
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "CreatorProfileArchivedEvent": {
+      "allOf": [
+        {"$ref": "#/$defs/EventEnvelope"},
+        {
+          "properties": {
+            "event_type": {"const": "CreatorProfileArchived"},
+            "payload": {
+              "allOf": [
+                {"$ref": "#/$defs/CreatorProfileStatusPayload"},
+                {"properties": {"status": {"const": "ARCHIVED"}}}
+              ]
+            }
+          }
+        }
+      ]
+    }
+  }
+}

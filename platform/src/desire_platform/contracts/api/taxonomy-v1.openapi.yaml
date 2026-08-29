@@ -1,0 +1,796 @@
+openapi: 3.1.0
+info:
+  title: Desire Supply Taxonomy API
+  version: 1.0.0-draft
+  summary: Immutable controlled-code release and exact-resource read contract
+  description: >-
+    Contract-first Taxonomy v1 surface. Public reads require an exact bundle,
+    code, or bundle pair. Internal publish and retire commands are restricted
+    to authenticated SYSTEM workloads. All objects are closed and no endpoint
+    provides a global current selector, free search, arbitrary filter, raw
+    artifact body, signing material, approval body, or storage locator.
+  x-contract-status: contract-tests-green-domain-application-planned
+jsonSchemaDialect: https://json-schema.org/draft/2020-12/schema
+servers:
+  - url: /
+tags:
+  - name: Taxonomy
+  - name: Taxonomy Internal
+paths:
+  /v1/taxonomy-bundles/{bundle_id}:
+    get:
+      tags: [Taxonomy]
+      operationId: getTaxonomyBundle
+      summary: Read one known immutable ACTIVE or SUPERSEDED bundle
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/BundleId'
+      x-error-codes: [INVALID_REQUEST, RESOURCE_NOT_FOUND, SERVICE_UNAVAILABLE]
+      responses:
+        '200':
+          $ref: '#/components/responses/BundleRead'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /v1/taxonomy-bundles/{bundle_id}/nodes/{code}:
+    get:
+      tags: [Taxonomy]
+      operationId: getTaxonomyNode
+      summary: Read one known code in one known immutable bundle
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/BundleId'
+        - $ref: '#/components/parameters/NodeCode'
+        - $ref: '#/components/parameters/Locale'
+      x-error-codes: [INVALID_REQUEST, RESOURCE_NOT_FOUND, SERVICE_UNAVAILABLE]
+      responses:
+        '200':
+          $ref: '#/components/responses/NodeRead'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /v1/taxonomy-bundles/{bundle_id}/nodes:
+    get:
+      tags: [Taxonomy]
+      operationId: listTaxonomyNodes
+      summary: Page nodes in one known immutable bundle by code bytes
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/BundleId'
+        - $ref: '#/components/parameters/NodeKind'
+        - $ref: '#/components/parameters/Locale'
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      x-error-codes: [INVALID_REQUEST, INVALID_CURSOR, RESOURCE_NOT_FOUND, SERVICE_UNAVAILABLE]
+      responses:
+        '200':
+          $ref: '#/components/responses/NodePageRead'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /v1/taxonomy-bundles/{source_bundle_id}/crosswalks/{target_bundle_id}:
+    get:
+      tags: [Taxonomy]
+      operationId: getTaxonomyCrosswalk
+      summary: Read one reviewed crosswalk for an exact source and target pair
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/SourceBundleId'
+        - $ref: '#/components/parameters/TargetBundleId'
+      x-error-codes: [INVALID_REQUEST, RESOURCE_NOT_FOUND, SERVICE_UNAVAILABLE]
+      responses:
+        '200':
+          $ref: '#/components/responses/CrosswalkRead'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /internal/v1/taxonomy-bundles:publish:
+    post:
+      tags: [Taxonomy Internal]
+      operationId: publishTaxonomyBundle
+      summary: Validate and atomically publish one signed reviewed release
+      security:
+        - systemWorkloadAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PublishTaxonomyBundleRequest'
+      x-error-codes:
+        - INVALID_REQUEST
+        - AUTHENTICATION_REQUIRED
+        - ACCESS_DENIED
+        - INVALID_STATE_TRANSITION
+        - IDEMPOTENCY_KEY_REUSED
+        - TAXONOMY_SELECTOR_CONFLICT
+        - TAXONOMY_RELEASE_INVALID
+        - PRECONDITION_FAILED
+        - REVIEW_APPROVAL_REQUIRED
+        - TAXONOMY_COMPATIBILITY_REJECTED
+        - SERVICE_UNAVAILABLE
+      responses:
+        '201':
+          $ref: '#/components/responses/BundleCreated'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /internal/v1/taxonomy-bundles/{bundle_id}:retire:
+    post:
+      tags: [Taxonomy Internal]
+      operationId: retireTaxonomyBundle
+      summary: Retire one exact immutable bundle without deleting history
+      security:
+        - systemWorkloadAuth: []
+      parameters:
+        - $ref: '#/components/parameters/BundleId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RetireTaxonomyBundleRequest'
+      x-error-codes:
+        - INVALID_REQUEST
+        - AUTHENTICATION_REQUIRED
+        - ACCESS_DENIED
+        - INVALID_STATE_TRANSITION
+        - IDEMPOTENCY_KEY_REUSED
+        - PRECONDITION_FAILED
+        - SERVICE_UNAVAILABLE
+      responses:
+        '200':
+          $ref: '#/components/responses/BundleUpdated'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+components:
+  securitySchemes:
+    systemWorkloadAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: opaque-operation-attestation
+  parameters:
+    BundleId:
+      name: bundle_id
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/OpaqueId'
+    SourceBundleId:
+      name: source_bundle_id
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/OpaqueId'
+    TargetBundleId:
+      name: target_bundle_id
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/OpaqueId'
+    NodeCode:
+      name: code
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/Code'
+    NodeKind:
+      name: kind
+      in: query
+      required: false
+      schema:
+        $ref: '#/components/schemas/NodeKind'
+    Locale:
+      name: locale
+      in: query
+      required: true
+      schema:
+        $ref: '#/components/schemas/Locale'
+    Cursor:
+      name: cursor
+      in: query
+      required: false
+      schema:
+        type: string
+        minLength: 16
+        maxLength: 2048
+    Limit:
+      name: limit
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 200
+        default: 50
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema:
+        type: string
+        minLength: 16
+        maxLength: 255
+      x-sensitive: true
+      x-log-policy: redact
+    IfMatch:
+      name: If-Match
+      in: header
+      required: true
+      schema:
+        type: string
+        pattern: '^"v[0-9]+"$'
+  schemas:
+    OpaqueId:
+      type: string
+      minLength: 16
+      maxLength: 128
+      pattern: '^[A-Za-z0-9][A-Za-z0-9_-]{15,127}$'
+    Code:
+      type: string
+      minLength: 2
+      maxLength: 64
+      pattern: '^[A-Z0-9][A-Z0-9_.:-]{1,63}$'
+    Sha256:
+      type: string
+      pattern: '^[a-f0-9]{64}$'
+    Timestamp:
+      type: string
+      format: date-time
+      pattern: 'Z$'
+    NullableTimestamp:
+      oneOf:
+        - $ref: '#/components/schemas/Timestamp'
+        - type: 'null'
+    NullableOpaqueId:
+      oneOf:
+        - $ref: '#/components/schemas/OpaqueId'
+        - type: 'null'
+    Locale:
+      type: string
+      minLength: 2
+      maxLength: 35
+      pattern: '^[A-Za-z]{2,8}(-[A-Za-z0-9]{1,8})*$'
+    NodeKind:
+      type: string
+      enum:
+        - DOMAIN
+        - PROBLEM_TYPE
+        - TASK
+        - SKILL
+        - SKILL_LEVEL
+        - TARGET_USER_CATEGORY
+        - WORK_MODE
+        - FEEDBACK_CADENCE
+        - TEAM_PREFERENCE
+        - REGION
+        - LANGUAGE
+        - DATA_SENSITIVITY
+        - AI_USE
+        - RISK
+        - DELIVERY_KIND
+        - REVIEW_REASON
+    SelectorDto:
+      type: object
+      additionalProperties: false
+      required: [jurisdiction_code, locale_set_digest, semantic_major, intended_consumer_set_digest, selector_digest]
+      properties:
+        jurisdiction_code:
+          $ref: '#/components/schemas/Code'
+        locale_set_digest:
+          $ref: '#/components/schemas/Sha256'
+        semantic_major:
+          type: integer
+          minimum: 0
+          maximum: 2147483647
+        intended_consumer_set_digest:
+          $ref: '#/components/schemas/Sha256'
+        selector_digest:
+          $ref: '#/components/schemas/Sha256'
+    ArtifactSummaryDto:
+      type: object
+      additionalProperties: false
+      required: [artifact_kind, schema_name, locale, sha256, item_count]
+      properties:
+        artifact_kind:
+          type: string
+          enum: [NODES, EDGES, LABELS, CROSSWALK]
+        schema_name:
+          type: string
+          enum: [taxonomy-nodes-v1, taxonomy-edges-v1, taxonomy-labels-v1, taxonomy-crosswalk-v1]
+        locale:
+          oneOf:
+            - $ref: '#/components/schemas/Locale'
+            - type: 'null'
+        sha256:
+          $ref: '#/components/schemas/Sha256'
+        item_count:
+          type: integer
+          minimum: 0
+          maximum: 500000
+    TaxonomyBundleDto:
+      type: object
+      additionalProperties: false
+      required: [bundle_id, family_code, semantic_version, selector, compatibility_level, status, aggregate_version, predecessor_bundle_id, successor_bundle_id, effective_at, effective_until, release_manifest_sha256, artifacts, published_at]
+      properties:
+        bundle_id:
+          $ref: '#/components/schemas/OpaqueId'
+        family_code:
+          $ref: '#/components/schemas/Code'
+        semantic_version:
+          type: string
+          pattern: '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$'
+        selector:
+          $ref: '#/components/schemas/SelectorDto'
+        compatibility_level:
+          type: string
+          enum: [INITIAL, PATCH_COMPATIBLE, MINOR_COMPATIBLE, MAJOR_BREAKING]
+        status:
+          type: string
+          enum: [ACTIVE, SUPERSEDED, RETIRED]
+        aggregate_version:
+          type: integer
+          minimum: 1
+          maximum: 2147483647
+        predecessor_bundle_id:
+          $ref: '#/components/schemas/NullableOpaqueId'
+        successor_bundle_id:
+          $ref: '#/components/schemas/NullableOpaqueId'
+        effective_at:
+          $ref: '#/components/schemas/Timestamp'
+        effective_until:
+          $ref: '#/components/schemas/NullableTimestamp'
+        release_manifest_sha256:
+          $ref: '#/components/schemas/Sha256'
+        artifacts:
+          type: array
+          minItems: 3
+          maxItems: 23
+          items:
+            $ref: '#/components/schemas/ArtifactSummaryDto'
+        published_at:
+          $ref: '#/components/schemas/Timestamp'
+    LabelDto:
+      type: object
+      additionalProperties: false
+      required: [locale, short_label, description, accessibility_label]
+      properties:
+        locale:
+          $ref: '#/components/schemas/Locale'
+        short_label:
+          type: string
+          minLength: 1
+          maxLength: 256
+        description:
+          oneOf:
+            - type: string
+              minLength: 1
+              maxLength: 2048
+            - type: 'null'
+        accessibility_label:
+          oneOf:
+            - type: string
+              minLength: 1
+              maxLength: 256
+            - type: 'null'
+    AttributeDto:
+      type: object
+      additionalProperties: false
+      required: [key, value_kind, code_value, integer_value]
+      properties:
+        key:
+          type: string
+          enum: [skill_family_code, country_code, classification_rank]
+        value_kind:
+          type: string
+          enum: [CODE, INTEGER]
+        code_value:
+          oneOf:
+            - $ref: '#/components/schemas/Code'
+            - type: 'null'
+        integer_value:
+          oneOf:
+            - type: integer
+              minimum: 0
+              maximum: 1000
+            - type: 'null'
+    EdgeSummaryDto:
+      type: object
+      additionalProperties: false
+      required: [edge_kind, from_code, to_code, ordinal]
+      properties:
+        edge_kind:
+          type: string
+          enum: [BROADER_THAN, NARROWER_THAN, REQUIRES, INCOMPATIBLE_WITH, RELATED_TO, ALLOWED_LEVEL, LOCATED_IN]
+        from_code:
+          $ref: '#/components/schemas/Code'
+        to_code:
+          $ref: '#/components/schemas/Code'
+        ordinal:
+          type: integer
+          minimum: 1
+          maximum: 2147483647
+    TaxonomyNodeDto:
+      type: object
+      additionalProperties: false
+      required: [bundle_id, code, kind, definition_code, status, deprecated_reason_code, replacement_codes, attributes, label, edges]
+      properties:
+        bundle_id:
+          $ref: '#/components/schemas/OpaqueId'
+        code:
+          $ref: '#/components/schemas/Code'
+        kind:
+          $ref: '#/components/schemas/NodeKind'
+        definition_code:
+          $ref: '#/components/schemas/Code'
+        status:
+          type: string
+          enum: [ACTIVE, DEPRECATED]
+        deprecated_reason_code:
+          oneOf:
+            - $ref: '#/components/schemas/Code'
+            - type: 'null'
+        replacement_codes:
+          type: array
+          maxItems: 5
+          uniqueItems: true
+          items:
+            $ref: '#/components/schemas/Code'
+        attributes:
+          type: array
+          maxItems: 16
+          items:
+            $ref: '#/components/schemas/AttributeDto'
+        label:
+          $ref: '#/components/schemas/LabelDto'
+        edges:
+          type: array
+          maxItems: 1000
+          items:
+            $ref: '#/components/schemas/EdgeSummaryDto'
+    TaxonomyNodePageDto:
+      type: object
+      additionalProperties: false
+      required: [items, next_cursor]
+      properties:
+        items:
+          type: array
+          maxItems: 200
+          items:
+            $ref: '#/components/schemas/TaxonomyNodeDto'
+        next_cursor:
+          oneOf:
+            - type: string
+              minLength: 16
+              maxLength: 2048
+            - type: 'null'
+    CrosswalkMappingDto:
+      type: object
+      additionalProperties: false
+      required: [source_code, target_codes, mapping_kind, confidence_code, review_reason_code]
+      properties:
+        source_code:
+          $ref: '#/components/schemas/Code'
+        target_codes:
+          type: array
+          maxItems: 5
+          uniqueItems: true
+          items:
+            $ref: '#/components/schemas/Code'
+        mapping_kind:
+          type: string
+          enum: [EXACT, NARROWER, BROADER, SPLIT, MERGE, NO_SUCCESSOR]
+        confidence_code:
+          $ref: '#/components/schemas/Code'
+        review_reason_code:
+          $ref: '#/components/schemas/Code'
+    TaxonomyCrosswalkDto:
+      type: object
+      additionalProperties: false
+      required: [crosswalk_id, source_bundle_id, target_bundle_id, compatibility_level, manifest_sha256, mappings]
+      properties:
+        crosswalk_id:
+          $ref: '#/components/schemas/OpaqueId'
+        source_bundle_id:
+          $ref: '#/components/schemas/OpaqueId'
+        target_bundle_id:
+          $ref: '#/components/schemas/OpaqueId'
+        compatibility_level:
+          type: string
+          enum: [PATCH_COMPATIBLE, MINOR_COMPATIBLE, MAJOR_BREAKING]
+        manifest_sha256:
+          $ref: '#/components/schemas/Sha256'
+        mappings:
+          type: array
+          minItems: 1
+          maxItems: 100000
+          items:
+            $ref: '#/components/schemas/CrosswalkMappingDto'
+    ArtifactReference:
+      type: object
+      additionalProperties: false
+      required: [artifact_reference_id, artifact_kind, schema_name, locale, sha256]
+      properties:
+        artifact_reference_id:
+          $ref: '#/components/schemas/OpaqueId'
+        artifact_kind:
+          type: string
+          enum: [RELEASE, NODES, EDGES, LABELS, CROSSWALK]
+        schema_name:
+          type: string
+          enum: [taxonomy-release-v1, taxonomy-nodes-v1, taxonomy-edges-v1, taxonomy-labels-v1, taxonomy-crosswalk-v1]
+        locale:
+          oneOf:
+            - $ref: '#/components/schemas/Locale'
+            - type: 'null'
+        sha256:
+          $ref: '#/components/schemas/Sha256'
+    PublishTaxonomyBundleRequest:
+      type: object
+      additionalProperties: false
+      required: [release_manifest_sha256, signature_envelope_id, trust_record_id, domain_approval_id, safety_data_approval_id, artifacts]
+      properties:
+        release_manifest_sha256:
+          $ref: '#/components/schemas/Sha256'
+        signature_envelope_id:
+          $ref: '#/components/schemas/OpaqueId'
+        trust_record_id:
+          $ref: '#/components/schemas/OpaqueId'
+        domain_approval_id:
+          $ref: '#/components/schemas/OpaqueId'
+        safety_data_approval_id:
+          $ref: '#/components/schemas/OpaqueId'
+        artifacts:
+          type: array
+          minItems: 4
+          maxItems: 24
+          items:
+            $ref: '#/components/schemas/ArtifactReference'
+    RetireTaxonomyBundleRequest:
+      type: object
+      additionalProperties: false
+      required: [reason_code]
+      properties:
+        reason_code:
+          $ref: '#/components/schemas/Code'
+    FieldIssue:
+      type: object
+      additionalProperties: false
+      required: [field, reason]
+      properties:
+        field:
+          type: string
+          minLength: 1
+          maxLength: 128
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 256
+    ErrorResponse:
+      type: object
+      additionalProperties: false
+      required: [code, message, trace_id, field_issues]
+      properties:
+        code:
+          type: string
+          enum:
+            - INVALID_REQUEST
+            - INVALID_CURSOR
+            - AUTHENTICATION_REQUIRED
+            - ACCESS_DENIED
+            - RESOURCE_NOT_FOUND
+            - INVALID_STATE_TRANSITION
+            - IDEMPOTENCY_KEY_REUSED
+            - TAXONOMY_SELECTOR_CONFLICT
+            - TAXONOMY_RELEASE_INVALID
+            - PRECONDITION_FAILED
+            - REVIEW_APPROVAL_REQUIRED
+            - TAXONOMY_COMPATIBILITY_REJECTED
+            - SERVICE_UNAVAILABLE
+        message:
+          type: string
+          minLength: 1
+          maxLength: 256
+        trace_id:
+          $ref: '#/components/schemas/OpaqueId'
+        field_issues:
+          type: array
+          maxItems: 50
+          items:
+            $ref: '#/components/schemas/FieldIssue'
+  responses:
+    BundleRead:
+      description: Exact immutable bundle
+      headers:
+        ETag:
+          schema:
+            type: string
+        Cache-Control:
+          schema:
+            type: string
+            const: public, immutable
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/TaxonomyBundleDto'
+    BundleCreated:
+      description: Published bundle
+      headers:
+        ETag:
+          schema:
+            type: string
+        Cache-Control:
+          schema:
+            type: string
+            const: no-store
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/TaxonomyBundleDto'
+    BundleUpdated:
+      description: Retired bundle
+      headers:
+        ETag:
+          schema:
+            type: string
+        Cache-Control:
+          schema:
+            type: string
+            const: no-store
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/TaxonomyBundleDto'
+    NodeRead:
+      description: Exact immutable node
+      headers:
+        ETag:
+          schema:
+            type: string
+        Cache-Control:
+          schema:
+            type: string
+            const: public, immutable
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/TaxonomyNodeDto'
+    NodePageRead:
+      description: Exact immutable node page
+      headers:
+        ETag:
+          schema:
+            type: string
+        Cache-Control:
+          schema:
+            type: string
+            const: public, immutable
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/TaxonomyNodePageDto'
+    CrosswalkRead:
+      description: Exact immutable crosswalk
+      headers:
+        ETag:
+          schema:
+            type: string
+        Cache-Control:
+          schema:
+            type: string
+            const: public, immutable
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/TaxonomyCrosswalkDto'
+    BadRequest:
+      description: Invalid closed request or cursor
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Unauthorized:
+      description: Missing or invalid SYSTEM authentication
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Forbidden:
+      description: Workload is not authorized for the exact operation
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFound:
+      description: Exact visible resource is unavailable
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Conflict:
+      description: Release, selector, state, or idempotency conflict
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    PreconditionFailed:
+      description: The exact target version changed
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    UnprocessableEntity:
+      description: Required review or compatibility evidence is absent
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    ServiceUnavailable:
+      description: A trusted decision or persistent fact is unavailable
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+x-taxonomy-database-access:
+  PUBLIC_EXACT_TAXONOMY_READ:
+    role: taxonomy_reader
+    operations: [getTaxonomyBundle, getTaxonomyNode, listTaxonomyNodes, getTaxonomyCrosswalk]
+    scope: exact_path_bundle_code_or_pair
+    statuses: [ACTIVE, SUPERSEDED]
+    search_path: [pg_catalog, taxonomy, pg_temp]
+    public_execute: false
+    dynamic_sql: false
+  TAXONOMY_PUBLISH:
+    role: taxonomy_publisher
+    operations: [publishTaxonomyBundle, retireTaxonomyBundle]
+    scope: exact_selector_bundle_and_receipt
+    search_path: [pg_catalog, taxonomy, pg_temp]
+    public_execute: false
+    dynamic_sql: false
+  TAXONOMY_CONSUMER_SYNC:
+    role: taxonomy_consumer
+    operations: [readExactTaxonomyReleaseForConsumer]
+    scope: exact_event_bundle_and_artifacts
+    search_path: [pg_catalog, taxonomy, pg_temp]
+    public_execute: false
+    dynamic_sql: false

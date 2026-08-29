@@ -1,0 +1,398 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://desire-supply.local/contracts/domain/profile-version-v1.schema.json",
+  "title": "Creator Profile canonical version v1",
+  "description": "Closed RFC 8785 hash surface for one immutable Creator Profile version. Server timestamps, lifecycle metadata, receipts, display labels, and secrets are outside this object.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "profile_schema_version",
+    "canonicalization_version",
+    "profile_id",
+    "version_no",
+    "taxonomy_bundle_id",
+    "content"
+  ],
+  "properties": {
+    "profile_schema_version": {"type": "integer", "const": 1},
+    "canonicalization_version": {"type": "string", "const": "profile-version-json-v1"},
+    "profile_id": {"$ref": "#/$defs/OpaqueId"},
+    "version_no": {"type": "integer", "minimum": 1, "maximum": 2147483647},
+    "taxonomy_bundle_id": {"$ref": "#/$defs/OpaqueId"},
+    "content": {"$ref": "#/$defs/ProfileContent"}
+  },
+  "$defs": {
+    "OpaqueId": {
+      "type": "string",
+      "minLength": 16,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{15,127}$"
+    },
+    "TaxonomyCode": {
+      "type": "string",
+      "minLength": 2,
+      "maxLength": 64,
+      "pattern": "^[A-Z][A-Z0-9_.:-]{1,63}$"
+    },
+    "PrivateVisibility": {"type": "string", "const": "PRIVATE"},
+    "PrivateOrMatchVisibility": {
+      "type": "string",
+      "enum": ["PRIVATE", "MATCH_ONLY"]
+    },
+    "AnyVisibility": {
+      "type": "string",
+      "enum": ["PRIVATE", "MATCH_ONLY", "PUBLIC"]
+    },
+    "SourceKind": {
+      "type": "string",
+      "enum": ["SELF_ASSERTED", "VERIFIED_EVIDENCE", "LEGACY_UNVERIFIED"]
+    },
+    "EvidenceIds": {
+      "type": "array",
+      "maxItems": 20,
+      "uniqueItems": true,
+      "items": {"$ref": "#/$defs/OpaqueId"}
+    },
+    "SourceEvidenceRule": {
+      "if": {
+        "properties": {"source_kind": {"const": "VERIFIED_EVIDENCE"}},
+        "required": ["source_kind"]
+      },
+      "then": {"properties": {"evidence_ids": {"minItems": 1}}},
+      "else": {"properties": {"evidence_ids": {"maxItems": 0}}}
+    },
+    "InterestItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "problem_code",
+        "domain_code",
+        "task_code",
+        "strength",
+        "visibility",
+        "source_kind",
+        "evidence_ids"
+      ],
+      "properties": {
+        "problem_code": {"$ref": "#/$defs/TaxonomyCode"},
+        "domain_code": {"$ref": "#/$defs/TaxonomyCode"},
+        "task_code": {"$ref": "#/$defs/TaxonomyCode"},
+        "strength": {"type": "integer", "minimum": 0, "maximum": 4},
+        "visibility": {"$ref": "#/$defs/PrivateOrMatchVisibility"},
+        "source_kind": {"$ref": "#/$defs/SourceKind"},
+        "evidence_ids": {"$ref": "#/$defs/EvidenceIds"}
+      },
+      "allOf": [{"$ref": "#/$defs/SourceEvidenceRule"}]
+    },
+    "SkillItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["skill_code", "proficiency", "visibility", "source_kind", "evidence_ids"],
+      "properties": {
+        "skill_code": {"$ref": "#/$defs/TaxonomyCode"},
+        "proficiency": {"type": "integer", "minimum": 0, "maximum": 4},
+        "visibility": {"$ref": "#/$defs/AnyVisibility"},
+        "source_kind": {"$ref": "#/$defs/SourceKind"},
+        "evidence_ids": {"$ref": "#/$defs/EvidenceIds"}
+      },
+      "allOf": [{"$ref": "#/$defs/SourceEvidenceRule"}]
+    },
+    "Availability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "available_from",
+        "weekly_hours",
+        "duration_weeks",
+        "timezone",
+        "visibility",
+        "source_kind",
+        "evidence_ids"
+      ],
+      "properties": {
+        "available_from": {
+          "type": "string",
+          "format": "date",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+        },
+        "weekly_hours": {"type": "integer", "minimum": 1, "maximum": 80},
+        "duration_weeks": {"type": "integer", "minimum": 1, "maximum": 104},
+        "timezone": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 64,
+          "pattern": "^[A-Za-z_+-]+(?:/[A-Za-z0-9_+.-]+)+$"
+        },
+        "visibility": {"$ref": "#/$defs/PrivateOrMatchVisibility"},
+        "source_kind": {"$ref": "#/$defs/SourceKind"},
+        "evidence_ids": {"$ref": "#/$defs/EvidenceIds"}
+      },
+      "allOf": [{"$ref": "#/$defs/SourceEvidenceRule"}]
+    },
+    "LanguageItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["language_code", "visibility", "source_kind", "evidence_ids"],
+      "properties": {
+        "language_code": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 35,
+          "pattern": "^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})*$"
+        },
+        "visibility": {"$ref": "#/$defs/AnyVisibility"},
+        "source_kind": {"$ref": "#/$defs/SourceKind"},
+        "evidence_ids": {"$ref": "#/$defs/EvidenceIds"}
+      },
+      "allOf": [{"$ref": "#/$defs/SourceEvidenceRule"}]
+    },
+    "WorkModeItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["work_mode", "visibility", "source_kind", "evidence_ids"],
+      "properties": {
+        "work_mode": {"type": "string", "enum": ["REMOTE", "HYBRID", "ONSITE"]},
+        "visibility": {"$ref": "#/$defs/AnyVisibility"},
+        "source_kind": {"$ref": "#/$defs/SourceKind"},
+        "evidence_ids": {"$ref": "#/$defs/EvidenceIds"}
+      },
+      "allOf": [{"$ref": "#/$defs/SourceEvidenceRule"}]
+    },
+    "FeedbackCadenceItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["feedback_cadence", "visibility", "source_kind", "evidence_ids"],
+      "properties": {
+        "feedback_cadence": {
+          "type": "string",
+          "enum": ["ASYNC", "DAILY", "TWICE_WEEKLY", "WEEKLY"]
+        },
+        "visibility": {"$ref": "#/$defs/AnyVisibility"},
+        "source_kind": {"$ref": "#/$defs/SourceKind"},
+        "evidence_ids": {"$ref": "#/$defs/EvidenceIds"}
+      },
+      "allOf": [{"$ref": "#/$defs/SourceEvidenceRule"}]
+    },
+    "TeamPreferenceItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["team_preference", "visibility", "source_kind", "evidence_ids"],
+      "properties": {
+        "team_preference": {
+          "type": "string",
+          "enum": ["SOLO", "PAIR", "SMALL_TEAM", "ANY"]
+        },
+        "visibility": {"$ref": "#/$defs/AnyVisibility"},
+        "source_kind": {"$ref": "#/$defs/SourceKind"},
+        "evidence_ids": {"$ref": "#/$defs/EvidenceIds"}
+      },
+      "allOf": [{"$ref": "#/$defs/SourceEvidenceRule"}]
+    },
+    "Collaboration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["languages", "work_modes", "feedback_cadence", "team_preference"],
+      "properties": {
+        "languages": {
+          "type": "array",
+          "maxItems": 20,
+          "items": {"$ref": "#/$defs/LanguageItem"}
+        },
+        "work_modes": {
+          "type": "array",
+          "maxItems": 3,
+          "items": {"$ref": "#/$defs/WorkModeItem"}
+        },
+        "feedback_cadence": {
+          "oneOf": [{"$ref": "#/$defs/FeedbackCadenceItem"}, {"type": "null"}]
+        },
+        "team_preference": {
+          "oneOf": [{"$ref": "#/$defs/TeamPreferenceItem"}, {"type": "null"}]
+        }
+      }
+    },
+    "Compensation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "minimum_project_amount_minor",
+        "currency",
+        "direct_cost_amount_minor",
+        "visibility",
+        "source_kind",
+        "evidence_ids"
+      ],
+      "properties": {
+        "minimum_project_amount_minor": {"type": "integer", "minimum": 0, "maximum": 9007199254740991},
+        "currency": {"type": "string", "pattern": "^[A-Z]{3}$"},
+        "direct_cost_amount_minor": {"type": "integer", "minimum": 0, "maximum": 9007199254740991},
+        "visibility": {"$ref": "#/$defs/PrivateVisibility"},
+        "source_kind": {"$ref": "#/$defs/SourceKind"},
+        "evidence_ids": {"$ref": "#/$defs/EvidenceIds"}
+      },
+      "allOf": [{"$ref": "#/$defs/SourceEvidenceRule"}]
+    },
+    "PrivateCodeItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "visibility", "source_kind", "evidence_ids"],
+      "properties": {
+        "code": {"$ref": "#/$defs/TaxonomyCode"},
+        "visibility": {"$ref": "#/$defs/PrivateVisibility"},
+        "source_kind": {"$ref": "#/$defs/SourceKind"},
+        "evidence_ids": {"$ref": "#/$defs/EvidenceIds"}
+      },
+      "allOf": [{"$ref": "#/$defs/SourceEvidenceRule"}]
+    },
+    "DataSensitivityItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["data_sensitivity", "visibility", "source_kind", "evidence_ids"],
+      "properties": {
+        "data_sensitivity": {
+          "type": "string",
+          "enum": ["PUBLIC", "INTERNAL", "CONFIDENTIAL", "RESTRICTED"]
+        },
+        "visibility": {"$ref": "#/$defs/PrivateVisibility"},
+        "source_kind": {"$ref": "#/$defs/SourceKind"},
+        "evidence_ids": {"$ref": "#/$defs/EvidenceIds"}
+      },
+      "allOf": [{"$ref": "#/$defs/SourceEvidenceRule"}]
+    },
+    "Boundaries": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["prohibited_domains", "prohibited_tasks", "allowed_data_sensitivity"],
+      "properties": {
+        "prohibited_domains": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {"$ref": "#/$defs/PrivateCodeItem"}
+        },
+        "prohibited_tasks": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {"$ref": "#/$defs/PrivateCodeItem"}
+        },
+        "allowed_data_sensitivity": {"$ref": "#/$defs/DataSensitivityItem"}
+      }
+    },
+    "Location": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["region_code", "visibility", "source_kind", "evidence_ids"],
+      "properties": {
+        "region_code": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 32,
+          "pattern": "^[A-Z0-9][A-Z0-9_-]{1,31}$"
+        },
+        "visibility": {"$ref": "#/$defs/AnyVisibility"},
+        "source_kind": {"$ref": "#/$defs/SourceKind"},
+        "evidence_ids": {"$ref": "#/$defs/EvidenceIds"}
+      },
+      "allOf": [{"$ref": "#/$defs/SourceEvidenceRule"}]
+    },
+    "ConflictItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["organization_id", "visibility", "source_kind", "evidence_ids"],
+      "properties": {
+        "organization_id": {"$ref": "#/$defs/OpaqueId"},
+        "visibility": {"$ref": "#/$defs/PrivateVisibility"},
+        "source_kind": {"$ref": "#/$defs/SourceKind"},
+        "evidence_ids": {"$ref": "#/$defs/EvidenceIds"}
+      },
+      "allOf": [{"$ref": "#/$defs/SourceEvidenceRule"}]
+    },
+    "AiPreferences": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "allowed",
+        "requires_ai",
+        "human_review_code",
+        "prohibited_case_codes",
+        "visibility",
+        "source_kind",
+        "evidence_ids"
+      ],
+      "properties": {
+        "allowed": {"type": "boolean"},
+        "requires_ai": {"type": "boolean"},
+        "human_review_code": {
+          "type": "string",
+          "enum": ["NONE", "AS_NEEDED", "REQUIRED"]
+        },
+        "prohibited_case_codes": {
+          "type": "array",
+          "maxItems": 50,
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/TaxonomyCode"}
+        },
+        "visibility": {"$ref": "#/$defs/PrivateOrMatchVisibility"},
+        "source_kind": {"$ref": "#/$defs/SourceKind"},
+        "evidence_ids": {"$ref": "#/$defs/EvidenceIds"}
+      },
+      "allOf": [
+        {"$ref": "#/$defs/SourceEvidenceRule"},
+        {
+          "if": {
+            "properties": {"requires_ai": {"const": true}},
+            "required": ["requires_ai"]
+          },
+          "then": {"properties": {"allowed": {"const": true}}}
+        }
+      ]
+    },
+    "ProfileContent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "interests",
+        "skills",
+        "availability",
+        "collaboration",
+        "compensation",
+        "boundaries",
+        "location",
+        "conflicts",
+        "ai"
+      ],
+      "properties": {
+        "interests": {
+          "type": "array",
+          "maxItems": 50,
+          "items": {"$ref": "#/$defs/InterestItem"}
+        },
+        "skills": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {"$ref": "#/$defs/SkillItem"}
+        },
+        "availability": {
+          "oneOf": [{"$ref": "#/$defs/Availability"}, {"type": "null"}]
+        },
+        "collaboration": {"$ref": "#/$defs/Collaboration"},
+        "compensation": {
+          "oneOf": [{"$ref": "#/$defs/Compensation"}, {"type": "null"}]
+        },
+        "boundaries": {
+          "oneOf": [{"$ref": "#/$defs/Boundaries"}, {"type": "null"}]
+        },
+        "location": {
+          "oneOf": [{"$ref": "#/$defs/Location"}, {"type": "null"}]
+        },
+        "conflicts": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {"$ref": "#/$defs/ConflictItem"}
+        },
+        "ai": {
+          "oneOf": [{"$ref": "#/$defs/AiPreferences"}, {"type": "null"}]
+        }
+      }
+    }
+  }
+}

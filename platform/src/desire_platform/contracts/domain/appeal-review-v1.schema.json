@@ -1,0 +1,113 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.desire.example/domain/appeal-review-v1.schema.json",
+  "title": "Appeal review draft input v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "assessments",
+    "reason_codes",
+    "remedy_delta_codes",
+    "reviewer_note"
+  ],
+  "properties": {
+    "assessments": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 3,
+      "uniqueItems": true,
+      "items": {"$ref": "#/$defs/Assessment"}
+    },
+    "reason_codes": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 32,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "enum": [
+          "APPEAL_SCOPE_INVALID",
+          "NEW_EVIDENCE_REVIEWED",
+          "PROCEDURAL_REVIEW_COMPLETE",
+          "REMAND_REQUIRED",
+          "SOURCE_OUTCOME_SUPPORTED",
+          "SOURCE_OUTCOME_UNSUPPORTED"
+        ]
+      }
+    },
+    "remedy_delta_codes": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 32,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "enum": [
+          "NARROW_CORRECTIVE_MEASURE",
+          "NO_CHANGE",
+          "REMOVE_CORRECTIVE_MEASURE",
+          "REPLACE_CORRECTIVE_MEASURE",
+          "RETURN_TO_TRUST_REVIEW"
+        ]
+      }
+    },
+    "reviewer_note": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4000,
+      "writeOnly": true
+    }
+  },
+  "$defs": {
+    "Assessment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "accepted_evidence_reference_ids",
+        "assessment_code",
+        "finding_codes",
+        "ground"
+      ],
+      "properties": {
+        "accepted_evidence_reference_ids": {
+          "type": "array",
+          "maxItems": 32,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^(?!00000000-0000-0000-0000-000000000000$)[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          }
+        },
+        "assessment_code": {
+          "type": "string",
+          "enum": ["ACCEPTED", "PARTIALLY_ACCEPTED", "REJECTED"]
+        },
+        "finding_codes": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 32,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "enum": [
+              "APPEAL_NOT_SUBSTANTIATED",
+              "NEW_EVIDENCE_MATERIAL",
+              "PROCEDURE_MATERIAL_ERROR",
+              "RULE_APPLICATION_ERROR",
+              "RULE_APPLIED_CORRECTLY"
+            ]
+          }
+        },
+        "ground": {
+          "type": "string",
+          "enum": [
+            "NEW_MATERIAL_EVIDENCE",
+            "PROCEDURAL_ERROR",
+            "RULE_MISAPPLICATION"
+          ]
+        }
+      }
+    }
+  }
+}

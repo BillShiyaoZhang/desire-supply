@@ -1,0 +1,1568 @@
+openapi: 3.1.0
+info:
+  title: Desire Trust API
+  version: 1.0.0-draft
+  summary: Private Demand report, triage, hold, and initial outcome contract
+  description: >-
+    Closed INTERNAL_SANDBOX contract for the first Trust vertical. Every target
+    is an exact Demand version. Browser bodies never carry actor, role, duty,
+    assignment, organization, reporter, or session authority. Narrative and
+    evidence content remain sealed. Triage accepts one bounded write-only
+    restricted note which the server seals before persistence; read models
+    expose only structured codes and opaque integrity-bound references.
+  x-contract-status: contract-tests-green-domain-application-red
+jsonSchemaDialect: https://json-schema.org/draft/2020-12/schema
+servers:
+  - url: /
+tags:
+  - name: Trust Report
+  - name: Trust Queue
+  - name: Trust Case
+paths:
+  /v1/app/trust/reports:
+    get:
+      tags: [Trust Report]
+      operationId: listMyTrustReports
+      summary: Discover the reporting party's own safe report and outcome summaries
+      description: >-
+        Closed keyset pagination scoped by both the authenticated reporter and
+        workspace organization. The cursor is opaque, authenticated, bound to
+        that authority and page size, and never carries report narrative,
+        evidence, reporter identity, or restricted review material.
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/WorkspaceId'
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          $ref: '#/components/responses/OwnedReportListRead'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+    post:
+      tags: [Trust Report]
+      operationId: submitTrustReport
+      summary: Submit a structured private report about an exact Demand version
+      description: Report intake is a safety downgrade and is not blocked by an existing hold.
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/WorkspaceId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '../domain/trust-report-v1.schema.json'
+      responses:
+        '201':
+          $ref: '#/components/responses/CommandCommitted'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /v1/app/trust/reports/{report_id}:
+    get:
+      tags: [Trust Report]
+      operationId: getMyTrustReport
+      summary: Read the reporting party's safe report projection
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/ReportId'
+        - $ref: '#/components/parameters/WorkspaceId'
+      responses:
+        '200':
+          $ref: '#/components/responses/ReportRead'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /v1/app/trust/queue:
+    get:
+      tags: [Trust Queue]
+      operationId: listTrustQueue
+      summary: List at most 100 unclaimed safe report summaries
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/WorkspaceId'
+      responses:
+        '200':
+          $ref: '#/components/responses/QueueRead'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /v1/app/trust/queue/{case_id}/claim:
+    post:
+      tags: [Trust Queue]
+      operationId: claimTrustCase
+      summary: Claim one queued case under an eligible time-bound Trust assignment
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/CaseId'
+        - $ref: '#/components/parameters/WorkspaceId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmptyCommandRequest'
+      responses:
+        '201':
+          $ref: '#/components/responses/CommandCommitted'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /v1/app/trust/assignments:
+    get:
+      tags: [Trust Case]
+      operationId: listMyActiveTrustAssignments
+      summary: List the caller's active Trust assignments for work resumption
+      description: >-
+        Returns only a case navigation coordinate, a closed assignment purpose,
+        the exact Hold coordinate required for HOLD_RELEASE, and its expiry.
+        Assignment identifiers, actor and duty coordinates, organization or
+        Demand facts, and restricted narrative are omitted.
+        An authorized caller with no active assignment receives an empty items
+        array, not a not-found response.
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/WorkspaceId'
+      responses:
+        '200':
+          $ref: '#/components/responses/ActiveAssignmentsRead'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /v1/app/trust/history:
+    get:
+      tags: [Trust Case]
+      operationId: listMyCompletedTrustAssignments
+      summary: List the caller's completed Trust case assignment history
+      description: >-
+        Returns only completed case navigation coordinates, decision timestamps,
+        and closed outcome codes for cases previously assigned to the caller.
+        Assignment identifiers, actor and duty coordinates, organization or
+        Demand facts, and restricted narrative are omitted. The fixed server
+        window is bounded to the latest 100 completed assignments; has_more
+        reports whether older rows exist.
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/WorkspaceId'
+      responses:
+        '200':
+          $ref: '#/components/responses/CompletedAssignmentHistoryRead'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /v1/app/trust/assigned-holds/{hold_id}:
+    get:
+      tags: [Trust Case]
+      operationId: getAssignedTrustHoldRelease
+      summary: Read one exact active Hold release assignment
+      description: >-
+        Returns only the release-safe projection for the exact Hold currently
+        assigned to the caller. A different role, actor, Hold, stale assignment,
+        or absent assignment is indistinguishable from not found.
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/HoldId'
+        - $ref: '#/components/parameters/WorkspaceId'
+      responses:
+        '200':
+          $ref: '#/components/responses/AssignedHoldReleaseRead'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /v1/app/trust/hold-release-queue:
+    get:
+      tags: [Trust Queue]
+      operationId: listTrustHoldReleaseQueue
+      summary: List active high-risk holds awaiting an independent officer
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/WorkspaceId'
+      responses:
+        '200':
+          $ref: '#/components/responses/HoldReleaseQueueRead'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /v1/app/trust/hold-release-queue/{hold_id}/claim:
+    post:
+      tags: [Trust Queue]
+      operationId: claimTrustHoldRelease
+      summary: Claim one high-risk hold for independent release review
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/HoldId'
+        - $ref: '#/components/parameters/WorkspaceId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmptyCommandRequest'
+      responses:
+        '201':
+          $ref: '#/components/responses/CommandCommitted'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /v1/app/trust/cases/{case_id}:
+    get:
+      tags: [Trust Case]
+      operationId: getAssignedTrustCase
+      summary: Read the exact active assignment's safe case projection
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/CaseId'
+        - $ref: '#/components/parameters/WorkspaceId'
+      responses:
+        '200':
+          $ref: '#/components/responses/CaseRead'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /v1/app/trust/cases/{case_id}/assignment/release:
+    post:
+      tags: [Trust Case]
+      operationId: releaseTrustCaseAssignment
+      summary: Release the caller's active assignment so the case can return to queue
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/CaseId'
+        - $ref: '#/components/parameters/WorkspaceId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReleaseAssignmentRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/CommandCommitted'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /v1/app/trust/cases/{case_id}/triage-draft:
+    put:
+      tags: [Trust Case]
+      operationId: saveTrustTriageDraft
+      summary: Append an immutable structured triage draft version
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/CaseId'
+        - $ref: '#/components/parameters/WorkspaceId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '../domain/trust-triage-v1.schema.json'
+      responses:
+        '200':
+          $ref: '#/components/responses/CommandCommitted'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /v1/app/trust/cases/{case_id}/triage-publish:
+    post:
+      tags: [Trust Case]
+      operationId: publishTrustTriage
+      summary: Freeze the current triage draft for hold and outcome decisions
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/CaseId'
+        - $ref: '#/components/parameters/WorkspaceId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PublishTriageRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/CommandCommitted'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /v1/app/trust/cases/{case_id}/holds:
+    post:
+      tags: [Trust Case]
+      operationId: placeDemandSafetyHold
+      summary: Place a short-lived hold on closed actions for the exact Demand
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/CaseId'
+        - $ref: '#/components/parameters/WorkspaceId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PlaceHoldRequest'
+      responses:
+        '201':
+          $ref: '#/components/responses/CommandCommitted'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /v1/app/trust/holds/{hold_id}/release:
+    post:
+      tags: [Trust Case]
+      operationId: releaseDemandSafetyHold
+      summary: Release one exact hold without deleting its history
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/HoldId'
+        - $ref: '#/components/parameters/WorkspaceId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReleaseHoldRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/CommandCommitted'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /v1/app/trust/cases/{case_id}/decisions:
+    post:
+      tags: [Trust Case]
+      operationId: publishTrustCaseOutcome
+      summary: Publish one immutable initial Trust outcome and its appeal deadline
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/CaseId'
+        - $ref: '#/components/parameters/WorkspaceId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PublishOutcomeRequest'
+      responses:
+        '201':
+          $ref: '#/components/responses/CommandCommitted'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+components:
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: __Host-ds_session
+  parameters:
+    Cursor:
+      name: cursor
+      in: query
+      required: false
+      schema:
+        type: string
+        minLength: 108
+        maxLength: 1068
+        pattern: '^[A-Za-z0-9_-]{64,1024}\.[A-Za-z0-9_-]{43}$'
+    Limit:
+      name: limit
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+    ReportId:
+      name: report_id
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/Uuid'
+    CaseId:
+      name: case_id
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/Uuid'
+    HoldId:
+      name: hold_id
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/Uuid'
+    WorkspaceId:
+      name: X-Workspace-Id
+      in: header
+      required: true
+      schema:
+        type: string
+        pattern: '^(?:org|personal|platform):[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema:
+        type: string
+        minLength: 16
+        maxLength: 128
+        pattern: '^[A-Za-z0-9][A-Za-z0-9._~-]{15,127}$'
+    IfMatch:
+      name: If-Match
+      in: header
+      required: true
+      schema:
+        type: string
+        pattern: '^"trust-[1-9][0-9]*-[a-f0-9]{24}"$'
+    CsrfToken:
+      name: X-CSRF-Token
+      in: header
+      required: true
+      schema:
+        type: string
+        minLength: 32
+        maxLength: 512
+        pattern: '^[A-Za-z0-9_-]{32,512}$'
+  schemas:
+    Uuid:
+      type: string
+      format: uuid
+      pattern: '^(?!00000000-0000-0000-0000-000000000000$)[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+    Sha256:
+      type: string
+      pattern: '^[a-f0-9]{64}$'
+    EntityTag:
+      type: string
+      pattern: '^"trust-[1-9][0-9]*-[a-f0-9]{24}"$'
+    DemandActionCode:
+      type: string
+      enum: [REQUEST_MATCHING, SUBMIT_DEMAND, VERIFY_DEMAND]
+    EmptyCommandRequest:
+      type: object
+      additionalProperties: false
+      maxProperties: 0
+    PlaceHoldRequest:
+      type: object
+      additionalProperties: false
+      required: [action_codes, reason_code, ttl_minutes]
+      properties:
+        action_codes:
+          type: array
+          minItems: 1
+          maxItems: 3
+          uniqueItems: true
+          items:
+            $ref: '#/components/schemas/DemandActionCode'
+        reason_code:
+          type: string
+          enum:
+            - PARTICIPANT_SAFETY_RISK
+            - RETALIATION_RISK
+            - SYNTHETIC_DATA_EXPOSURE_RISK
+            - WORKFLOW_INTEGRITY_RISK
+        ttl_minutes:
+          type: integer
+          minimum: 15
+          maximum: 10080
+    PublishTriageRequest:
+      description: >-
+        The exact saved draft version being frozen. Keeping this fact in the
+        idempotent request lets an outcome-unknown retry reproduce the original
+        payload without consulting mutable current state.
+      type: object
+      additionalProperties: false
+      required: [expected_draft_version]
+      properties:
+        expected_draft_version:
+          type: integer
+          minimum: 1
+    ReleaseHoldRequest:
+      type: object
+      additionalProperties: false
+      required: [reason_code]
+      properties:
+        reason_code:
+          type: string
+          enum: [CASE_DECIDED, RISK_MITIGATED, SUPERSEDED, TTL_CORRECTION]
+    ReleaseAssignmentRequest:
+      type: object
+      additionalProperties: false
+      required: [reason_code]
+      properties:
+        reason_code:
+          type: string
+          enum: [ASSIGNMENT_EXPIRED, CONFLICT_DECLARED, WORKLOAD_RELEASE]
+    PublishOutcomeRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - action_codes
+        - outcome_code
+        - reason_codes
+      properties:
+        action_codes:
+          type: array
+          maxItems: 3
+          uniqueItems: true
+          items:
+            $ref: '#/components/schemas/DemandActionCode'
+        outcome_code:
+          type: string
+          enum:
+            - NO_ACTION
+            - PROTECTION_LIFTED
+            - PROTECTION_MAINTAINED
+            - PROTECTION_MODIFIED
+            - REMEDIATION_REQUIRED
+        reason_codes:
+          type: array
+          minItems: 1
+          maxItems: 8
+          uniqueItems: true
+          items:
+            type: string
+            enum:
+              - INSUFFICIENT_VERIFIED_EVIDENCE
+              - NO_POLICY_BREACH
+              - POLICY_REQUIREMENT_NOT_MET
+              - PRECAUTIONARY_ACTION_REQUIRED
+              - RISK_MITIGATED
+    ReportSummary:
+      type: object
+      additionalProperties: false
+      required:
+        - category
+        - evidence_reference_ids
+        - impact_codes
+        - incident_ended_at
+        - incident_started_at
+        - requested_protection_codes
+      properties:
+        category:
+          $ref: '../domain/trust-report-v1.schema.json#/properties/category'
+        evidence_reference_ids:
+          $ref: '../domain/trust-report-v1.schema.json#/properties/evidence_reference_ids'
+        impact_codes:
+          $ref: '../domain/trust-report-v1.schema.json#/properties/impact_codes'
+        incident_ended_at:
+          $ref: '../domain/trust-report-v1.schema.json#/properties/incident_ended_at'
+        incident_started_at:
+          $ref: '../domain/trust-report-v1.schema.json#/properties/incident_started_at'
+        requested_protection_codes:
+          $ref: '../domain/trust-report-v1.schema.json#/properties/requested_protection_codes'
+    ReportProjection:
+      type: object
+      additionalProperties: false
+      required:
+        - demand_id
+        - demand_version_id
+        - entity_tag
+        - outcome
+        - report
+        - report_id
+        - status
+        - submitted_at
+      properties:
+        demand_id:
+          $ref: '#/components/schemas/Uuid'
+        demand_version_id:
+          $ref: '#/components/schemas/Uuid'
+        entity_tag:
+          $ref: '#/components/schemas/EntityTag'
+        outcome:
+          oneOf:
+            - $ref: '#/components/schemas/OutcomeProjection'
+            - type: 'null'
+        report:
+          $ref: '#/components/schemas/ReportSummary'
+        report_id:
+          $ref: '#/components/schemas/Uuid'
+        status:
+          type: string
+          enum: [DECIDED, IN_REVIEW, OPEN, TRIAGING]
+        submitted_at:
+          type: string
+          format: date-time
+    OwnedReportOutcomeSummary:
+      type: object
+      additionalProperties: false
+      required:
+        - appeal_deadline
+        - appeal_eligibility_code
+        - decided_at
+        - outcome_code
+        - outcome_version_id
+      properties:
+        appeal_deadline:
+          oneOf:
+            - type: string
+              format: date-time
+            - type: 'null'
+        appeal_eligibility_code:
+          type: string
+          enum: [ELIGIBLE, NOT_ELIGIBLE]
+        decided_at:
+          type: string
+          format: date-time
+        outcome_code:
+          type: string
+          enum:
+            - NO_ACTION
+            - PROTECTION_LIFTED
+            - PROTECTION_MAINTAINED
+            - PROTECTION_MODIFIED
+            - REMEDIATION_REQUIRED
+        outcome_version_id:
+          $ref: '#/components/schemas/Uuid'
+    OwnedReportListItem:
+      type: object
+      additionalProperties: false
+      required: [category, demand_id, outcome, report_id, status, submitted_at]
+      properties:
+        category:
+          $ref: '../domain/trust-report-v1.schema.json#/properties/category'
+        demand_id:
+          $ref: '#/components/schemas/Uuid'
+        outcome:
+          oneOf:
+            - $ref: '#/components/schemas/OwnedReportOutcomeSummary'
+            - type: 'null'
+        report_id:
+          $ref: '#/components/schemas/Uuid'
+        status:
+          type: string
+          enum: [DECIDED, IN_REVIEW, OPEN, TRIAGING]
+        submitted_at:
+          type: string
+          format: date-time
+    OwnedReportListProjection:
+      type: object
+      additionalProperties: false
+      required: [entity_tag, items, next_cursor]
+      properties:
+        entity_tag:
+          $ref: '#/components/schemas/EntityTag'
+        items:
+          type: array
+          maxItems: 100
+          items:
+            $ref: '#/components/schemas/OwnedReportListItem'
+        next_cursor:
+          oneOf:
+            - type: string
+              minLength: 108
+              maxLength: 1068
+              pattern: '^[A-Za-z0-9_-]{64,1024}\.[A-Za-z0-9_-]{43}$'
+            - type: 'null'
+    QueueItem:
+      type: object
+      additionalProperties: false
+      required:
+        - category
+        - case_id
+        - demand_id
+        - demand_version_id
+        - entity_tag
+        - impact_codes
+        - report_id
+        - submitted_at
+      properties:
+        category:
+          $ref: '../domain/trust-report-v1.schema.json#/properties/category'
+        case_id:
+          $ref: '#/components/schemas/Uuid'
+        demand_id:
+          $ref: '#/components/schemas/Uuid'
+        demand_version_id:
+          $ref: '#/components/schemas/Uuid'
+        entity_tag:
+          $ref: '#/components/schemas/EntityTag'
+        impact_codes:
+          $ref: '../domain/trust-report-v1.schema.json#/properties/impact_codes'
+        report_id:
+          $ref: '#/components/schemas/Uuid'
+        submitted_at:
+          type: string
+          format: date-time
+    QueueProjection:
+      type: object
+      additionalProperties: false
+      required: [entity_tag, items]
+      properties:
+        entity_tag:
+          $ref: '#/components/schemas/EntityTag'
+        items:
+          type: array
+          maxItems: 100
+          items:
+            $ref: '#/components/schemas/QueueItem'
+    ActiveAssignmentItem:
+      type: object
+      additionalProperties: false
+      required: [assignment_expires_at, assignment_purpose, case_id, hold_id]
+      properties:
+        assignment_expires_at:
+          type: string
+          format: date-time
+        assignment_purpose:
+          type: string
+          enum: [CASE_TRIAGE, HOLD_RELEASE]
+        case_id:
+          $ref: '#/components/schemas/Uuid'
+        hold_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+      oneOf:
+        - type: object
+          additionalProperties: false
+          required: [assignment_expires_at, assignment_purpose, case_id, hold_id]
+          properties:
+            assignment_expires_at:
+              type: string
+              format: date-time
+            assignment_purpose:
+              type: string
+              const: CASE_TRIAGE
+            case_id:
+              $ref: '#/components/schemas/Uuid'
+            hold_id:
+              type: 'null'
+        - type: object
+          additionalProperties: false
+          required: [assignment_expires_at, assignment_purpose, case_id, hold_id]
+          properties:
+            assignment_expires_at:
+              type: string
+              format: date-time
+            assignment_purpose:
+              type: string
+              const: HOLD_RELEASE
+            case_id:
+              $ref: '#/components/schemas/Uuid'
+            hold_id:
+              $ref: '#/components/schemas/Uuid'
+    ActiveAssignmentsProjection:
+      type: object
+      additionalProperties: false
+      required: [entity_tag, items]
+      properties:
+        entity_tag:
+          $ref: '#/components/schemas/EntityTag'
+        items:
+          type: array
+          maxItems: 100
+          uniqueItems: true
+          items:
+            $ref: '#/components/schemas/ActiveAssignmentItem'
+    CompletedAssignmentHistoryItem:
+      type: object
+      additionalProperties: false
+      required: [case_id, decided_at, outcome_code]
+      properties:
+        case_id:
+          $ref: '#/components/schemas/Uuid'
+        decided_at:
+          type: string
+          format: date-time
+        outcome_code:
+          type: string
+          enum:
+            - NO_ACTION
+            - PROTECTION_LIFTED
+            - PROTECTION_MAINTAINED
+            - PROTECTION_MODIFIED
+            - REMEDIATION_REQUIRED
+    CompletedAssignmentHistoryProjection:
+      type: object
+      additionalProperties: false
+      required: [entity_tag, has_more, items]
+      properties:
+        entity_tag:
+          $ref: '#/components/schemas/EntityTag'
+        has_more:
+          type: boolean
+        items:
+          type: array
+          maxItems: 100
+          uniqueItems: true
+          items:
+            $ref: '#/components/schemas/CompletedAssignmentHistoryItem'
+    AssignedHoldReleaseProjection:
+      type: object
+      additionalProperties: false
+      required:
+        - action_codes
+        - assignment_expires_at
+        - case_id
+        - case_status
+        - effective_at
+        - entity_tag
+        - expires_at
+        - hold_id
+        - hold_status
+        - reason_code
+      properties:
+        action_codes:
+          type: array
+          minItems: 1
+          maxItems: 3
+          uniqueItems: true
+          items:
+            $ref: '#/components/schemas/DemandActionCode'
+        assignment_expires_at:
+          type: string
+          format: date-time
+        case_id:
+          $ref: '#/components/schemas/Uuid'
+        case_status:
+          type: string
+          const: IN_REVIEW
+        effective_at:
+          type: string
+          format: date-time
+        entity_tag:
+          $ref: '#/components/schemas/EntityTag'
+        expires_at:
+          type: string
+          format: date-time
+        hold_id:
+          $ref: '#/components/schemas/Uuid'
+        hold_status:
+          type: string
+          const: ACTIVE
+        reason_code:
+          type: string
+          enum: [PARTICIPANT_SAFETY_RISK, RETALIATION_RISK]
+    HoldReleaseQueueItem:
+      type: object
+      additionalProperties: false
+      required:
+        - action_codes
+        - case_id
+        - demand_id
+        - demand_version_id
+        - entity_tag
+        - expires_at
+        - hold_id
+        - reason_code
+      properties:
+        action_codes:
+          type: array
+          minItems: 1
+          maxItems: 3
+          uniqueItems: true
+          items:
+            $ref: '#/components/schemas/DemandActionCode'
+        case_id:
+          $ref: '#/components/schemas/Uuid'
+        demand_id:
+          $ref: '#/components/schemas/Uuid'
+        demand_version_id:
+          $ref: '#/components/schemas/Uuid'
+        entity_tag:
+          $ref: '#/components/schemas/EntityTag'
+        expires_at:
+          type: string
+          format: date-time
+        hold_id:
+          $ref: '#/components/schemas/Uuid'
+        reason_code:
+          type: string
+          enum: [PARTICIPANT_SAFETY_RISK, RETALIATION_RISK]
+    HoldReleaseQueueProjection:
+      type: object
+      additionalProperties: false
+      required: [entity_tag, items]
+      properties:
+        entity_tag:
+          $ref: '#/components/schemas/EntityTag'
+        items:
+          type: array
+          maxItems: 100
+          items:
+            $ref: '#/components/schemas/HoldReleaseQueueItem'
+    SafeTriageContent:
+      type: object
+      additionalProperties: false
+      required:
+        - investigation_step_codes
+        - issue_codes
+        - jurisdiction_code
+        - priority_code
+        - proposed_hold_actions
+        - proposed_hold_ttl_minutes
+        - sealed_note_reference
+        - sealed_note_sha256
+        - severity_code
+      properties:
+        investigation_step_codes:
+          $ref: '../domain/trust-triage-v1.schema.json#/properties/investigation_step_codes'
+        issue_codes:
+          $ref: '../domain/trust-triage-v1.schema.json#/properties/issue_codes'
+        jurisdiction_code:
+          $ref: '../domain/trust-triage-v1.schema.json#/properties/jurisdiction_code'
+        priority_code:
+          $ref: '../domain/trust-triage-v1.schema.json#/properties/priority_code'
+        proposed_hold_actions:
+          $ref: '../domain/trust-triage-v1.schema.json#/properties/proposed_hold_actions'
+        proposed_hold_ttl_minutes:
+          $ref: '../domain/trust-triage-v1.schema.json#/properties/proposed_hold_ttl_minutes'
+        sealed_note_reference:
+          type: string
+          pattern: '^sealed://trust/[a-z0-9][a-z0-9/_-]{4,255}$'
+        sealed_note_sha256:
+          $ref: '#/components/schemas/Sha256'
+        severity_code:
+          $ref: '../domain/trust-triage-v1.schema.json#/properties/severity_code'
+    TriageDraftProjection:
+      type: object
+      additionalProperties: false
+      required: [content, content_sha256, saved_at, triage_version]
+      properties:
+        content:
+          $ref: '#/components/schemas/SafeTriageContent'
+        content_sha256:
+          $ref: '#/components/schemas/Sha256'
+        saved_at:
+          type: string
+          format: date-time
+        triage_version:
+          type: integer
+          minimum: 1
+    HoldProjection:
+      type: object
+      additionalProperties: false
+      required:
+        - action_codes
+        - effective_at
+        - entity_tag
+        - expires_at
+        - hold_id
+        - status
+      properties:
+        action_codes:
+          type: array
+          minItems: 1
+          maxItems: 3
+          uniqueItems: true
+          items:
+            $ref: '#/components/schemas/DemandActionCode'
+        effective_at:
+          type: string
+          format: date-time
+        entity_tag:
+          $ref: '#/components/schemas/EntityTag'
+        expires_at:
+          type: string
+          format: date-time
+        hold_id:
+          $ref: '#/components/schemas/Uuid'
+        status:
+          type: string
+          enum: [ACTIVE, EXPIRED, RELEASED]
+    OutcomeProjection:
+      type: object
+      additionalProperties: false
+      required:
+        - action_codes
+        - appeal_deadline
+        - appeal_eligibility_code
+        - content_sha256
+        - decided_at
+        - evidence_packet_digest
+        - evidence_packet_version_id
+        - outcome_code
+        - outcome_version_id
+        - policy_version
+        - reason_codes
+        - redaction_profile_code
+        - source_digest
+      properties:
+        action_codes:
+          type: array
+          maxItems: 3
+          uniqueItems: true
+          items:
+            $ref: '#/components/schemas/DemandActionCode'
+        appeal_deadline:
+          oneOf:
+            - type: string
+              format: date-time
+            - type: 'null'
+        appeal_eligibility_code:
+          type: string
+          enum: [ELIGIBLE, NOT_ELIGIBLE]
+        content_sha256:
+          $ref: '#/components/schemas/Sha256'
+        decided_at:
+          type: string
+          format: date-time
+        evidence_packet_digest:
+          $ref: '#/components/schemas/Sha256'
+        evidence_packet_version_id:
+          $ref: '#/components/schemas/Uuid'
+        outcome_code:
+          type: string
+          enum:
+            - NO_ACTION
+            - PROTECTION_LIFTED
+            - PROTECTION_MAINTAINED
+            - PROTECTION_MODIFIED
+            - REMEDIATION_REQUIRED
+        outcome_version_id:
+          $ref: '#/components/schemas/Uuid'
+        policy_version:
+          type: string
+          pattern: '^trust-case-outcome-v[1-9][0-9]*$'
+        reason_codes:
+          type: array
+          minItems: 1
+          maxItems: 8
+          uniqueItems: true
+          items:
+            type: string
+            enum:
+              - INSUFFICIENT_VERIFIED_EVIDENCE
+              - NO_POLICY_BREACH
+              - POLICY_REQUIREMENT_NOT_MET
+              - PRECAUTIONARY_ACTION_REQUIRED
+              - RISK_MITIGATED
+        redaction_profile_code:
+          type: string
+          enum: [OFFICER_RESTRICTED_V1, PARTY_SAFE_V1]
+        source_digest:
+          $ref: '#/components/schemas/Sha256'
+    TrustCaseProjection:
+      type: object
+      additionalProperties: false
+      required:
+        - active_hold
+        - aggregate_version
+        - case_id
+        - demand_id
+        - demand_version_id
+        - entity_tag
+        - outcome
+        - report
+        - report_id
+        - status
+        - triage_draft
+      properties:
+        active_hold:
+          oneOf:
+            - $ref: '#/components/schemas/HoldProjection'
+            - type: 'null'
+        aggregate_version:
+          type: integer
+          minimum: 1
+        case_id:
+          $ref: '#/components/schemas/Uuid'
+        demand_id:
+          $ref: '#/components/schemas/Uuid'
+        demand_version_id:
+          $ref: '#/components/schemas/Uuid'
+        entity_tag:
+          $ref: '#/components/schemas/EntityTag'
+        outcome:
+          oneOf:
+            - $ref: '#/components/schemas/OutcomeProjection'
+            - type: 'null'
+        report:
+          $ref: '#/components/schemas/ReportSummary'
+        report_id:
+          $ref: '#/components/schemas/Uuid'
+        status:
+          type: string
+          enum: [DECIDED, IN_REVIEW, TRIAGING]
+        triage_draft:
+          oneOf:
+            - $ref: '#/components/schemas/TriageDraftProjection'
+            - type: 'null'
+    TrustCommandResult:
+      description: >-
+        Receipt-safe result of one committed Trust write. Rich report, case,
+        assignment, evidence, and restricted-note facts are deliberately read
+        through separately authorized projections after the command.
+      type: object
+      additionalProperties: false
+      required:
+        - aggregate_version
+        - case_id
+        - case_status
+        - completed_at
+        - event_types
+        - hold_id
+        - hold_version
+        - outcome_version_id
+        - replayed
+        - report_id
+        - triage_draft_version
+        - triage_version
+      properties:
+        aggregate_version:
+          type: integer
+          minimum: 1
+        case_id:
+          $ref: '#/components/schemas/Uuid'
+        case_status:
+          type: string
+          enum:
+            - APPEAL_PENDING
+            - DECIDED
+            - DISMISSED
+            - IN_REVIEW
+            - OPEN
+            - RESOLVED
+            - TRIAGING
+        completed_at:
+          type: string
+          format: date-time
+        event_types:
+          type: array
+          minItems: 1
+          maxItems: 1
+          uniqueItems: true
+          items:
+            type: string
+            enum:
+              - SafetyHoldPlaced
+              - SafetyHoldReleased
+              - TrustCaseAssignmentReleased
+              - TrustCaseClaimed
+              - TrustCaseOutcomePublished
+              - TrustHoldReleaseClaimed
+              - TrustReportSubmitted
+              - TrustTriageDraftSaved
+              - TrustTriagePublished
+        hold_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+        hold_version:
+          oneOf:
+            - type: integer
+              minimum: 1
+            - type: 'null'
+        outcome_version_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+        replayed:
+          type: boolean
+        report_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+        triage_draft_version:
+          oneOf:
+            - type: integer
+              minimum: 1
+            - type: 'null'
+        triage_version:
+          oneOf:
+            - type: integer
+              minimum: 1
+            - type: 'null'
+    TrustCommandEnvelope:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          $ref: '#/components/schemas/TrustCommandResult'
+    ReportEnvelope:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          $ref: '#/components/schemas/ReportProjection'
+    OwnedReportListEnvelope:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          $ref: '#/components/schemas/OwnedReportListProjection'
+    QueueEnvelope:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          $ref: '#/components/schemas/QueueProjection'
+    ActiveAssignmentsEnvelope:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          $ref: '#/components/schemas/ActiveAssignmentsProjection'
+    CompletedAssignmentHistoryEnvelope:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          $ref: '#/components/schemas/CompletedAssignmentHistoryProjection'
+    AssignedHoldReleaseEnvelope:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          $ref: '#/components/schemas/AssignedHoldReleaseProjection'
+    HoldReleaseQueueEnvelope:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          $ref: '#/components/schemas/HoldReleaseQueueProjection'
+    CaseEnvelope:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          $ref: '#/components/schemas/TrustCaseProjection'
+    ErrorCode:
+      type: string
+      enum:
+        - ASSIGNMENT_UNAVAILABLE
+        - AUTHENTICATION_REQUIRED
+        - COMMAND_OUTCOME_UNKNOWN
+        - CONFLICT_OF_INTEREST
+        - CSRF_INVALID
+        - CSRF_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - INVALID_IDEMPOTENCY_KEY
+        - INVALID_REQUEST
+        - PRECONDITION_REQUIRED
+        - RESOURCE_NOT_FOUND
+        - SERVICE_UNAVAILABLE
+        - SESSION_EXPIRED
+        - STALE_VERSION
+        - TRUST_VALIDATION_FAILED
+    ErrorDetail:
+      type: object
+      additionalProperties: false
+      required: [code]
+      properties:
+        code:
+          $ref: '#/components/schemas/ErrorCode'
+        path:
+          type: string
+          pattern: '^/(?:body|headers|path)(?:/[A-Za-z0-9_.~-]+)*$'
+    ErrorEnvelope:
+      type: object
+      additionalProperties: false
+      required: [error]
+      properties:
+        error:
+          $ref: '#/components/schemas/ErrorDetail'
+  headers:
+    CacheControlNoStore:
+      description: Assignment indexes and exact assigned Hold reads are never cached.
+      required: true
+      schema:
+        type: string
+        const: no-store
+    EntityTag:
+      description: Exact current Trust aggregate version and digest binding.
+      schema:
+        $ref: '#/components/schemas/EntityTag'
+  responses:
+    CommandCommitted:
+      description: >-
+        The command committed or was exactly replayed. The body is the closed
+        receipt-safe result; clients perform a fresh authorized read when the
+        resulting resource remains visible to the actor.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/TrustCommandEnvelope'
+    ReportRead:
+      description: Safe reporting-party projection; reporter identity is never serialized.
+      headers:
+        ETag:
+          $ref: '#/components/headers/EntityTag'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ReportEnvelope'
+    OwnedReportListRead:
+      description: Minimal caller-owned report and outcome discovery page.
+      headers:
+        Cache-Control:
+          $ref: '#/components/headers/CacheControlNoStore'
+        ETag:
+          $ref: '#/components/headers/EntityTag'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/OwnedReportListEnvelope'
+    QueueRead:
+      description: Safe unclaimed queue projection with no reporter or narrative fields.
+      headers:
+        ETag:
+          $ref: '#/components/headers/EntityTag'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/QueueEnvelope'
+    ActiveAssignmentsRead:
+      description: Minimal caller-owned active assignment index.
+      headers:
+        Cache-Control:
+          $ref: '#/components/headers/CacheControlNoStore'
+        ETag:
+          $ref: '#/components/headers/EntityTag'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ActiveAssignmentsEnvelope'
+    CompletedAssignmentHistoryRead:
+      description: Minimal caller-owned completed assignment history.
+      headers:
+        Cache-Control:
+          $ref: '#/components/headers/CacheControlNoStore'
+        ETag:
+          $ref: '#/components/headers/EntityTag'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/CompletedAssignmentHistoryEnvelope'
+    AssignedHoldReleaseRead:
+      description: Exact caller-owned active Hold release assignment.
+      headers:
+        Cache-Control:
+          $ref: '#/components/headers/CacheControlNoStore'
+        ETag:
+          $ref: '#/components/headers/EntityTag'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/AssignedHoldReleaseEnvelope'
+    HoldReleaseQueueRead:
+      description: Safe independent-release queue with no officer identity or restricted note.
+      headers:
+        ETag:
+          $ref: '#/components/headers/EntityTag'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/HoldReleaseQueueEnvelope'
+    CaseRead:
+      description: Exact assigned Trust case projection.
+      headers:
+        ETag:
+          $ref: '#/components/headers/EntityTag'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/CaseEnvelope'
+    BadRequest:
+      $ref: '#/components/responses/ErrorResponse'
+    Unauthorized:
+      $ref: '#/components/responses/ErrorResponse'
+    Forbidden:
+      $ref: '#/components/responses/ErrorResponse'
+    NotFound:
+      $ref: '#/components/responses/ErrorResponse'
+    Conflict:
+      $ref: '#/components/responses/ErrorResponse'
+    PreconditionFailed:
+      $ref: '#/components/responses/ErrorResponse'
+    UnprocessableEntity:
+      $ref: '#/components/responses/ErrorResponse'
+    ServiceUnavailable:
+      $ref: '#/components/responses/ErrorResponse'
+    ErrorResponse:
+      description: Closed non-reflective error response.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'

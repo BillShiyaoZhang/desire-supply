@@ -1,0 +1,101 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://desire-supply.local/contracts/domain/match-run-input-v1.schema.json",
+  "title": "Match run private algorithm input v1",
+  "description": "Closed worker-only algorithm value snapshot. Contact, prose, precise location, private compensation floor, protected attributes, conflict objects and evidence locators are not representable.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "canonicalization_version", "attempt_id", "run_id", "demand_id", "demand_version_id", "matching_rule_bundle_id", "input_set_sha256", "demand", "profiles"],
+  "properties": {
+    "schema_version": {"type": "integer", "const": 1},
+    "canonicalization_version": {"type": "string", "const": "match-run-input-json-v1"},
+    "attempt_id": {"$ref": "#/$defs/OpaqueId"},
+    "run_id": {"$ref": "#/$defs/OpaqueId"},
+    "demand_id": {"$ref": "#/$defs/OpaqueId"},
+    "demand_version_id": {"$ref": "#/$defs/OpaqueId"},
+    "matching_rule_bundle_id": {"$ref": "#/$defs/OpaqueId"},
+    "input_set_sha256": {"$ref": "#/$defs/Sha256"},
+    "demand": {"$ref": "#/$defs/DemandInput"},
+    "profiles": {"type": "array", "maxItems": 10000, "uniqueItems": true, "x-identity-order-equals": "match-input-manifest-v1.ordered_candidates", "items": {"$ref": "#/$defs/ProfileInput"}}
+  },
+  "$defs": {
+    "OpaqueId": {"type": "string", "minLength": 16, "maxLength": 128, "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{15,127}$"},
+    "Sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "Code": {"type": "string", "minLength": 2, "maxLength": 64, "pattern": "^[A-Z][A-Z0-9_.:-]{1,63}$"},
+    "CodeList": {"type": "array", "maxItems": 100, "uniqueItems": true, "items": {"$ref": "#/$defs/Code"}},
+    "Date": {"type": "string", "format": "date", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"},
+    "Level": {"type": "integer", "minimum": 0, "maximum": 4},
+    "MinorAmount": {"type": "integer", "minimum": 0, "maximum": 9007199254740991},
+    "SkillRequirement": {
+      "type": "object", "additionalProperties": false,
+      "required": ["skill_code", "minimum_level"],
+      "properties": {"skill_code": {"$ref": "#/$defs/Code"}, "minimum_level": {"$ref": "#/$defs/Level"}}
+    },
+    "SkillFact": {
+      "type": "object", "additionalProperties": false,
+      "required": ["skill_code", "proficiency_level", "evidence_trust_level", "evidence_bucket"],
+      "properties": {
+        "skill_code": {"$ref": "#/$defs/Code"},
+        "proficiency_level": {"$ref": "#/$defs/Level"},
+        "evidence_trust_level": {"$ref": "#/$defs/Level"},
+        "evidence_bucket": {"type": "string", "enum": ["NONE", "SELF_ASSERTED", "DOCUMENTED", "VERIFIED"]}
+      }
+    },
+    "DemandInput": {
+      "type": "object", "additionalProperties": false,
+      "required": ["problem_type_codes", "domain_codes", "task_codes", "must_have_skills", "nice_to_have_skills", "start_date", "due_date", "required_weekly_hours", "required_duration_weeks", "currency", "minimum_amount_minor", "maximum_amount_minor", "allowed_region_codes", "required_language_codes", "required_work_mode_code", "data_sensitivity_code", "ai_use_code", "budget_override_code"],
+      "properties": {
+        "problem_type_codes": {"$ref": "#/$defs/CodeList"},
+        "domain_codes": {"$ref": "#/$defs/CodeList"},
+        "task_codes": {"$ref": "#/$defs/CodeList"},
+        "must_have_skills": {"type": "array", "maxItems": 100, "uniqueItems": true, "items": {"$ref": "#/$defs/SkillRequirement"}},
+        "nice_to_have_skills": {"type": "array", "maxItems": 100, "uniqueItems": true, "items": {"$ref": "#/$defs/SkillRequirement"}},
+        "start_date": {"$ref": "#/$defs/Date"},
+        "due_date": {"$ref": "#/$defs/Date"},
+        "required_weekly_hours": {"type": "integer", "minimum": 0, "maximum": 168},
+        "required_duration_weeks": {"type": "integer", "minimum": 0, "maximum": 520},
+        "currency": {"type": "string", "pattern": "^[A-Z]{3}$"},
+        "minimum_amount_minor": {"$ref": "#/$defs/MinorAmount"},
+        "maximum_amount_minor": {"$ref": "#/$defs/MinorAmount"},
+        "allowed_region_codes": {"$ref": "#/$defs/CodeList"},
+        "required_language_codes": {"$ref": "#/$defs/CodeList"},
+        "required_work_mode_code": {"$ref": "#/$defs/Code"},
+        "data_sensitivity_code": {"type": "string", "enum": ["PUBLIC", "INTERNAL", "HIGH", "RESTRICTED"]},
+        "ai_use_code": {"type": "string", "enum": ["PROHIBITED", "OPTIONAL", "REQUIRED"]},
+        "budget_override_code": {"oneOf": [{"$ref": "#/$defs/Code"}, {"type": "null"}]}
+      }
+    },
+    "ProfileInput": {
+      "type": "object", "additionalProperties": false,
+      "required": ["creator_user_id", "profile_id", "profile_version_id", "profile_content_sha256", "evidence_version_digest", "status", "interest_problem_type_codes", "interest_domain_codes", "interest_task_codes", "interest_intensity", "prohibited_domain_codes", "prohibited_task_codes", "skills", "available_from", "available_weekly_hours", "available_duration_weeks", "currency", "within_offered_budget", "private_floor_evidence_digest", "allowed_data_sensitivity_codes", "ai_use_code", "language_codes", "work_mode_code", "region_code", "location_eligible", "conflict_of_interest"],
+      "properties": {
+        "creator_user_id": {"$ref": "#/$defs/OpaqueId"},
+        "profile_id": {"$ref": "#/$defs/OpaqueId"},
+        "profile_version_id": {"$ref": "#/$defs/OpaqueId"},
+        "profile_content_sha256": {"$ref": "#/$defs/Sha256"},
+        "evidence_version_digest": {"$ref": "#/$defs/Sha256"},
+        "status": {"type": "string", "const": "ACTIVE"},
+        "interest_problem_type_codes": {"$ref": "#/$defs/CodeList"},
+        "interest_domain_codes": {"$ref": "#/$defs/CodeList"},
+        "interest_task_codes": {"$ref": "#/$defs/CodeList"},
+        "interest_intensity": {"$ref": "#/$defs/Level"},
+        "prohibited_domain_codes": {"$ref": "#/$defs/CodeList"},
+        "prohibited_task_codes": {"$ref": "#/$defs/CodeList"},
+        "skills": {"type": "array", "maxItems": 200, "uniqueItems": true, "items": {"$ref": "#/$defs/SkillFact"}},
+        "available_from": {"$ref": "#/$defs/Date"},
+        "available_weekly_hours": {"type": "integer", "minimum": 0, "maximum": 168},
+        "available_duration_weeks": {"type": "integer", "minimum": 0, "maximum": 520},
+        "currency": {"type": "string", "pattern": "^[A-Z]{3}$"},
+        "within_offered_budget": {"type": "boolean"},
+        "private_floor_evidence_digest": {"$ref": "#/$defs/Sha256"},
+        "allowed_data_sensitivity_codes": {"$ref": "#/$defs/CodeList"},
+        "ai_use_code": {"type": "string", "enum": ["PROHIBITED", "OPTIONAL", "REQUIRED"]},
+        "language_codes": {"$ref": "#/$defs/CodeList"},
+        "work_mode_code": {"$ref": "#/$defs/Code"},
+        "region_code": {"$ref": "#/$defs/Code"},
+        "location_eligible": {"type": "boolean"},
+        "conflict_of_interest": {"type": "boolean"}
+      }
+    }
+  }
+}

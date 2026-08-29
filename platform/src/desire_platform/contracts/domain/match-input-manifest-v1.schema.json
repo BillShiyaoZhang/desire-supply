@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://desire-supply.local/contracts/domain/match-input-manifest-v1.schema.json",
+  "title": "Match input reference manifest v1",
+  "description": "Closed immutable reference and digest surface. Algorithm values live only in match-run-input-v1.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "canonicalization_version", "attempt_id", "run_id",
+    "organization_id", "demand_id", "demand_version_id", "demand_content_sha256",
+    "funding_id", "matching_request_id", "matching_request_version",
+    "matching_rule_bundle_id", "selector_digest", "rule_manifest_sha256",
+    "ordered_candidates", "captured_at", "candidate_count", "input_set_sha256"
+  ],
+  "properties": {
+    "schema_version": {"type": "integer", "const": 1},
+    "canonicalization_version": {"type": "string", "const": "match-input-manifest-v1"},
+    "attempt_id": {"$ref": "#/$defs/OpaqueId"},
+    "run_id": {"$ref": "#/$defs/OpaqueId"},
+    "organization_id": {"$ref": "#/$defs/OpaqueId"},
+    "demand_id": {"$ref": "#/$defs/OpaqueId"},
+    "demand_version_id": {"$ref": "#/$defs/OpaqueId"},
+    "demand_content_sha256": {"$ref": "#/$defs/Sha256"},
+    "funding_id": {"$ref": "#/$defs/OpaqueId"},
+    "matching_request_id": {"$ref": "#/$defs/OpaqueId"},
+    "matching_request_version": {"$ref": "#/$defs/AggregateVersion"},
+    "matching_rule_bundle_id": {"$ref": "#/$defs/OpaqueId"},
+    "selector_digest": {"$ref": "#/$defs/Sha256"},
+    "rule_manifest_sha256": {"$ref": "#/$defs/Sha256"},
+    "ordered_candidates": {"type": "array", "maxItems": 10000, "uniqueItems": true, "x-sorted-by": "creator_user_id:utf8-bytes", "items": {"$ref": "#/$defs/CandidateIdentity"}},
+    "captured_at": {"$ref": "#/$defs/Timestamp"},
+    "candidate_count": {"type": "integer", "minimum": 0, "maximum": 10000, "x-equals-length-of": "ordered_candidates"},
+    "input_set_sha256": {"$ref": "#/$defs/Sha256"}
+  },
+  "$defs": {
+    "OpaqueId": {"type": "string", "minLength": 16, "maxLength": 128, "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{15,127}$"},
+    "Sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "Timestamp": {"type": "string", "format": "date-time", "pattern": "Z$"},
+    "AggregateVersion": {"type": "integer", "minimum": 1, "maximum": 2147483647},
+    "CandidateIdentity": {
+      "type": "object", "additionalProperties": false,
+      "required": ["creator_user_id", "profile_id", "profile_version_id", "profile_content_sha256", "evidence_version_digest"],
+      "properties": {
+        "creator_user_id": {"$ref": "#/$defs/OpaqueId"},
+        "profile_id": {"$ref": "#/$defs/OpaqueId"},
+        "profile_version_id": {"$ref": "#/$defs/OpaqueId"},
+        "profile_content_sha256": {"$ref": "#/$defs/Sha256"},
+        "evidence_version_digest": {"$ref": "#/$defs/Sha256"}
+      }
+    }
+  }
+}
