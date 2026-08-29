@@ -1,0 +1,5 @@
+configs:
+  postgres-backup-restore-script:
+    file: ./deploy/postgres-backup-restore-v25.sh
+  postgres-core-facts-sql:
+    file: ./deploy/postgres-core-facts-v25.sql

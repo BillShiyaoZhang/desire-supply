@@ -1,0 +1,413 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://desire-supply.invalid/contracts/private-server-runtime-release-v1.schema.json",
+  "title": "Private server runtime release v1",
+  "description": "A closed offline content binding for five runtime images. It is never deployment, production, Docker-lifecycle, or execution authority.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "format",
+    "status",
+    "authority",
+    "execution_permitted",
+    "production_authorized",
+    "release_id",
+    "image_tag",
+    "source",
+    "target_platform",
+    "schema_heads",
+    "images"
+  ],
+  "properties": {
+    "format": {
+      "const": "desire-private-server-runtime-release-v1"
+    },
+    "status": {
+      "const": "VALIDATED_RELEASE_ARTIFACT_NOT_AUTHORITY"
+    },
+    "authority": {
+      "const": "NOT_AUTHORITY"
+    },
+    "execution_permitted": {
+      "const": false
+    },
+    "production_authorized": {
+      "const": false
+    },
+    "release_id": {
+      "type": "string",
+      "pattern": "^runtime-release-[a-z0-9][a-z0-9._-]{0,95}$"
+    },
+    "image_tag": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9._-]{0,119}$"
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "snapshot_kind",
+        "source_snapshot",
+        "dockerfile_kind",
+        "dockerfiles",
+        "dockerfile_digest_set"
+      ],
+      "properties": {
+        "snapshot_kind": {
+          "const": "NORMALIZED_SOURCE_SNAPSHOT_TAR_V1"
+        },
+        "source_snapshot": {
+          "description": "Complete uncompressed POSIX ustar build-source snapshot. Every directory, regular file, and safe internal relative symlink is included exactly once; member names and link targets are NFC UTF-8 portable paths sorted bytewise; links must remain inside the snapshot and be acyclic; no PAX records, devices, or VCS metadata; uid/gid/mtime zero and uname/gname empty; regular files use mode 0644 or 0755 according to the Git executable bit, directories use 0755, and symlinks use 0777; terminal 512-byte blocks contain only zeroes.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["sha256", "size"],
+          "properties": {
+            "sha256": {"$ref": "#/$defs/sha256"},
+            "size": {
+              "type": "integer",
+              "minimum": 1024,
+              "maximum": 4294967296
+            }
+          }
+        },
+        "dockerfile_kind": {
+          "const": "CANONICAL_DOCKERFILE_DIGEST_SET_V1"
+        },
+        "dockerfiles": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["platform", "web", "edge", "oidc-egress-guard"],
+          "properties": {
+            "platform": {
+              "allOf": [
+                {"$ref": "#/$defs/dockerfileBinding"},
+                {"properties": {"target": {"const": "platform-runtime"}}}
+              ]
+            },
+            "web": {
+              "allOf": [
+                {"$ref": "#/$defs/dockerfileBinding"},
+                {"properties": {"target": {"const": "web-runtime"}}}
+              ]
+            },
+            "edge": {
+              "allOf": [
+                {"$ref": "#/$defs/dockerfileBinding"},
+                {"properties": {"target": {"const": "edge-runtime"}}}
+              ]
+            },
+            "oidc-egress-guard": {
+              "allOf": [
+                {"$ref": "#/$defs/dockerfileBinding"},
+                {"properties": {"target": {"const": "oidc-egress-guard-runtime"}}}
+              ]
+            }
+          }
+        },
+        "dockerfile_digest_set": {
+          "description": "SHA-256 and size of newline-terminated canonical JSON exactly equal to source.dockerfiles. Every dockerfile_sha256 must also equal the Dockerfile member carried by source_snapshot; fixed targets prevent stage substitution.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["sha256", "size"],
+          "properties": {
+            "sha256": {"$ref": "#/$defs/sha256"},
+            "size": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 262144
+            }
+          }
+        }
+      }
+    },
+    "target_platform": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["os", "architecture"],
+      "properties": {
+        "os": {
+          "const": "linux"
+        },
+        "architecture": {
+          "enum": ["amd64", "arm64"]
+        }
+      }
+    },
+    "schema_heads": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "postgresql",
+        "iam",
+        "profile",
+        "demand",
+        "trust",
+        "matching",
+        "taxonomy"
+      ],
+      "properties": {
+        "postgresql": {"const": 18},
+        "iam": {"const": 46},
+        "profile": {"const": 5},
+        "demand": {"const": 15},
+        "trust": {"const": 22},
+        "matching": {"const": 3},
+        "taxonomy": {"const": 2}
+      }
+    },
+    "images": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "platform",
+        "web",
+        "edge",
+        "oidc-egress-guard",
+        "postgres"
+      ],
+      "properties": {
+        "platform": {
+          "$ref": "#/$defs/platformImage"
+        },
+        "web": {
+          "$ref": "#/$defs/webImage"
+        },
+        "edge": {
+          "$ref": "#/$defs/edgeImage"
+        },
+        "oidc-egress-guard": {
+          "$ref": "#/$defs/guardImage"
+        },
+        "postgres": {
+          "$ref": "#/$defs/postgresImage"
+        }
+      }
+    }
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "imageDigest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "dockerfileBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["dockerfile_sha256", "target"],
+      "properties": {
+        "dockerfile_sha256": {"$ref": "#/$defs/sha256"},
+        "target": {"type": "string"}
+      }
+    },
+    "contentArtifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sha256", "size"],
+      "properties": {
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "size": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 16777216
+        }
+      }
+    },
+    "ociArchive": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sha256", "size"],
+      "properties": {
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "size": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 34359738368
+        }
+      }
+    },
+    "sbom": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sha256", "size"],
+      "properties": {
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "size": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 67108864
+        }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sha256", "size"],
+      "properties": {
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "size": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 16777216
+        }
+      }
+    },
+    "ociImageBase": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "delivery_kind",
+        "reference",
+        "root_index_digest",
+        "platform_manifest_digest",
+        "config_digest",
+        "oci_archive",
+        "sbom",
+        "provenance"
+      ],
+      "properties": {
+        "delivery_kind": {
+          "const": "OCI_ARCHIVE"
+        },
+        "reference": {
+          "type": "string"
+        },
+        "root_index_digest": {
+          "description": "Digest of the OCI root index blob referenced by the layout index.json wrapper and addressed by the release reference; it is not the digest of wrapper index.json.",
+          "$ref": "#/$defs/imageDigest"
+        },
+        "platform_manifest_digest": {
+          "description": "Digest of the single runnable manifest selected for target_platform; this is the SBOM/provenance subject.",
+          "$ref": "#/$defs/imageDigest"
+        },
+        "config_digest": {
+          "$ref": "#/$defs/imageDigest"
+        },
+        "oci_archive": {
+          "$ref": "#/$defs/ociArchive"
+        },
+        "sbom": {
+          "$ref": "#/$defs/sbom"
+        },
+        "provenance": {
+          "$ref": "#/$defs/provenance"
+        }
+      }
+    },
+    "platformImage": {
+      "allOf": [
+        {"$ref": "#/$defs/ociImageBase"},
+        {
+          "properties": {
+            "reference": {
+              "pattern": "^desire-supply-platform:[a-z0-9][a-z0-9._-]{0,119}@sha256:[0-9a-f]{64}$"
+            }
+          }
+        }
+      ]
+    },
+    "webImage": {
+      "allOf": [
+        {"$ref": "#/$defs/ociImageBase"},
+        {
+          "properties": {
+            "reference": {
+              "pattern": "^desire-supply-web:[a-z0-9][a-z0-9._-]{0,119}@sha256:[0-9a-f]{64}$"
+            }
+          }
+        }
+      ]
+    },
+    "edgeImage": {
+      "allOf": [
+        {"$ref": "#/$defs/ociImageBase"},
+        {
+          "properties": {
+            "reference": {
+              "pattern": "^desire-supply-edge:[a-z0-9][a-z0-9._-]{0,119}@sha256:[0-9a-f]{64}$"
+            }
+          }
+        }
+      ]
+    },
+    "guardImage": {
+      "allOf": [
+        {"$ref": "#/$defs/ociImageBase"},
+        {
+          "properties": {
+            "reference": {
+              "pattern": "^desire-supply-oidc-egress-guard:[a-z0-9][a-z0-9._-]{0,119}@sha256:[0-9a-f]{64}$"
+            }
+          }
+        }
+      ]
+    },
+    "postgresImage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "delivery_kind",
+        "reference",
+        "root_index_digest",
+        "platform_manifest_digest",
+        "config_digest",
+        "registry_index",
+        "platform_manifest",
+        "image_config",
+        "attestation_manifest",
+        "attestation_config",
+        "sbom",
+        "provenance"
+      ],
+      "properties": {
+        "delivery_kind": {
+          "const": "PINNED_REGISTRY"
+        },
+        "reference": {
+          "const": "postgres:18.4-alpine@sha256:9a8afca54e7861fd90fab5fdf4c42477a6b1cb7d293595148e674e0a3181de15"
+        },
+        "root_index_digest": {
+          "const": "sha256:9a8afca54e7861fd90fab5fdf4c42477a6b1cb7d293595148e674e0a3181de15"
+        },
+        "platform_manifest_digest": {
+          "description": "Digest of the runnable linux target-platform manifest selected from the fixed upstream index.",
+          "$ref": "#/$defs/imageDigest"
+        },
+        "config_digest": {
+          "$ref": "#/$defs/imageDigest"
+        },
+        "registry_index": {
+          "$ref": "#/$defs/contentArtifact"
+        },
+        "platform_manifest": {
+          "$ref": "#/$defs/contentArtifact"
+        },
+        "image_config": {
+          "$ref": "#/$defs/contentArtifact"
+        },
+        "attestation_manifest": {
+          "$ref": "#/$defs/contentArtifact"
+        },
+        "attestation_config": {
+          "$ref": "#/$defs/contentArtifact"
+        },
+        "sbom": {
+          "$ref": "#/$defs/sbom"
+        },
+        "provenance": {
+          "$ref": "#/$defs/provenance"
+        }
+      }
+    }
+  }
+}

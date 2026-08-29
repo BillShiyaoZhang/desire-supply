@@ -1,0 +1,590 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:desire-supply:private-server-release-candidate-evidence:v2",
+  "title": "Private server current-head v14 release candidate evidence v2",
+  "description": "Permanently fail-closed caller claims for RUN_CURRENT_HEAD_V14_ONCE. Version 2 never verifies evidence provenance, never represents readiness or approval, and never authorizes production or private-ingress activation.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "candidate_id",
+    "created_at",
+    "candidate_scope",
+    "environment",
+    "data_scope",
+    "production_authorized",
+    "approval_boundary",
+    "source_snapshot",
+    "frozen_assets",
+    "docker_hub_manifest_gate",
+    "test_runs",
+    "quality_checks",
+    "trust_applicant_discovery_deferral",
+    "one_shot_v14",
+    "overall_status",
+    "blocking_reasons"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "desire-private-server-release-candidate-evidence-v2"
+    },
+    "candidate_id": {
+      "type": "string",
+      "pattern": "^current-head-v14-rc-[a-z0-9][a-z0-9._-]{0,63}$"
+    },
+    "created_at": {"$ref": "#/$defs/Timestamp"},
+    "candidate_scope": {"const": "RUN_CURRENT_HEAD_V14_ONCE"},
+    "environment": {"const": "INTERNAL_SANDBOX"},
+    "data_scope": {"const": "synthetic_only"},
+    "production_authorized": {"const": false},
+    "approval_boundary": {
+      "const": "SEPARATE_HUMAN_APPROVAL_ARTIFACT_REQUIRED"
+    },
+    "source_snapshot": {"$ref": "#/$defs/SourceSnapshot"},
+    "frozen_assets": {"$ref": "#/$defs/FrozenAssets"},
+    "docker_hub_manifest_gate": {"$ref": "#/$defs/DockerGate"},
+    "test_runs": {"$ref": "#/$defs/TestRuns"},
+    "quality_checks": {"$ref": "#/$defs/QualityChecks"},
+    "trust_applicant_discovery_deferral": {"$ref": "#/$defs/TrustApplicantDiscoveryDeferral"},
+    "one_shot_v14": {"$ref": "#/$defs/OneShotV14"},
+    "overall_status": {
+      "const": "BLOCKED"
+    },
+    "blocking_reasons": {
+      "type": "array",
+      "uniqueItems": true,
+      "minItems": 1,
+      "maxItems": 8,
+      "contains": {"const": "EVIDENCE_PROVENANCE_NOT_VERIFIED"},
+      "minContains": 1,
+      "maxContains": 1,
+      "items": {
+        "enum": [
+          "EVIDENCE_PROVENANCE_NOT_VERIFIED",
+          "SOURCE_SNAPSHOT_NOT_VERIFIED",
+          "FROZEN_ASSET_NOT_VERIFIED",
+          "DOCKER_HUB_MANIFEST_GATE_NOT_PASSED",
+          "TEST_RUN_NOT_PASSED",
+          "QUALITY_CHECK_NOT_PASSED",
+          "TRUST_APPLICANT_DISCOVERY_DEFERRAL_NOT_ACCEPTED",
+          "ONE_SHOT_V14_NOT_UNCONSUMED_VERIFIED"
+        ]
+      }
+    }
+  },
+  "$defs": {
+    "Sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "NullableSha256": {
+      "oneOf": [{"$ref": "#/$defs/Sha256"}, {"type": "null"}]
+    },
+    "Timestamp": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
+    },
+    "NullableTimestamp": {
+      "oneOf": [{"$ref": "#/$defs/Timestamp"}, {"type": "null"}]
+    },
+    "SourceSnapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "status",
+        "snapshot_sha256",
+        "verification_artifact_sha256",
+        "verified_at"
+      ],
+      "properties": {
+        "kind": {"const": "SOURCE_ARCHIVE_SHA256"},
+        "status": {"enum": ["PENDING", "VERIFIED", "FAILED", "MISMATCH"]},
+        "snapshot_sha256": {"$ref": "#/$defs/NullableSha256"},
+        "verification_artifact_sha256": {"$ref": "#/$defs/NullableSha256"},
+        "verified_at": {"$ref": "#/$defs/NullableTimestamp"}
+      },
+      "oneOf": [
+        {
+          "properties": {
+            "status": {"const": "PENDING"},
+            "snapshot_sha256": {"type": "null"},
+            "verification_artifact_sha256": {"type": "null"},
+            "verified_at": {"type": "null"}
+          }
+        },
+        {
+          "properties": {
+            "status": {"enum": ["VERIFIED", "FAILED", "MISMATCH"]},
+            "snapshot_sha256": {"$ref": "#/$defs/Sha256"},
+            "verification_artifact_sha256": {"$ref": "#/$defs/Sha256"},
+            "verified_at": {"$ref": "#/$defs/Timestamp"}
+          }
+        }
+      ]
+    },
+    "FrozenAsset": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "asset_id",
+        "path",
+        "expected_sha256",
+        "observed_sha256",
+        "source_snapshot_sha256",
+        "status"
+      ],
+      "properties": {
+        "asset_id": {"type": "string"},
+        "path": {"type": "string"},
+        "expected_sha256": {"$ref": "#/$defs/Sha256"},
+        "observed_sha256": {"$ref": "#/$defs/NullableSha256"},
+        "source_snapshot_sha256": {"$ref": "#/$defs/NullableSha256"},
+        "status": {"enum": ["PENDING", "VERIFIED", "MISMATCH"]}
+      },
+      "oneOf": [
+        {
+          "properties": {
+            "status": {"const": "PENDING"},
+            "observed_sha256": {"type": "null"},
+            "source_snapshot_sha256": {"type": "null"}
+          }
+        },
+        {
+          "properties": {
+            "status": {"enum": ["VERIFIED", "MISMATCH"]},
+            "observed_sha256": {"$ref": "#/$defs/Sha256"},
+            "source_snapshot_sha256": {"$ref": "#/$defs/Sha256"}
+          }
+        }
+      ]
+    },
+    "FrozenAssets": {
+      "type": "array",
+      "minItems": 7,
+      "maxItems": 7,
+      "prefixItems": [
+        {"$ref": "#/$defs/Iam38Sql"},
+        {"$ref": "#/$defs/IamManifest"},
+        {"$ref": "#/$defs/Demand10Sql"},
+        {"$ref": "#/$defs/DemandManifest"},
+        {"$ref": "#/$defs/Trust8Sql"},
+        {"$ref": "#/$defs/TrustManifest"},
+        {"$ref": "#/$defs/TrustOpenApi"}
+      ]
+    },
+    "Iam38Sql": {
+      "allOf": [
+        {"$ref": "#/$defs/FrozenAsset"},
+        {"properties": {
+          "asset_id": {"const": "IAM38_SQL"},
+          "path": {"const": "platform/src/desire_platform/identity_access/adapters/postgres/migrations/0038_expand__owned_session_revocation.sql"},
+          "expected_sha256": {"const": "16f468f6bdb28f92746aac10fec516a9694debc1abe7107aafb1557a3f990fbb"}
+        }}
+      ]
+    },
+    "IamManifest": {
+      "allOf": [
+        {"$ref": "#/$defs/FrozenAsset"},
+        {"properties": {
+          "asset_id": {"const": "IAM_MANIFEST"},
+          "path": {"const": "platform/src/desire_platform/identity_access/adapters/postgres/migrations/manifest.json"},
+          "expected_sha256": {"const": "19102ab51f5f41c05c3abe07ab7c812d8d829508beec2bd7c3a637b4d1f3a331"}
+        }}
+      ]
+    },
+    "Demand10Sql": {
+      "allOf": [
+        {"$ref": "#/$defs/FrozenAsset"},
+        {"properties": {
+          "asset_id": {"const": "DEMAND10_SQL"},
+          "path": {"const": "platform/src/desire_platform/demand/adapters/postgres/migrations/0010_expand__finance_funding_review_resolution.sql"},
+          "expected_sha256": {"const": "12971bf1143969ef47875aa0d83c39fade0b3dbabfaf892f269dc24078bc9823"}
+        }}
+      ]
+    },
+    "DemandManifest": {
+      "allOf": [
+        {"$ref": "#/$defs/FrozenAsset"},
+        {"properties": {
+          "asset_id": {"const": "DEMAND_MANIFEST"},
+          "path": {"const": "platform/src/desire_platform/demand/adapters/postgres/migrations/manifest.json"},
+          "expected_sha256": {"const": "7695127a039fa71cddabd62318bea39337e3acbb4b1df66a3557b7a7ae3707b4"}
+        }}
+      ]
+    },
+    "Trust8Sql": {
+      "allOf": [
+        {"$ref": "#/$defs/FrozenAsset"},
+        {"properties": {
+          "asset_id": {"const": "TRUST8_SQL"},
+          "path": {"const": "platform/src/desire_platform/trust_safety/adapters/postgres/migrations/0008_expand__iam38_demand10_dependency_repin.sql"},
+          "expected_sha256": {"const": "c15ca1b6ac8a750dc4cd5b1cf815a367d7531ddb9088da9d60ec1a7a99ff241b"}
+        }}
+      ]
+    },
+    "TrustManifest": {
+      "allOf": [
+        {"$ref": "#/$defs/FrozenAsset"},
+        {"properties": {
+          "asset_id": {"const": "TRUST_MANIFEST"},
+          "path": {"const": "platform/src/desire_platform/trust_safety/adapters/postgres/migrations/manifest.json"},
+          "expected_sha256": {"const": "6d5e98529d07f684657820a8a1d405cd243fa8ac26518ecee02a966ccc02d722"}
+        }}
+      ]
+    },
+    "TrustOpenApi": {
+      "allOf": [
+        {"$ref": "#/$defs/FrozenAsset"},
+        {"properties": {
+          "asset_id": {"const": "TRUST_OPENAPI"},
+          "path": {"const": "platform/src/desire_platform/contracts/api/trust-v1.openapi.yaml"},
+          "expected_sha256": {"const": "f23f8283ce8334cf48e1c912379451f00efe21382a281c5f5156260ae3a618ed"}
+        }}
+      ]
+    },
+    "DockerGate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "gate_id",
+        "rounds_required",
+        "references_per_round",
+        "checks_required",
+        "checks_passed",
+        "references",
+        "status",
+        "source_snapshot_sha256",
+        "evidence_sha256",
+        "completed_at"
+      ],
+      "properties": {
+        "gate_id": {"const": "DOCKER_HUB_PRODUCTION_MANIFESTS_V1"},
+        "rounds_required": {"const": 3},
+        "references_per_round": {"const": 5},
+        "checks_required": {"const": 15},
+        "checks_passed": {"type": "integer", "minimum": 0, "maximum": 15},
+        "references": {"$ref": "#/$defs/DockerReferences"},
+        "status": {"enum": ["PENDING", "PASSED", "FAILED", "MISMATCH"]},
+        "source_snapshot_sha256": {"$ref": "#/$defs/NullableSha256"},
+        "evidence_sha256": {"$ref": "#/$defs/NullableSha256"},
+        "completed_at": {"$ref": "#/$defs/NullableTimestamp"}
+      },
+      "oneOf": [
+        {
+          "properties": {
+            "status": {"const": "PENDING"},
+            "checks_passed": {"const": 0},
+            "source_snapshot_sha256": {"type": "null"},
+            "evidence_sha256": {"type": "null"},
+            "completed_at": {"type": "null"}
+          }
+        },
+        {
+          "properties": {
+            "status": {"const": "PASSED"},
+            "checks_passed": {"const": 15},
+            "source_snapshot_sha256": {"$ref": "#/$defs/Sha256"},
+            "evidence_sha256": {"$ref": "#/$defs/Sha256"},
+            "completed_at": {"$ref": "#/$defs/Timestamp"}
+          }
+        },
+        {
+          "properties": {
+            "status": {"enum": ["FAILED", "MISMATCH"]},
+            "source_snapshot_sha256": {"$ref": "#/$defs/Sha256"},
+            "evidence_sha256": {"$ref": "#/$defs/Sha256"},
+            "completed_at": {"$ref": "#/$defs/Timestamp"}
+          }
+        }
+      ]
+    },
+    "DockerReferences": {
+      "type": "array",
+      "minItems": 5,
+      "maxItems": 5,
+      "prefixItems": [
+        {"const": "docker.io/docker/dockerfile:1.12@sha256:93bfd3b68c109427185cd78b4779fc82b484b0b7618e36d0f104d4d801e66d25"},
+        {"const": "docker.io/library/python:3.14.1-slim-bookworm@sha256:5d17fc066275d26bb2ffe05bc89367dc665310200b5f4cfa8b294e97dc679bff"},
+        {"const": "docker.io/library/node:22.22.3-bookworm-slim@sha256:e21fc383b50d5347dc7a9f1cae45b8f4e2f0d39f7ade28e4eef7d2934522b752"},
+        {"const": "docker.io/library/caddy:2.10.2-alpine@sha256:4c6e91c6ed0e2fa03efd5b44747b625fec79bc9cd06ac5235a779726618e530d"},
+        {"const": "docker.io/library/postgres:18.4-alpine@sha256:9a8afca54e7861fd90fab5fdf4c42477a6b1cb7d293595148e674e0a3181de15"}
+      ]
+    },
+    "TestRun": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "check_id",
+        "status",
+        "passed_count",
+        "failed_count",
+        "skipped_count",
+        "source_snapshot_sha256",
+        "evidence_sha256",
+        "completed_at"
+      ],
+      "properties": {
+        "check_id": {"type": "string"},
+        "status": {"enum": ["PENDING", "PASSED", "FAILED", "MISMATCH"]},
+        "passed_count": {"oneOf": [{"type": "integer", "minimum": 0}, {"type": "null"}]},
+        "failed_count": {"oneOf": [{"type": "integer", "minimum": 0}, {"type": "null"}]},
+        "skipped_count": {"oneOf": [{"type": "integer", "minimum": 0}, {"type": "null"}]},
+        "source_snapshot_sha256": {"$ref": "#/$defs/NullableSha256"},
+        "evidence_sha256": {"$ref": "#/$defs/NullableSha256"},
+        "completed_at": {"$ref": "#/$defs/NullableTimestamp"}
+      },
+      "oneOf": [
+        {
+          "properties": {
+            "status": {"const": "PENDING"},
+            "passed_count": {"type": "null"},
+            "failed_count": {"type": "null"},
+            "skipped_count": {"type": "null"},
+            "source_snapshot_sha256": {"type": "null"},
+            "evidence_sha256": {"type": "null"},
+            "completed_at": {"type": "null"}
+          }
+        },
+        {
+          "properties": {
+            "status": {"const": "PASSED"},
+            "passed_count": {"type": "integer", "minimum": 1},
+            "failed_count": {"const": 0},
+            "skipped_count": {"const": 0},
+            "source_snapshot_sha256": {"$ref": "#/$defs/Sha256"},
+            "evidence_sha256": {"$ref": "#/$defs/Sha256"},
+            "completed_at": {"$ref": "#/$defs/Timestamp"}
+          }
+        },
+        {
+          "properties": {
+            "status": {"enum": ["FAILED", "MISMATCH"]},
+            "passed_count": {"type": "integer", "minimum": 0},
+            "failed_count": {"type": "integer", "minimum": 0},
+            "skipped_count": {"type": "integer", "minimum": 0},
+            "source_snapshot_sha256": {"$ref": "#/$defs/Sha256"},
+            "evidence_sha256": {"$ref": "#/$defs/Sha256"},
+            "completed_at": {"$ref": "#/$defs/Timestamp"}
+          }
+        }
+      ]
+    },
+    "TestRuns": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "prefixItems": [
+        {"allOf": [{"$ref": "#/$defs/TestRun"}, {"properties": {"check_id": {"const": "PLATFORM_FULL"}}}]},
+        {"allOf": [{"$ref": "#/$defs/TestRun"}, {"properties": {"check_id": {"const": "WEB_FULL"}}}]},
+        {"allOf": [{"$ref": "#/$defs/TestRun"}, {"properties": {"check_id": {"const": "DEPLOYMENT_FULL"}}}]}
+      ]
+    },
+    "QualityCheck": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "check_id",
+        "status",
+        "source_snapshot_sha256",
+        "evidence_sha256",
+        "completed_at"
+      ],
+      "properties": {
+        "check_id": {"type": "string"},
+        "status": {"enum": ["PENDING", "PASSED", "FAILED", "MISMATCH"]},
+        "source_snapshot_sha256": {"$ref": "#/$defs/NullableSha256"},
+        "evidence_sha256": {"$ref": "#/$defs/NullableSha256"},
+        "completed_at": {"$ref": "#/$defs/NullableTimestamp"}
+      },
+      "oneOf": [
+        {
+          "properties": {
+            "status": {"const": "PENDING"},
+            "source_snapshot_sha256": {"type": "null"},
+            "evidence_sha256": {"type": "null"},
+            "completed_at": {"type": "null"}
+          }
+        },
+        {
+          "properties": {
+            "status": {"enum": ["PASSED", "FAILED", "MISMATCH"]},
+            "source_snapshot_sha256": {"$ref": "#/$defs/Sha256"},
+            "evidence_sha256": {"$ref": "#/$defs/Sha256"},
+            "completed_at": {"$ref": "#/$defs/Timestamp"}
+          }
+        }
+      ]
+    },
+    "QualityChecks": {
+      "type": "array",
+      "minItems": 4,
+      "maxItems": 4,
+      "prefixItems": [
+        {"allOf": [{"$ref": "#/$defs/QualityCheck"}, {"properties": {"check_id": {"const": "WEB_TYPECHECK"}}}]},
+        {"allOf": [{"$ref": "#/$defs/QualityCheck"}, {"properties": {"check_id": {"const": "WEB_LINT"}}}]},
+        {"allOf": [{"$ref": "#/$defs/QualityCheck"}, {"properties": {"check_id": {"const": "GIT_DIFF_CHECK"}}}]},
+        {"allOf": [{"$ref": "#/$defs/QualityCheck"}, {"properties": {"check_id": {"const": "CONTAINER_STATIC_VERIFY"}}}]}
+      ]
+    },
+    "TrustApplicantDiscoveryDeferral": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "implementation_status",
+        "boundary",
+        "accepted_for_candidate_scope",
+        "acceptance_record_sha256",
+        "source_snapshot_sha256"
+      ],
+      "properties": {
+        "implementation_status": {"const": "DEFERRED_NOT_IMPLEMENTED"},
+        "boundary": {"const": "TRUST_APPLICANT_DISCOVERY_DEFERRED"},
+        "accepted_for_candidate_scope": {"type": "boolean"},
+        "acceptance_record_sha256": {"$ref": "#/$defs/NullableSha256"},
+        "source_snapshot_sha256": {"$ref": "#/$defs/NullableSha256"}
+      },
+      "oneOf": [
+        {
+          "properties": {
+            "accepted_for_candidate_scope": {"const": false},
+            "acceptance_record_sha256": {"type": "null"},
+            "source_snapshot_sha256": {"type": "null"}
+          }
+        },
+        {
+          "properties": {
+            "accepted_for_candidate_scope": {"const": true},
+            "acceptance_record_sha256": {"$ref": "#/$defs/Sha256"},
+            "source_snapshot_sha256": {"$ref": "#/$defs/Sha256"}
+          }
+        }
+      ]
+    },
+    "OneShotCheckStatus": {
+      "enum": ["ABSENT_VERIFIED", "NOT_VERIFIED"]
+    },
+    "OneShotChecks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "primary_project_namespace",
+        "restore_project_namespace",
+        "image_tags",
+        "input_root",
+        "evidence_paths",
+        "backup_directory",
+        "network_subnets",
+        "loopback_https_listener"
+      ],
+      "properties": {
+        "primary_project_namespace": {"$ref": "#/$defs/OneShotCheckStatus"},
+        "restore_project_namespace": {"$ref": "#/$defs/OneShotCheckStatus"},
+        "image_tags": {"$ref": "#/$defs/OneShotCheckStatus"},
+        "input_root": {"$ref": "#/$defs/OneShotCheckStatus"},
+        "evidence_paths": {"$ref": "#/$defs/OneShotCheckStatus"},
+        "backup_directory": {"$ref": "#/$defs/OneShotCheckStatus"},
+        "network_subnets": {"$ref": "#/$defs/OneShotCheckStatus"},
+        "loopback_https_listener": {"$ref": "#/$defs/OneShotCheckStatus"}
+      }
+    },
+    "AbsentOneShotChecks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "primary_project_namespace",
+        "restore_project_namespace",
+        "image_tags",
+        "input_root",
+        "evidence_paths",
+        "backup_directory",
+        "network_subnets",
+        "loopback_https_listener"
+      ],
+      "properties": {
+        "primary_project_namespace": {"const": "ABSENT_VERIFIED"},
+        "restore_project_namespace": {"const": "ABSENT_VERIFIED"},
+        "image_tags": {"const": "ABSENT_VERIFIED"},
+        "input_root": {"const": "ABSENT_VERIFIED"},
+        "evidence_paths": {"const": "ABSENT_VERIFIED"},
+        "backup_directory": {"const": "ABSENT_VERIFIED"},
+        "network_subnets": {"const": "ABSENT_VERIFIED"},
+        "loopback_https_listener": {"const": "ABSENT_VERIFIED"}
+      }
+    },
+    "OneShotV14": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "claim",
+        "checks",
+        "source_snapshot_sha256",
+        "verification_artifact_sha256",
+        "verified_at"
+      ],
+      "properties": {
+        "claim": {"enum": ["NOT_VERIFIED", "UNCONSUMED_VERIFIED"]},
+        "checks": {"$ref": "#/$defs/OneShotChecks"},
+        "source_snapshot_sha256": {"$ref": "#/$defs/NullableSha256"},
+        "verification_artifact_sha256": {"$ref": "#/$defs/NullableSha256"},
+        "verified_at": {"$ref": "#/$defs/NullableTimestamp"}
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {"claim": {"const": "UNCONSUMED_VERIFIED"}},
+            "required": ["claim"]
+          },
+          "then": {
+            "properties": {
+              "checks": {"$ref": "#/$defs/AbsentOneShotChecks"},
+              "source_snapshot_sha256": {"$ref": "#/$defs/Sha256"},
+              "verification_artifact_sha256": {"$ref": "#/$defs/Sha256"},
+              "verified_at": {"$ref": "#/$defs/Timestamp"}
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {"claim": {"const": "NOT_VERIFIED"}},
+            "required": ["claim"]
+          },
+          "then": {
+            "properties": {
+              "checks": {
+                "anyOf": [
+                  {"properties": {"primary_project_namespace": {"const": "NOT_VERIFIED"}}},
+                  {"properties": {"restore_project_namespace": {"const": "NOT_VERIFIED"}}},
+                  {"properties": {"image_tags": {"const": "NOT_VERIFIED"}}},
+                  {"properties": {"input_root": {"const": "NOT_VERIFIED"}}},
+                  {"properties": {"evidence_paths": {"const": "NOT_VERIFIED"}}},
+                  {"properties": {"backup_directory": {"const": "NOT_VERIFIED"}}},
+                  {"properties": {"network_subnets": {"const": "NOT_VERIFIED"}}},
+                  {"properties": {"loopback_https_listener": {"const": "NOT_VERIFIED"}}}
+                ]
+              }
+            }
+          }
+        },
+        {
+          "oneOf": [
+            {
+              "properties": {
+                "source_snapshot_sha256": {"type": "null"},
+                "verification_artifact_sha256": {"type": "null"},
+                "verified_at": {"type": "null"}
+              }
+            },
+            {
+              "properties": {
+                "source_snapshot_sha256": {"$ref": "#/$defs/Sha256"},
+                "verification_artifact_sha256": {"$ref": "#/$defs/Sha256"},
+                "verified_at": {"$ref": "#/$defs/Timestamp"}
+              }
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

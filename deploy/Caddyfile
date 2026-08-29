@@ -1,0 +1,46 @@
+{
+	admin off
+	auto_https disable_redirects
+	persist_config off
+}
+
+:8080 {
+	@edge_health path /_edge/health
+	respond @edge_health `{ "status": "LIVE" }` 200
+}
+
+https://identity.example.test {
+	tls /run/desire-tls/edge-tls-chain.pem /run/secrets/edge-tls-key.pem
+
+	header {
+		-Server
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "no-referrer"
+		X-Frame-Options "DENY"
+	}
+
+	reverse_proxy synthetic-oidc:8081 {
+		header_up -Forwarded
+		header_up Host identity.example.test
+		header_up X-Forwarded-Host identity.example.test
+		header_up X-Forwarded-Proto https
+	}
+}
+
+https://pilot.example.test {
+	tls /run/desire-tls/edge-tls-chain.pem /run/secrets/edge-tls-key.pem
+
+	header {
+		-Server
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "same-origin"
+		X-Frame-Options "DENY"
+	}
+
+	reverse_proxy web:3000 {
+		header_up -Forwarded
+		header_up Host pilot.example.test
+		header_up X-Forwarded-Host pilot.example.test
+		header_up X-Forwarded-Proto https
+	}
+}

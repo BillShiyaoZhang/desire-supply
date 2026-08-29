@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://desire.example.invalid/contracts/private-server-source-readiness-v1.schema.json",
+  "title": "Desire private-server source readiness v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "authority",
+    "ci_verified",
+    "execution_permitted",
+    "format",
+    "git_object_format",
+    "head",
+    "head_tree",
+    "member_count",
+    "production_authorized",
+    "remote_ref_verified",
+    "source_bytes",
+    "source_sha256",
+    "status",
+    "working_tree"
+  ],
+  "properties": {
+    "authority": {"const": "NOT_AUTHORITY"},
+    "ci_verified": {"const": false},
+    "execution_permitted": {"const": false},
+    "format": {"const": "desire-private-server-source-readiness-v1"},
+    "git_object_format": {"const": "sha1"},
+    "head": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "head_tree": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "member_count": {"type": "integer", "minimum": 1, "maximum": 200000},
+    "production_authorized": {"const": false},
+    "remote_ref_verified": {"const": false},
+    "source_bytes": {"type": "integer", "minimum": 0, "maximum": 4294967296},
+    "source_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "status": {"const": "SOURCE_READINESS_VERIFIED_NOT_AUTHORITY"},
+    "working_tree": {"const": "EXACT_HEAD"}
+  }
+}

@@ -1,0 +1,675 @@
+name: desire-supply
+
+x-hardened: &hardened
+  read_only: true
+  init: true
+  restart: "no"
+  logging: &bounded-logging
+    driver: local
+    options:
+      max-size: "10m"
+      max-file: "3"
+      compress: "true"
+  cap_drop:
+    - ALL
+  security_opt:
+    - no-new-privileges=true
+  tmpfs:
+    - /tmp:rw,noexec,nosuid,nodev,size=64m
+
+x-deployment-admin: &deployment-admin
+  DESIRE_DEPLOYMENT_MODE: INTERNAL_SANDBOX
+  DESIRE_EXTERNAL_PARTICIPANTS_ENABLED: "false"
+  DESIRE_DATABASE_HOST: db
+  DESIRE_DATABASE_NAME: desire
+  DESIRE_DATABASE_ADMIN_USER: postgres
+  DESIRE_DATABASE_PASSWORD_FILE: /run/secrets/db_superuser_password
+
+x-runtime-configs: &runtime-configs
+  - source: internal-sandbox-deployment
+    target: /run/desire/deployment.json
+    mode: 0444
+  - source: internal-sandbox-runtime-config
+    target: /run/desire/runtime-config.json
+    mode: 0444
+  - source: internal-sandbox-secret-manifest
+    target: /run/desire/secret-manifest.json
+    mode: 0444
+
+x-matching-runtime-configs: &matching-runtime-configs
+  - source: internal-sandbox-matching-deployment
+    target: /run/desire/matching-deployment.json
+    mode: 0444
+  - source: internal-sandbox-matching-runtime-config
+    target: /run/desire/matching-runtime-config.json
+    mode: 0444
+  - source: internal-sandbox-matching-secret-manifest
+    target: /run/desire/matching-secret-manifest.json
+    mode: 0444
+
+x-online-credential-configs: &online-credential-configs
+  - source: internal-sandbox-online-credentials-deployment
+    target: /run/desire/online-credentials-deployment.json
+    mode: 0444
+  - source: internal-sandbox-online-credentials-runtime-config
+    target: /run/desire/online-credentials-runtime-config.json
+    mode: 0444
+  - source: internal-sandbox-online-credentials-secret-manifest
+    target: /run/desire/online-credentials-secret-manifest.json
+    mode: 0444
+
+x-identity-configs: &identity-configs
+  - source: internal-sandbox-deployment
+    target: /run/desire/deployment.json
+    mode: 0444
+  - source: internal-sandbox-runtime-config
+    target: /run/desire/runtime-config.json
+    mode: 0444
+  - source: internal-sandbox-secret-manifest
+    target: /run/desire/secret-manifest.json
+    mode: 0444
+  - source: internal-sandbox-identity-template
+    target: /run/desire/identity-bootstrap-template.json
+    mode: 0444
+
+x-runtime-secrets: &runtime-secrets
+  - source: db-iam-app-v1
+    target: db-iam-app-v1
+  - source: db-iam-session-authenticator-v1
+    target: db-iam-session-authenticator-v1
+  - source: db-iam-onboarding-v1
+    target: db-iam-onboarding-v1
+  - source: db-profile-app-v1
+    target: db-profile-app-v1
+  - source: db-demand-self-v1
+    target: db-demand-self-v1
+  - source: db-demand-review-v1
+    target: db-demand-review-v1
+  - source: db-demand-finance-v1
+    target: db-demand-finance-v1
+  - source: db-trust-self-v1
+    target: db-trust-self-v1
+  - source: db-trust-officer-v1
+    target: db-trust-officer-v1
+  - source: db-trust-appeal-v1
+    target: db-trust-appeal-v1
+  - source: db-trust-decision-v1
+    target: db-trust-decision-v1
+  - source: db-matching-creator-v1
+    target: db-matching-creator-v1
+  - source: db-matching-selector-v1
+    target: db-matching-selector-v1
+  - source: db-matching-assignment-v1
+    target: db-matching-assignment-v1
+  - source: db-matching-review-v1
+    target: db-matching-review-v1
+  - source: key-oidc-state-v1
+    target: key-oidc-state-v1
+  - source: key-oidc-browser-binding-v1
+    target: key-oidc-browser-binding-v1
+  - source: key-oidc-nonce-v1
+    target: key-oidc-nonce-v1
+  - source: key-session-handle-v1
+    target: key-session-handle-v1
+  - source: key-csrf-v1
+    target: key-csrf-v1
+  - source: key-oidc-protocol-aead-v1
+    target: key-oidc-protocol-aead-v1
+  - source: key-oidc-subject-digest-v1
+    target: key-oidc-subject-digest-v1
+  - source: key-oidc-recipient-binding-v1
+    target: key-oidc-recipient-binding-v1
+  - source: key-oidc-client-secret-v1
+    target: key-oidc-client-secret-v1
+  - source: key-editor-id-derivation-v1
+    target: key-editor-id-derivation-v1
+  - source: key-profile-idempotency-v1
+    target: key-profile-idempotency-v1
+  - source: key-profile-payload-hash-v1
+    target: key-profile-payload-hash-v1
+  - source: key-demand-idempotency-v1
+    target: key-demand-idempotency-v1
+  - source: key-demand-idempotency-retained-2025-12
+    target: key-demand-idempotency-retained-2025-12
+  - source: key-demand-payload-hash-v1
+    target: key-demand-payload-hash-v1
+  - source: key-demand-payload-retained-2025-12
+    target: key-demand-payload-retained-2025-12
+  - source: key-demand-client-reference-v1
+    target: key-demand-client-reference-v1
+  - source: key-iam-receipt-idempotency-hmac-2026-01
+    target: key-iam-receipt-idempotency-hmac-2026-01
+  - source: key-iam-receipt-payload-hmac-2026-01
+    target: key-iam-receipt-payload-hmac-2026-01
+  - source: key-access-invitation-token-v1
+    target: key-access-invitation-token-v1
+  - source: key-iam-read-cursor-v1
+    target: key-iam-read-cursor-v1
+  - source: key-trust-idempotency-v1
+    target: key-trust-idempotency-v1
+  - source: key-trust-payload-hash-v1
+    target: key-trust-payload-hash-v1
+  - source: key-trust-sealed-note-v1
+    target: key-trust-sealed-note-v1
+  - source: key-trust-report-cursor-v1
+    target: key-trust-report-cursor-v1
+  - source: key-matching-idempotency-v1
+    target: key-matching-idempotency-v1
+  - source: key-matching-payload-v1
+    target: key-matching-payload-v1
+  - source: key-matching-read-cursor-v1
+    target: key-matching-read-cursor-v1
+
+x-matching-runtime-secrets: &matching-runtime-secrets
+  - source: db-demand-matching-v1
+    target: db-demand-matching-v1
+  - source: db-profile-matcher-v1
+    target: db-profile-matcher-v1
+  - source: db-trust-decision-v1
+    target: db-trust-decision-v1
+  - source: db-matching-worker-v1
+    target: db-matching-worker-v1
+  - source: db-matching-coordinator-v1
+    target: db-matching-coordinator-v1
+  - source: key-matching-worker-idempotency-v1
+    target: key-matching-worker-idempotency-v1
+  - source: key-matching-worker-payload-hash-v1
+    target: key-matching-worker-payload-hash-v1
+  - source: key-matching-worker-lease-digest-v1
+    target: key-matching-worker-lease-digest-v1
+  - source: key-matching-coordinator-idempotency-v1
+    target: key-matching-coordinator-idempotency-v1
+  - source: key-matching-coordinator-payload-hash-v1
+    target: key-matching-coordinator-payload-hash-v1
+  - source: key-matching-coordinator-lease-digest-v1
+    target: key-matching-coordinator-lease-digest-v1
+
+x-online-database-secrets: &online-database-secrets
+  - source: db_superuser_password
+    target: db_superuser_password
+  - source: db-iam-app-v1
+    target: db-iam-app-v1
+  - source: db-iam-session-authenticator-v1
+    target: db-iam-session-authenticator-v1
+  - source: db-iam-onboarding-v1
+    target: db-iam-onboarding-v1
+  - source: db-profile-app-v1
+    target: db-profile-app-v1
+  - source: db-demand-self-v1
+    target: db-demand-self-v1
+  - source: db-demand-review-v1
+    target: db-demand-review-v1
+  - source: db-demand-finance-v1
+    target: db-demand-finance-v1
+  - source: db-trust-self-v1
+    target: db-trust-self-v1
+  - source: db-trust-officer-v1
+    target: db-trust-officer-v1
+  - source: db-trust-appeal-v1
+    target: db-trust-appeal-v1
+  - source: db-trust-decision-v1
+    target: db-trust-decision-v1
+  - source: db-matching-creator-v1
+    target: db-matching-creator-v1
+  - source: db-matching-selector-v1
+    target: db-matching-selector-v1
+  - source: db-matching-assignment-v1
+    target: db-matching-assignment-v1
+  - source: db-matching-review-v1
+    target: db-matching-review-v1
+  - source: db-demand-matching-v1
+    target: db-demand-matching-v1
+  - source: db-profile-matcher-v1
+    target: db-profile-matcher-v1
+  - source: db-matching-worker-v1
+    target: db-matching-worker-v1
+  - source: db-matching-coordinator-v1
+    target: db-matching-coordinator-v1
+
+x-identity-bootstrap-secrets: &identity-bootstrap-secrets
+  - source: db_superuser_password
+    target: db_superuser_password
+  - source: key-oidc-subject-digest-v1
+    target: key-oidc-subject-digest-v1
+  - source: key-oidc-recipient-binding-v1
+    target: key-oidc-recipient-binding-v1
+
+services:
+  db:
+    image: postgres:18.4-alpine@sha256:9a8afca54e7861fd90fab5fdf4c42477a6b1cb7d293595148e674e0a3181de15
+    restart: unless-stopped
+    logging: *bounded-logging
+    environment:
+      POSTGRES_DB: desire
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD_FILE: /run/secrets/db_superuser_password
+      PGDATA: /var/lib/postgresql/data/pgdata
+    secrets:
+      - db_superuser_password
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    tmpfs:
+      - /var/lib/postgresql:rw,nosuid,nodev,noexec,size=1m
+    networks:
+      - data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d desire || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 10s
+    shm_size: 128mb
+    stop_grace_period: 60s
+
+  migrate:
+    <<: *hardened
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: platform-runtime
+    image: desire-supply-platform:${DESIRE_IMAGE_TAG:-local}
+    command: ["python", "-m", "desire_platform.deployment"]
+    environment: *deployment-admin
+    secrets:
+      - db_superuser_password
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - data
+
+  taxonomy-seed:
+    <<: *hardened
+    image: desire-supply-platform:${DESIRE_IMAGE_TAG:-local}
+    command:
+      - python
+      - -m
+      - desire_platform.deployment.synthetic_taxonomy_seed
+      - apply
+    environment:
+      <<: *deployment-admin
+      DESIRE_TAXONOMY_SEED_WORKLOAD_CREDENTIAL_FILE: /run/secrets/taxonomy_seed_workload_credential
+      DESIRE_TAXONOMY_SEED_RECEIPT_HMAC_KEY_FILE: /run/secrets/taxonomy_seed_receipt_hmac_key
+    secrets:
+      - db_superuser_password
+      - taxonomy_seed_workload_credential
+      - taxonomy_seed_receipt_hmac_key
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    networks:
+      - data
+
+  online-credentials-reconcile:
+    <<: *hardened
+    image: desire-supply-platform:${DESIRE_IMAGE_TAG:-local}
+    command:
+      - python
+      - -m
+      - desire_platform.deployment.online_credentials
+      - reconcile
+    environment:
+      <<: *deployment-admin
+      DESIRE_INTERNAL_SANDBOX_DEPLOYMENT_CONFIG_FILE: /run/desire/online-credentials-deployment.json
+    configs: *online-credential-configs
+    secrets: *online-database-secrets
+    depends_on:
+      taxonomy-seed:
+        condition: service_completed_successfully
+    networks:
+      - data
+
+  online-credentials-verify:
+    <<: *hardened
+    image: desire-supply-platform:${DESIRE_IMAGE_TAG:-local}
+    command:
+      - python
+      - -m
+      - desire_platform.deployment.online_credentials
+      - verify
+    environment:
+      <<: *deployment-admin
+      DESIRE_INTERNAL_SANDBOX_DEPLOYMENT_CONFIG_FILE: /run/desire/online-credentials-deployment.json
+    configs: *online-credential-configs
+    secrets: *online-database-secrets
+    depends_on:
+      online-credentials-reconcile:
+        condition: service_completed_successfully
+    networks:
+      - data
+
+  identity-bootstrap:
+    <<: *hardened
+    image: desire-supply-platform:${DESIRE_IMAGE_TAG:-local}
+    command:
+      - python
+      - -m
+      - desire_platform.deployment.identity_bootstrap_orchestrator
+      - run
+    environment:
+      <<: *deployment-admin
+      DESIRE_INTERNAL_SANDBOX_DEPLOYMENT_CONFIG_FILE: /run/desire/deployment.json
+      DESIRE_INTERNAL_SANDBOX_IDENTITY_BOOTSTRAP_TEMPLATE_FILE: /run/desire/identity-bootstrap-template.json
+      DESIRE_INTERNAL_SANDBOX_IDENTITY_BOOTSTRAP_TEMPLATE_SHA256: b7f5326f75f17eb97cec77d92f963fe6af6755a26a1acf7af8944f33ee6ba942
+      DESIRE_INTERNAL_SANDBOX_IDENTITY_BOOTSTRAP_SOURCE_ROOT: /run/identity-sources
+      DESIRE_INTERNAL_SANDBOX_IDENTITY_BOOTSTRAP_OUTPUT_FILE: /run/identity-bootstrap/manifest.json
+    configs: *identity-configs
+    secrets: *identity-bootstrap-secrets
+    volumes:
+      - type: bind
+        source: ${DESIRE_IDENTITY_SOURCE_DIR:-./secrets/internal-sandbox-identity-sources}
+        target: /run/identity-sources
+        read_only: true
+        bind:
+          create_host_path: false
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=64m
+      - /run/identity-bootstrap:rw,noexec,nosuid,nodev,size=1m,uid=10001,gid=10001,mode=0700
+    depends_on:
+      online-credentials-verify:
+        condition: service_completed_successfully
+    networks:
+      - data
+
+  synthetic-oidc:
+    <<: *hardened
+    image: desire-supply-platform:${DESIRE_IMAGE_TAG:-local}
+    command: ["python", "-m", "desire_platform.synthetic_oidc"]
+    environment:
+      DESIRE_DEPLOYMENT_MODE: INTERNAL_SANDBOX
+      DESIRE_EXTERNAL_PARTICIPANTS_ENABLED: "false"
+      DESIRE_SYNTHETIC_OIDC_CLIENT_SECRET_FILE: /run/secrets/key-oidc-client-secret-v1
+    secrets:
+      - source: key-oidc-client-secret-v1
+        target: key-oidc-client-secret-v1
+    networks:
+      - oidc-backend
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8081/health/ready', timeout=2)"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+
+  api:
+    <<: *hardened
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: platform-runtime
+    image: desire-supply-platform:${DESIRE_IMAGE_TAG:-local}
+    command: ["python", "-m", "desire_platform.internal_pilot.api_server"]
+    environment:
+      DESIRE_INTERNAL_SANDBOX_DEPLOYMENT_CONFIG_FILE: /run/desire/deployment.json
+      SSL_CERT_FILE: /run/desire-tls/root-ca.pem
+    configs:
+      - source: internal-sandbox-deployment
+        target: /run/desire/deployment.json
+        mode: 0444
+      - source: internal-sandbox-runtime-config
+        target: /run/desire/runtime-config.json
+        mode: 0444
+      - source: internal-sandbox-secret-manifest
+        target: /run/desire/secret-manifest.json
+        mode: 0444
+      - source: internal-sandbox-root-ca
+        target: /run/desire-tls/root-ca.pem
+        mode: 0444
+    secrets: *runtime-secrets
+    depends_on:
+      identity-bootstrap:
+        condition: service_completed_successfully
+      edge:
+        condition: service_healthy
+    networks:
+      - app
+      - data
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/ready', timeout=2)"]
+      interval: 10s
+      timeout: 3s
+      retries: 6
+      start_period: 20s
+    stop_grace_period: 20s
+
+  matching-runtime:
+    <<: *hardened
+    image: desire-supply-platform:${DESIRE_IMAGE_TAG:-local}
+    command: ["python", "-m", "desire_platform.matching.runtime_process"]
+    restart: unless-stopped
+    environment:
+      DESIRE_INTERNAL_SANDBOX_DEPLOYMENT_CONFIG_FILE: /run/desire/matching-deployment.json
+      DESIRE_MATCHING_RUNTIME_HEALTH_FILE: /run/matching-runtime/healthy
+    configs: *matching-runtime-configs
+    secrets: *matching-runtime-secrets
+    depends_on:
+      identity-bootstrap:
+        condition: service_completed_successfully
+    networks:
+      - data
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=64m
+      - /run/matching-runtime:rw,noexec,nosuid,nodev,size=64k,uid=10001,gid=10001,mode=0700
+    healthcheck:
+      test: ["CMD", "python", "-c", "from pathlib import Path; import time; p=Path('/run/matching-runtime/healthy'); raise SystemExit(0 if p.is_file() and time.time()-p.stat().st_mtime < 30 else 1)"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 20s
+    stop_grace_period: 30s
+
+  web:
+    <<: *hardened
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: web-runtime
+    image: desire-supply-web:${DESIRE_IMAGE_TAG:-local}
+    environment:
+      DESIRE_LOOPBACK_BASE_URL: http://api:8000
+      NODE_ENV: production
+    depends_on:
+      api:
+        condition: service_healthy
+    networks:
+      - app
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+      start_period: 15s
+
+  edge:
+    <<: *hardened
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: edge-runtime
+    image: desire-supply-edge:${DESIRE_IMAGE_TAG:-local}
+    depends_on:
+      synthetic-oidc:
+        condition: service_healthy
+    configs:
+      - source: internal-sandbox-edge-tls-chain
+        target: /run/desire-tls/edge-tls-chain.pem
+        mode: 0444
+    secrets:
+      - source: edge-tls-key
+        target: /run/secrets/edge-tls-key.pem
+        uid: "10001"
+        gid: "10001"
+        mode: 0400
+    ports:
+      - target: 443
+        published: "443"
+        host_ip: "127.0.0.1"
+        protocol: tcp
+    networks:
+      app:
+        aliases:
+          - identity.example.test
+      oidc-backend: null
+      ingress: null
+    sysctls:
+      net.ipv4.ip_unprivileged_port_start: "0"
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:8080/_edge/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+
+networks:
+  ingress:
+  oidc-backend:
+    internal: true
+  app:
+    internal: true
+  data:
+    internal: true
+
+volumes:
+  postgres-data:
+
+configs:
+  internal-sandbox-deployment:
+    file: ${DESIRE_INTERNAL_SANDBOX_BUNDLE_DIR:-./secrets/internal-sandbox-bundle}/config/deployment.json
+  internal-sandbox-runtime-config:
+    file: ${DESIRE_INTERNAL_SANDBOX_BUNDLE_DIR:-./secrets/internal-sandbox-bundle}/config/runtime-config.json
+  internal-sandbox-secret-manifest:
+    file: ${DESIRE_INTERNAL_SANDBOX_BUNDLE_DIR:-./secrets/internal-sandbox-bundle}/config/secret-manifest.json
+  internal-sandbox-matching-deployment:
+    file: ${DESIRE_INTERNAL_SANDBOX_BUNDLE_DIR:-./secrets/internal-sandbox-bundle}/config/matching-deployment.json
+  internal-sandbox-matching-runtime-config:
+    file: ${DESIRE_INTERNAL_SANDBOX_BUNDLE_DIR:-./secrets/internal-sandbox-bundle}/config/matching-runtime-config.json
+  internal-sandbox-matching-secret-manifest:
+    file: ${DESIRE_INTERNAL_SANDBOX_BUNDLE_DIR:-./secrets/internal-sandbox-bundle}/config/matching-secret-manifest.json
+  internal-sandbox-online-credentials-deployment:
+    file: ${DESIRE_INTERNAL_SANDBOX_BUNDLE_DIR:-./secrets/internal-sandbox-bundle}/config/online-credentials-deployment.json
+  internal-sandbox-online-credentials-runtime-config:
+    file: ${DESIRE_INTERNAL_SANDBOX_BUNDLE_DIR:-./secrets/internal-sandbox-bundle}/config/online-credentials-runtime-config.json
+  internal-sandbox-online-credentials-secret-manifest:
+    file: ${DESIRE_INTERNAL_SANDBOX_BUNDLE_DIR:-./secrets/internal-sandbox-bundle}/config/online-credentials-secret-manifest.json
+  internal-sandbox-identity-template:
+    file: ./platform/examples/internal-sandbox-identity-bootstrap-template-v1.json
+  internal-sandbox-root-ca:
+    file: ${DESIRE_INTERNAL_SANDBOX_TLS_DIR:-./secrets/internal-sandbox-tls}/root-ca.pem
+  internal-sandbox-edge-tls-chain:
+    file: ${DESIRE_INTERNAL_SANDBOX_TLS_DIR:-./secrets/internal-sandbox-tls}/edge-tls-chain.pem
+
+secrets:
+  db_superuser_password:
+    file: ${DESIRE_DB_PASSWORD_FILE:-./secrets/db_superuser_password.txt}
+  taxonomy_seed_workload_credential:
+    file: ${DESIRE_TAXONOMY_SEED_WORKLOAD_CREDENTIAL_FILE:-./secrets/taxonomy_seed_workload_credential}
+  taxonomy_seed_receipt_hmac_key:
+    file: ${DESIRE_TAXONOMY_SEED_RECEIPT_HMAC_KEY_FILE:-./secrets/taxonomy_seed_receipt_hmac_key}
+  edge-tls-key:
+    file: ${DESIRE_INTERNAL_SANDBOX_TLS_DIR:-./secrets/internal-sandbox-tls}/edge-tls-key.pem
+  db-iam-app-v1:
+    file: ${DESIRE_INTERNAL_SANDBOX_BUNDLE_DIR:-./secrets/internal-sandbox-bundle}/runtime-secrets/db-iam-app-v1
+  db-iam-session-authenticator-v1:
+    file: ${DESIRE_INTERNAL_SANDBOX_BUNDLE_DIR:-./secrets/internal-sandbox-bundle}/runtime-secrets/db-iam-session-authenticator-v1
+  db-iam-onboarding-v1:
+    file: ${DESIRE_INTERNAL_SANDBOX_BUNDLE_DIR:-./secrets/internal-sandbox-bundle}/runtime-secrets/db-iam-onboarding-v1
+  db-profile-app-v1:
+    file: ${DESIRE_INTERNAL_SANDBOX_BUNDLE_DIR:-./secrets/internal-sandbox-bundle}/runtime-secrets/db-profile-app-v1
+  db-demand-self-v1:
+    file: ${DESIRE_INTERNAL_SANDBOX_BUNDLE_DIR:-./secrets/internal-sandbox-bundle}/runtime-secrets/db-demand-self-v1
+  db-demand-review-v1:
+    file: ${DESIRE_INTERNAL_SANDBOX_BUNDLE_DIR:-./secrets/internal-sandbox-bundle}/runtime-secrets/db-demand-review-v1
+  db-demand-finance-v1:
+    file: ${DESIRE_INTERNAL_SANDBOX_BUNDLE_DIR:-./secrets/internal-sandbox-bundle}/runtime-secrets/db-demand-finance-v1
+  db-trust-self-v1:
+    file: ${DESIRE_INTERNAL_SANDBOX_BUNDLE_DIR:-./secrets/internal-sandbox-bundle}/runtime-secrets/db-trust-self-v1
+  db-trust-officer-v1:
+    file: ${DESIRE_INTERNAL_SANDBOX_BUNDLE_DIR:-./secrets/internal-sandbox-bundle}/runtime-secrets/db-trust-officer-v1
+  db-trust-appeal-v1:
+    file: ${DESIRE_INTERNAL_SANDBOX_BUNDLE_DIR:-./secrets/internal-sandbox-bundle}/runtime-secrets/db-trust-appeal-v1
+  db-trust-decision-v1:
+    file: ${DESIRE_INTERNAL_SANDBOX_BUNDLE_DIR:-./secrets/internal-sandbox-bundle}/runtime-secrets/db-trust-decision-v1
+  db-matching-creator-v1:
+    file: ${DESIRE_INTERNAL_SANDBOX_BUNDLE_DIR:-./secrets/internal-sandbox-bundle}/runtime-secrets/db-matching-creator-v1
+  db-matching-selector-v1:
+    file: ${DESIRE_INTERNAL_SANDBOX_BUNDLE_DIR:-./secrets/internal-sandbox-bundle}/runtime-secrets/db-matching-selector-v1
+  db-matching-assignment-v1:
+    file: ${DESIRE_INTERNAL_SANDBOX_BUNDLE_DIR:-./secrets/internal-sandbox-bundle}/runtime-secrets/db-matching-assignment-v1
+  db-matching-review-v1:
+    file: ${DESIRE_INTERNAL_SANDBOX_BUNDLE_DIR:-./secrets/internal-sandbox-bundle}/runtime-secrets/db-matching-review-v1
+  db-demand-matching-v1:
+    file: ${DESIRE_INTERNAL_SANDBOX_BUNDLE_DIR:-./secrets/internal-sandbox-bundle}/runtime-secrets/db-demand-matching-v1
+  db-profile-matcher-v1:
+    file: ${DESIRE_INTERNAL_SANDBOX_BUNDLE_DIR:-./secrets/internal-sandbox-bundle}/runtime-secrets/db-profile-matcher-v1
+  db-matching-worker-v1:
+    file: ${DESIRE_INTERNAL_SANDBOX_BUNDLE_DIR:-./secrets/internal-sandbox-bundle}/runtime-secrets/db-matching-worker-v1
+  db-matching-coordinator-v1:
+    file: ${DESIRE_INTERNAL_SANDBOX_BUNDLE_DIR:-./secrets/internal-sandbox-bundle}/runtime-secrets/db-matching-coordinator-v1
+  key-oidc-state-v1:
+    file: ${DESIRE_INTERNAL_SANDBOX_BUNDLE_DIR:-./secrets/internal-sandbox-bundle}/runtime-secrets/key-oidc-state-v1
+  key-oidc-browser-binding-v1:
+    file: ${DESIRE_INTERNAL_SANDBOX_BUNDLE_DIR:-./secrets/internal-sandbox-bundle}/runtime-secrets/key-oidc-browser-binding-v1
+  key-oidc-nonce-v1:
+    file: ${DESIRE_INTERNAL_SANDBOX_BUNDLE_DIR:-./secrets/internal-sandbox-bundle}/runtime-secrets/key-oidc-nonce-v1
+  key-session-handle-v1:
+    file: ${DESIRE_INTERNAL_SANDBOX_BUNDLE_DIR:-./secrets/internal-sandbox-bundle}/runtime-secrets/key-session-handle-v1
+  key-csrf-v1:
+    file: ${DESIRE_INTERNAL_SANDBOX_BUNDLE_DIR:-./secrets/internal-sandbox-bundle}/runtime-secrets/key-csrf-v1
+  key-oidc-protocol-aead-v1:
+    file: ${DESIRE_INTERNAL_SANDBOX_BUNDLE_DIR:-./secrets/internal-sandbox-bundle}/runtime-secrets/key-oidc-protocol-aead-v1
+  key-oidc-subject-digest-v1:
+    file: ${DESIRE_INTERNAL_SANDBOX_BUNDLE_DIR:-./secrets/internal-sandbox-bundle}/runtime-secrets/key-oidc-subject-digest-v1
+  key-oidc-recipient-binding-v1:
+    file: ${DESIRE_INTERNAL_SANDBOX_BUNDLE_DIR:-./secrets/internal-sandbox-bundle}/runtime-secrets/key-oidc-recipient-binding-v1
+  key-oidc-client-secret-v1:
+    file: ${DESIRE_INTERNAL_SANDBOX_BUNDLE_DIR:-./secrets/internal-sandbox-bundle}/runtime-secrets/key-oidc-client-secret-v1
+  key-editor-id-derivation-v1:
+    file: ${DESIRE_INTERNAL_SANDBOX_BUNDLE_DIR:-./secrets/internal-sandbox-bundle}/runtime-secrets/key-editor-id-derivation-v1
+  key-profile-idempotency-v1:
+    file: ${DESIRE_INTERNAL_SANDBOX_BUNDLE_DIR:-./secrets/internal-sandbox-bundle}/runtime-secrets/key-profile-idempotency-v1
+  key-profile-payload-hash-v1:
+    file: ${DESIRE_INTERNAL_SANDBOX_BUNDLE_DIR:-./secrets/internal-sandbox-bundle}/runtime-secrets/key-profile-payload-hash-v1
+  key-demand-idempotency-v1:
+    file: ${DESIRE_INTERNAL_SANDBOX_BUNDLE_DIR:-./secrets/internal-sandbox-bundle}/runtime-secrets/key-demand-idempotency-v1
+  key-demand-idempotency-retained-2025-12:
+    file: ${DESIRE_INTERNAL_SANDBOX_BUNDLE_DIR:-./secrets/internal-sandbox-bundle}/runtime-secrets/key-demand-idempotency-retained-2025-12
+  key-demand-payload-hash-v1:
+    file: ${DESIRE_INTERNAL_SANDBOX_BUNDLE_DIR:-./secrets/internal-sandbox-bundle}/runtime-secrets/key-demand-payload-hash-v1
+  key-demand-payload-retained-2025-12:
+    file: ${DESIRE_INTERNAL_SANDBOX_BUNDLE_DIR:-./secrets/internal-sandbox-bundle}/runtime-secrets/key-demand-payload-retained-2025-12
+  key-demand-client-reference-v1:
+    file: ${DESIRE_INTERNAL_SANDBOX_BUNDLE_DIR:-./secrets/internal-sandbox-bundle}/runtime-secrets/key-demand-client-reference-v1
+  key-iam-receipt-idempotency-hmac-2026-01:
+    file: ${DESIRE_INTERNAL_SANDBOX_BUNDLE_DIR:-./secrets/internal-sandbox-bundle}/runtime-secrets/key-iam-receipt-idempotency-hmac-2026-01
+  key-iam-receipt-payload-hmac-2026-01:
+    file: ${DESIRE_INTERNAL_SANDBOX_BUNDLE_DIR:-./secrets/internal-sandbox-bundle}/runtime-secrets/key-iam-receipt-payload-hmac-2026-01
+  key-access-invitation-token-v1:
+    file: ${DESIRE_INTERNAL_SANDBOX_BUNDLE_DIR:-./secrets/internal-sandbox-bundle}/runtime-secrets/key-access-invitation-token-v1
+  key-iam-read-cursor-v1:
+    file: ${DESIRE_INTERNAL_SANDBOX_BUNDLE_DIR:-./secrets/internal-sandbox-bundle}/runtime-secrets/key-iam-read-cursor-v1
+  key-trust-idempotency-v1:
+    file: ${DESIRE_INTERNAL_SANDBOX_BUNDLE_DIR:-./secrets/internal-sandbox-bundle}/runtime-secrets/key-trust-idempotency-v1
+  key-trust-payload-hash-v1:
+    file: ${DESIRE_INTERNAL_SANDBOX_BUNDLE_DIR:-./secrets/internal-sandbox-bundle}/runtime-secrets/key-trust-payload-hash-v1
+  key-trust-sealed-note-v1:
+    file: ${DESIRE_INTERNAL_SANDBOX_BUNDLE_DIR:-./secrets/internal-sandbox-bundle}/runtime-secrets/key-trust-sealed-note-v1
+  key-trust-report-cursor-v1:
+    file: ${DESIRE_INTERNAL_SANDBOX_BUNDLE_DIR:-./secrets/internal-sandbox-bundle}/runtime-secrets/key-trust-report-cursor-v1
+  key-matching-idempotency-v1:
+    file: ${DESIRE_INTERNAL_SANDBOX_BUNDLE_DIR:-./secrets/internal-sandbox-bundle}/runtime-secrets/key-matching-idempotency-v1
+  key-matching-payload-v1:
+    file: ${DESIRE_INTERNAL_SANDBOX_BUNDLE_DIR:-./secrets/internal-sandbox-bundle}/runtime-secrets/key-matching-payload-v1
+  key-matching-read-cursor-v1:
+    file: ${DESIRE_INTERNAL_SANDBOX_BUNDLE_DIR:-./secrets/internal-sandbox-bundle}/runtime-secrets/key-matching-read-cursor-v1
+  key-matching-worker-idempotency-v1:
+    file: ${DESIRE_INTERNAL_SANDBOX_BUNDLE_DIR:-./secrets/internal-sandbox-bundle}/runtime-secrets/key-matching-worker-idempotency-v1
+  key-matching-worker-payload-hash-v1:
+    file: ${DESIRE_INTERNAL_SANDBOX_BUNDLE_DIR:-./secrets/internal-sandbox-bundle}/runtime-secrets/key-matching-worker-payload-hash-v1
+  key-matching-worker-lease-digest-v1:
+    file: ${DESIRE_INTERNAL_SANDBOX_BUNDLE_DIR:-./secrets/internal-sandbox-bundle}/runtime-secrets/key-matching-worker-lease-digest-v1
+  key-matching-coordinator-idempotency-v1:
+    file: ${DESIRE_INTERNAL_SANDBOX_BUNDLE_DIR:-./secrets/internal-sandbox-bundle}/runtime-secrets/key-matching-coordinator-idempotency-v1
+  key-matching-coordinator-payload-hash-v1:
+    file: ${DESIRE_INTERNAL_SANDBOX_BUNDLE_DIR:-./secrets/internal-sandbox-bundle}/runtime-secrets/key-matching-coordinator-payload-hash-v1
+  key-matching-coordinator-lease-digest-v1:
+    file: ${DESIRE_INTERNAL_SANDBOX_BUNDLE_DIR:-./secrets/internal-sandbox-bundle}/runtime-secrets/key-matching-coordinator-lease-digest-v1

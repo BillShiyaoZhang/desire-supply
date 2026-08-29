@@ -1,0 +1,3 @@
+configs:
+  postgres-backup-restore-script:
+    file: ./deploy/postgres-backup-restore-v15.sh

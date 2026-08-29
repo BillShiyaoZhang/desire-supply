@@ -1,0 +1,8 @@
+services:
+  edge:
+    ports:
+      - name: private-rfc1918-https
+        target: 443
+        published: "443"
+        host_ip: "${DESIRE_PRIVATE_INGRESS_IP:?DESIRE_PRIVATE_INGRESS_IP is required}"
+        protocol: tcp

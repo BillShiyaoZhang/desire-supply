@@ -1,0 +1,231 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:desire-supply:private-server-real-oidc-broker-create-intent:v1",
+  "title": "Private server real OIDC broker create intent v1",
+  "description": "Closed, non-authoritative request for a future trusted broker to create exactly the reviewed resources while starting zero containers. This schema does not authorize or implement execution.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "format",
+    "status",
+    "authority",
+    "legacy_execution_accepted",
+    "bindings",
+    "images",
+    "expected_prestate",
+    "operation_template_id",
+    "expected_postcondition",
+    "rollback_policy"
+  ],
+  "properties": {
+    "format": {
+      "const": "desire-real-oidc-broker-create-intent-v1"
+    },
+    "status": {
+      "const": "VALIDATED_REQUEST_NOT_AUTHORITY"
+    },
+    "authority": {
+      "const": "NOT_AUTHORITY"
+    },
+    "legacy_execution_accepted": {
+      "const": false
+    },
+    "bindings": {
+      "$ref": "#/$defs/Bindings"
+    },
+    "images": {
+      "type": "array",
+      "minItems": 5,
+      "maxItems": 5,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/Image"
+      }
+    },
+    "expected_prestate": {
+      "$ref": "#/$defs/ExpectedPrestate"
+    },
+    "operation_template_id": {
+      "const": "CREATE_BOUND_REAL_OIDC_RESOURCES_ZERO_START_V1"
+    },
+    "expected_postcondition": {
+      "$ref": "#/$defs/ExpectedPostcondition"
+    },
+    "rollback_policy": {
+      "const": "PRESERVE_POSTGRES_VOLUME"
+    }
+  },
+  "$defs": {
+    "Sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "ImageId": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "Project": {
+      "type": "string",
+      "pattern": "^desire-real-oidc-(?:[a-z0-9]|[a-z0-9][a-z0-9-]{0,38}[a-z0-9])$"
+    },
+    "PositiveDescriptorNumber": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9223372036854775807
+    },
+    "Bindings": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "project",
+        "snapshot_sha256",
+        "snapshot_manifest",
+        "compose_sha256"
+      ],
+      "properties": {
+        "project": {
+          "$ref": "#/$defs/Project"
+        },
+        "snapshot_sha256": {
+          "$ref": "#/$defs/Sha256"
+        },
+        "snapshot_manifest": {
+          "$ref": "#/$defs/SnapshotManifest"
+        },
+        "compose_sha256": {
+          "$ref": "#/$defs/Sha256"
+        }
+      }
+    },
+    "SnapshotManifest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sha256", "device", "inode"],
+      "properties": {
+        "sha256": {
+          "$ref": "#/$defs/Sha256"
+        },
+        "device": {
+          "$ref": "#/$defs/PositiveDescriptorNumber"
+        },
+        "inode": {
+          "$ref": "#/$defs/PositiveDescriptorNumber"
+        }
+      }
+    },
+    "Image": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["reference", "id"],
+      "properties": {
+        "reference": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._/:@-]{0,511}$"
+        },
+        "id": {
+          "$ref": "#/$defs/ImageId"
+        }
+      }
+    },
+    "AbsentResource": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "prestate"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 255
+        },
+        "prestate": {
+          "const": "ABSENT"
+        }
+      }
+    },
+    "ExpectedPrestate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["containers", "networks", "postgres_volume"],
+      "properties": {
+        "containers": {
+          "$ref": "#/$defs/Containers"
+        },
+        "networks": {
+          "$ref": "#/$defs/Networks"
+        },
+        "postgres_volume": {
+          "$ref": "#/$defs/AbsentResource"
+        }
+      }
+    },
+    "Containers": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "api",
+        "db",
+        "edge",
+        "identity-bootstrap",
+        "migrate",
+        "matching-runtime",
+        "oidc-egress-guard",
+        "online-credentials-reconcile",
+        "online-credentials-verify",
+        "taxonomy-seed",
+        "web"
+      ],
+      "properties": {
+        "api": {"$ref": "#/$defs/AbsentResource"},
+        "db": {"$ref": "#/$defs/AbsentResource"},
+        "edge": {"$ref": "#/$defs/AbsentResource"},
+        "identity-bootstrap": {"$ref": "#/$defs/AbsentResource"},
+        "migrate": {"$ref": "#/$defs/AbsentResource"},
+        "matching-runtime": {"$ref": "#/$defs/AbsentResource"},
+        "oidc-egress-guard": {"$ref": "#/$defs/AbsentResource"},
+        "online-credentials-reconcile": {"$ref": "#/$defs/AbsentResource"},
+        "online-credentials-verify": {"$ref": "#/$defs/AbsentResource"},
+        "taxonomy-seed": {"$ref": "#/$defs/AbsentResource"},
+        "web": {"$ref": "#/$defs/AbsentResource"}
+      }
+    },
+    "Networks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["app", "data", "ingress", "oidc-egress"],
+      "properties": {
+        "app": {"$ref": "#/$defs/AbsentResource"},
+        "data": {"$ref": "#/$defs/AbsentResource"},
+        "ingress": {"$ref": "#/$defs/AbsentResource"},
+        "oidc-egress": {"$ref": "#/$defs/AbsentResource"}
+      }
+    },
+    "ExpectedPostcondition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "state",
+        "containers_created",
+        "containers_started",
+        "process_start_allowed",
+        "post_create_reinspection_required"
+      ],
+      "properties": {
+        "state": {
+          "const": "CREATED_ZERO_START"
+        },
+        "containers_created": {
+          "const": 11
+        },
+        "containers_started": {
+          "const": 0
+        },
+        "process_start_allowed": {
+          "const": false
+        },
+        "post_create_reinspection_required": {
+          "const": true
+        }
+      }
+    }
+  }
+}

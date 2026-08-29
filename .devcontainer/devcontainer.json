@@ -1,0 +1,39 @@
+{
+  "name": "Desire Supply internal sandbox",
+  "dockerComposeFile": [
+    "../compose.yaml",
+    "../compose.dev.yaml"
+  ],
+  "initializeCommand": "if [ -n \"${COMPOSE_PROJECT_NAME:-}\" ]; then printf '%s\\n' 'BLOCKED:DEVCONTAINER_COMPOSE_PROJECT_NAME' >&2; exit 64; fi; exit 0",
+  "service": "devcontainer",
+  "runServices": [
+    "db",
+    "devcontainer"
+  ],
+  "workspaceFolder": "/workspace",
+  "shutdownAction": "stopCompose",
+  "overrideCommand": false,
+  "containerUser": "node",
+  "remoteUser": "node",
+  "updateRemoteUserUID": true,
+  "postCreateCommand": "cd /workspace/mvp && uv sync --locked && /usr/local/bin/desire-devcontainer-post-create",
+  "forwardPorts": [],
+  "portsAttributes": {
+    "3000": {
+      "label": "Web (start manually)",
+      "onAutoForward": "silent"
+    },
+    "8000": {
+      "label": "API (start manually)",
+      "onAutoForward": "silent"
+    }
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "dbaeumer.vscode-eslint"
+      ]
+    }
+  }
+}

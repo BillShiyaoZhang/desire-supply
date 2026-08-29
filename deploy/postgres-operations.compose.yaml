@@ -1,0 +1,215 @@
+services:
+  database-backup:
+    image: postgres:18.4-alpine@sha256:9a8afca54e7861fd90fab5fdf4c42477a6b1cb7d293595148e674e0a3181de15
+    profiles: ["database-backup"]
+    user: "${DESIRE_DATABASE_OPERATIONS_UID:-1000}:${DESIRE_DATABASE_OPERATIONS_GID:-1000}"
+    entrypoint: ["/bin/sh", "/run/desire-ops/postgres-backup-restore.sh"]
+    command: ["backup"]
+    logging: &bounded-operations-logging
+      driver: local
+      options:
+        max-size: "10m"
+        max-file: "3"
+        compress: "true"
+    environment:
+      DESIRE_DEPLOYMENT_MODE: INTERNAL_SANDBOX
+      DESIRE_EXTERNAL_PARTICIPANTS_ENABLED: "false"
+      DESIRE_DATABASE_HOST: db
+      DESIRE_DATABASE_PORT: "5432"
+      DESIRE_DATABASE_NAME: desire
+      DESIRE_DATABASE_ADMIN_USER: postgres
+      DESIRE_DATABASE_PASSWORD_FILE: /run/secrets/db_superuser_password
+      DESIRE_DATABASE_BACKUP_ROOT: /var/lib/desire-backup
+      DESIRE_DATABASE_BACKUP_BASENAME: ${DESIRE_DATABASE_BACKUP_BASENAME:-UNSET}
+    secrets:
+      - db_superuser_password
+    configs:
+      - source: postgres-backup-restore-script
+        target: /run/desire-ops/postgres-backup-restore.sh
+        mode: 0444
+      - source: postgres-core-facts-sql
+        target: /run/desire-ops/postgres-core-facts.sql
+        mode: 0444
+    volumes:
+      - type: bind
+        source: ${DESIRE_DATABASE_BACKUP_DIR:-./backups/internal-sandbox}
+        target: /var/lib/desire-backup
+        read_only: false
+        bind:
+          create_host_path: false
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - data
+    read_only: true
+    init: true
+    restart: "no"
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges=true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=16m
+      - /var/lib/postgresql:rw,nosuid,nodev,noexec,size=1m
+
+  database-restore-target:
+    image: postgres:18.4-alpine@sha256:9a8afca54e7861fd90fab5fdf4c42477a6b1cb7d293595148e674e0a3181de15
+    profiles: ["database-restore-verify"]
+    restart: "no"
+    logging: *bounded-operations-logging
+    environment:
+      POSTGRES_DB: desire_restore_verify
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD_FILE: /run/secrets/db_superuser_password
+      PGDATA: /var/lib/postgresql/data/pgdata
+    secrets:
+      - db_superuser_password
+    volumes:
+      - postgres-restore-verification-data:/var/lib/postgresql/data
+    tmpfs:
+      - /var/lib/postgresql:rw,nosuid,nodev,noexec,size=1m
+    networks:
+      database-restore-verification:
+        aliases:
+          - db
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d desire_restore_verify || exit 1"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+      start_period: 5s
+    shm_size: 128mb
+    stop_grace_period: 30s
+
+  database-restore-bootstrap:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: platform-runtime
+    image: desire-supply-platform:${DESIRE_IMAGE_TAG:-local}
+    profiles: ["database-restore-verify"]
+    command: ["python", "-m", "desire_platform.deployment"]
+    logging: *bounded-operations-logging
+    environment:
+      DESIRE_DEPLOYMENT_MODE: INTERNAL_SANDBOX
+      DESIRE_EXTERNAL_PARTICIPANTS_ENABLED: "false"
+      DESIRE_DATABASE_HOST: db
+      DESIRE_DATABASE_NAME: desire_restore_verify
+      DESIRE_DATABASE_ADMIN_USER: postgres
+      DESIRE_DATABASE_PASSWORD_FILE: /run/secrets/db_superuser_password
+    secrets:
+      - db_superuser_password
+    depends_on:
+      database-restore-target:
+        condition: service_healthy
+    networks:
+      - database-restore-verification
+    read_only: true
+    init: true
+    restart: "no"
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges=true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=64m
+
+  database-restore-verify:
+    image: postgres:18.4-alpine@sha256:9a8afca54e7861fd90fab5fdf4c42477a6b1cb7d293595148e674e0a3181de15
+    profiles: ["database-restore-verify"]
+    user: "${DESIRE_DATABASE_OPERATIONS_UID:-1000}:${DESIRE_DATABASE_OPERATIONS_GID:-1000}"
+    entrypoint: ["/bin/sh", "/run/desire-ops/postgres-backup-restore.sh"]
+    command: ["restore-verify"]
+    logging: *bounded-operations-logging
+    environment:
+      DESIRE_DEPLOYMENT_MODE: INTERNAL_SANDBOX
+      DESIRE_EXTERNAL_PARTICIPANTS_ENABLED: "false"
+      DESIRE_DATABASE_HOST: db
+      DESIRE_DATABASE_PORT: "5432"
+      DESIRE_DATABASE_NAME: desire_restore_verify
+      DESIRE_DATABASE_ADMIN_USER: postgres
+      DESIRE_DATABASE_PASSWORD_FILE: /run/secrets/db_superuser_password
+      DESIRE_DATABASE_BACKUP_ROOT: /var/lib/desire-backup
+      DESIRE_DATABASE_BACKUP_BASENAME: ${DESIRE_DATABASE_BACKUP_BASENAME:-UNSET}
+      DESIRE_DATABASE_RESTORE_PROJECT: ${COMPOSE_PROJECT_NAME:-UNSAFE_PROJECT_NOT_SET}
+    secrets:
+      - db_superuser_password
+    configs:
+      - source: postgres-backup-restore-script
+        target: /run/desire-ops/postgres-backup-restore.sh
+        mode: 0444
+      - source: postgres-core-facts-sql
+        target: /run/desire-ops/postgres-core-facts.sql
+        mode: 0444
+    volumes:
+      - type: bind
+        source: ${DESIRE_DATABASE_BACKUP_DIR:-./backups/internal-sandbox}
+        target: /var/lib/desire-backup
+        read_only: true
+        bind:
+          create_host_path: false
+    depends_on:
+      database-restore-bootstrap:
+        condition: service_completed_successfully
+    networks:
+      - database-restore-verification
+    read_only: true
+    init: true
+    restart: "no"
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges=true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=16m
+      - /var/lib/postgresql:rw,nosuid,nodev,noexec,size=1m
+
+  database-restore-replay:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: platform-runtime
+    image: desire-supply-platform:${DESIRE_IMAGE_TAG:-local}
+    profiles: ["database-restore-verify"]
+    command: ["python", "-m", "desire_platform.deployment"]
+    logging: *bounded-operations-logging
+    environment:
+      DESIRE_DEPLOYMENT_MODE: INTERNAL_SANDBOX
+      DESIRE_EXTERNAL_PARTICIPANTS_ENABLED: "false"
+      DESIRE_DATABASE_HOST: db
+      DESIRE_DATABASE_NAME: desire_restore_verify
+      DESIRE_DATABASE_ADMIN_USER: postgres
+      DESIRE_DATABASE_PASSWORD_FILE: /run/secrets/db_superuser_password
+    secrets:
+      - db_superuser_password
+    depends_on:
+      database-restore-verify:
+        condition: service_completed_successfully
+    networks:
+      - database-restore-verification
+    read_only: true
+    init: true
+    restart: "no"
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges=true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=64m
+
+networks:
+  database-restore-verification:
+    internal: true
+    ipam:
+      config:
+        - subnet: ${DESIRE_DATABASE_RESTORE_SUBNET:-172.16.232.0/24}
+
+volumes:
+  postgres-restore-verification-data:
+
+configs:
+  postgres-backup-restore-script:
+    file: ./deploy/postgres-backup-restore.sh
+  postgres-core-facts-sql:
+    file: ./deploy/postgres-core-facts.sql

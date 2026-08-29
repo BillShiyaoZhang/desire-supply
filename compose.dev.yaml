@@ -1,0 +1,64 @@
+name: desire-supply-devcontainer
+
+services:
+  devcontainer:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: devcontainer
+    image: desire-supply-devcontainer:${DESIRE_IMAGE_TAG:-local}
+    init: true
+    command: ["sleep", "infinity"]
+    logging:
+      driver: local
+      options:
+        max-size: "10m"
+        max-file: "3"
+        compress: "true"
+    environment:
+      DESIRE_DEPLOYMENT_MODE: INTERNAL_SANDBOX
+      DESIRE_EXTERNAL_PARTICIPANTS_ENABLED: "false"
+      DESIRE_IAM_TEST_POSTGRES_DSN: postgresql://postgres@db:5432/desire
+      DESIRE_IAM_TEST_POSTGRES_EPHEMERAL: "1"
+      PGPASSFILE: /tmp/desire-pgpass
+    secrets:
+      - db_superuser_password
+    entrypoint: ["/usr/local/bin/desire-devcontainer-entrypoint"]
+    volumes:
+      - .:/workspace:cached
+      - platform-venv:/workspace/platform/.venv
+      - mvp-venv:/workspace/mvp/.venv
+      - web-node-modules:/workspace/web/node_modules
+      - uv-cache:/home/node/.cache/uv
+      - npm-cache:/home/node/.npm
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - app
+      - data
+      - dev-egress
+    tmpfs:
+      - /tmp:rw,exec,nosuid,nodev,size=64m
+      - /var/lib/postgresql:rw,nosuid,nodev,noexec,size=1m
+
+volumes:
+  platform-venv:
+  mvp-venv:
+  web-node-modules:
+  uv-cache:
+  npm-cache:
+
+networks:
+  app:
+    ipam:
+      config:
+        - subnet: ${DESIRE_DEVCONTAINER_APP_SUBNET:-172.16.221.0/24}
+  data:
+    ipam:
+      config:
+        - subnet: ${DESIRE_DEVCONTAINER_DATA_SUBNET:-172.16.222.0/24}
+  dev-egress:
+    ipam:
+      config:
+        - subnet: ${DESIRE_DEVCONTAINER_EGRESS_SUBNET:-172.16.223.0/24}

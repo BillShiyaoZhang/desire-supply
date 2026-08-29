@@ -1,0 +1,288 @@
+name: ${DESIRE_REAL_OIDC_PROJECT_NAME:?DESIRE_REAL_OIDC_PROJECT_NAME is required}
+
+services:
+  synthetic-oidc: !reset null
+
+  db:
+    networks: !override
+      data:
+        ipv4_address: ${DESIRE_REAL_OIDC_DB_DATA_IPV4:?DESIRE_REAL_OIDC_DB_DATA_IPV4 is required}
+
+  identity-bootstrap:
+    command: !override
+      - python
+      - -m
+      - desire_platform.deployment.preprovisioned_identity_bootstrap_orchestrator
+      - run
+    environment: !override
+      DESIRE_DEPLOYMENT_MODE: INTERNAL_SANDBOX
+      DESIRE_EXTERNAL_PARTICIPANTS_ENABLED: "false"
+      DESIRE_DATABASE_HOST: db
+      DESIRE_DATABASE_NAME: desire
+      DESIRE_DATABASE_ADMIN_USER: postgres
+      DESIRE_DATABASE_PASSWORD_FILE: /run/secrets/db_superuser_password
+      DESIRE_INTERNAL_SANDBOX_DEPLOYMENT_CONFIG_FILE: /run/desire/deployment.json
+      DESIRE_PREPROVISIONED_OIDC_IDENTITY_BOOTSTRAP_TEMPLATE_FILE: /run/desire/identity-bootstrap-template.json
+      DESIRE_PREPROVISIONED_OIDC_IDENTITY_BOOTSTRAP_TEMPLATE_SHA256: b7f5326f75f17eb97cec77d92f963fe6af6755a26a1acf7af8944f33ee6ba942
+      DESIRE_PREPROVISIONED_OIDC_IDENTITY_BOOTSTRAP_SOURCE_ROOT: /run/identity-sources
+      DESIRE_PREPROVISIONED_OIDC_IDENTITY_BOOTSTRAP_OUTPUT_FILE: /run/identity-bootstrap/manifest.json
+    configs: !override
+      - source: internal-sandbox-deployment
+        target: /run/desire/deployment.json
+        mode: 0444
+      - source: internal-sandbox-runtime-config
+        target: /run/desire/runtime-config.json
+        mode: 0444
+      - source: internal-sandbox-secret-manifest
+        target: /run/desire/secret-manifest.json
+        mode: 0444
+      - source: internal-sandbox-identity-template
+        target: /run/desire/identity-bootstrap-template.json
+        mode: 0444
+    secrets: !override
+      - source: db_superuser_password
+        target: db_superuser_password
+      - source: key-oidc-subject-digest-v1
+        target: key-oidc-subject-digest-v1
+      - source: key-oidc-recipient-binding-v1
+        target: key-oidc-recipient-binding-v1
+    volumes: !override
+      - type: bind
+        source: ${DESIRE_REAL_OIDC_IDENTITY_SOURCE_DIR:?DESIRE_REAL_OIDC_IDENTITY_SOURCE_DIR is required}
+        target: /run/identity-sources
+        read_only: true
+        bind:
+          create_host_path: false
+
+  oidc-egress-guard:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: oidc-egress-guard-runtime
+    image: desire-supply-oidc-egress-guard:${DESIRE_IMAGE_TAG:-local}
+    entrypoint:
+      - /usr/local/bin/desire-real-oidc-egress-guard
+    init: true
+    read_only: true
+    restart: "no"
+    logging:
+      driver: local
+      options:
+        max-size: "10m"
+        max-file: "3"
+        compress: "true"
+    user: "0:0"
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_ADMIN
+    security_opt:
+      - no-new-privileges=true
+    environment:
+      DESIRE_REAL_OIDC_DB_DATA_IPV4: ${DESIRE_REAL_OIDC_DB_DATA_IPV4:?DESIRE_REAL_OIDC_DB_DATA_IPV4 is required}
+      DESIRE_REAL_OIDC_PINNED_PUBLIC_IPV4: ${DESIRE_REAL_OIDC_PINNED_PUBLIC_IPV4:?DESIRE_REAL_OIDC_PINNED_PUBLIC_IPV4 is required}
+      DESIRE_REAL_OIDC_EGRESS_PROJECTION_SHA256: ${DESIRE_REAL_OIDC_EGRESS_PROJECTION_SHA256:?DESIRE_REAL_OIDC_EGRESS_PROJECTION_SHA256 is required}
+    tmpfs:
+      - /run/desire-oidc-egress:rw,noexec,nosuid,nodev,size=64k,mode=0700
+    networks:
+      app:
+        aliases:
+          - api
+      data: {}
+      oidc-egress: {}
+    healthcheck:
+      test:
+        - CMD
+        - /usr/local/bin/desire-real-oidc-egress-guard
+        - check
+      interval: 5s
+      timeout: 3s
+      retries: 3
+      start_period: 1s
+
+  api:
+    depends_on: !override
+      identity-bootstrap:
+        condition: service_completed_successfully
+      oidc-egress-guard:
+        condition: service_healthy
+    environment: !override
+      DESIRE_INTERNAL_SANDBOX_DEPLOYMENT_CONFIG_FILE: /run/desire/deployment.json
+      SSL_CERT_FILE: /etc/ssl/certs/ca-certificates.crt
+    configs: !override
+      - source: internal-sandbox-deployment
+        target: /run/desire/deployment.json
+        mode: 0444
+      - source: internal-sandbox-runtime-config
+        target: /run/desire/runtime-config.json
+        mode: 0444
+      - source: internal-sandbox-secret-manifest
+        target: /run/desire/secret-manifest.json
+        mode: 0444
+    networks: !reset []
+    network_mode: service:oidc-egress-guard
+    extra_hosts:
+      - db=${DESIRE_REAL_OIDC_DB_DATA_IPV4:?DESIRE_REAL_OIDC_DB_DATA_IPV4 is required}
+
+  edge:
+    depends_on: !override {}
+    environment: !override
+      DESIRE_REAL_OIDC_PILOT_HOSTNAME: ${DESIRE_REAL_OIDC_PILOT_HOSTNAME:?DESIRE_REAL_OIDC_PILOT_HOSTNAME is required}
+    configs: !override
+      - source: real-oidc-caddyfile
+        target: /etc/caddy/Caddyfile
+        mode: 0444
+      - source: real-oidc-edge-tls-chain
+        target: /run/desire-tls/edge-tls-chain.pem
+        mode: 0444
+    networks: !override
+      - app
+      - ingress
+
+networks:
+  oidc-backend: !reset null
+  oidc-egress: {}
+
+configs:
+  internal-sandbox-deployment:
+    file: ${DESIRE_REAL_OIDC_BUNDLE_DIR:?DESIRE_REAL_OIDC_BUNDLE_DIR is required}/config/deployment.json
+  internal-sandbox-runtime-config:
+    file: ${DESIRE_REAL_OIDC_BUNDLE_DIR:?DESIRE_REAL_OIDC_BUNDLE_DIR is required}/config/runtime-config.json
+  internal-sandbox-secret-manifest:
+    file: ${DESIRE_REAL_OIDC_BUNDLE_DIR:?DESIRE_REAL_OIDC_BUNDLE_DIR is required}/config/secret-manifest.json
+  internal-sandbox-matching-deployment:
+    file: ${DESIRE_REAL_OIDC_BUNDLE_DIR:?DESIRE_REAL_OIDC_BUNDLE_DIR is required}/config/matching-deployment.json
+  internal-sandbox-matching-runtime-config:
+    file: ${DESIRE_REAL_OIDC_BUNDLE_DIR:?DESIRE_REAL_OIDC_BUNDLE_DIR is required}/config/matching-runtime-config.json
+  internal-sandbox-matching-secret-manifest:
+    file: ${DESIRE_REAL_OIDC_BUNDLE_DIR:?DESIRE_REAL_OIDC_BUNDLE_DIR is required}/config/matching-secret-manifest.json
+  internal-sandbox-online-credentials-deployment:
+    file: ${DESIRE_REAL_OIDC_BUNDLE_DIR:?DESIRE_REAL_OIDC_BUNDLE_DIR is required}/config/online-credentials-deployment.json
+  internal-sandbox-online-credentials-runtime-config:
+    file: ${DESIRE_REAL_OIDC_BUNDLE_DIR:?DESIRE_REAL_OIDC_BUNDLE_DIR is required}/config/online-credentials-runtime-config.json
+  internal-sandbox-online-credentials-secret-manifest:
+    file: ${DESIRE_REAL_OIDC_BUNDLE_DIR:?DESIRE_REAL_OIDC_BUNDLE_DIR is required}/config/online-credentials-secret-manifest.json
+  internal-sandbox-identity-template:
+    file: ${DESIRE_REAL_OIDC_BUNDLE_DIR:?DESIRE_REAL_OIDC_BUNDLE_DIR is required}/config/identity-bootstrap-template.json
+  internal-sandbox-root-ca: !reset null
+  internal-sandbox-edge-tls-chain: !reset null
+  real-oidc-caddyfile:
+    file: ${DESIRE_REAL_OIDC_BUNDLE_DIR:?DESIRE_REAL_OIDC_BUNDLE_DIR is required}/config/Caddyfile.real-oidc
+  real-oidc-edge-tls-chain:
+    file: ${DESIRE_REAL_OIDC_TLS_DIR:?DESIRE_REAL_OIDC_TLS_DIR is required}/edge-tls-chain.pem
+
+secrets:
+  db_superuser_password:
+    file: ${DESIRE_REAL_OIDC_DB_PASSWORD_FILE:?DESIRE_REAL_OIDC_DB_PASSWORD_FILE is required}
+  taxonomy_seed_workload_credential:
+    file: ${DESIRE_REAL_OIDC_TAXONOMY_SEED_WORKLOAD_CREDENTIAL_FILE:?DESIRE_REAL_OIDC_TAXONOMY_SEED_WORKLOAD_CREDENTIAL_FILE is required}
+  taxonomy_seed_receipt_hmac_key:
+    file: ${DESIRE_REAL_OIDC_TAXONOMY_SEED_RECEIPT_HMAC_KEY_FILE:?DESIRE_REAL_OIDC_TAXONOMY_SEED_RECEIPT_HMAC_KEY_FILE is required}
+  edge-tls-key:
+    file: ${DESIRE_REAL_OIDC_TLS_DIR:?DESIRE_REAL_OIDC_TLS_DIR is required}/edge-tls-key.pem
+  db-iam-app-v1:
+    file: ${DESIRE_REAL_OIDC_BUNDLE_DIR:?DESIRE_REAL_OIDC_BUNDLE_DIR is required}/runtime-secrets/db-iam-app-v1
+  db-iam-session-authenticator-v1:
+    file: ${DESIRE_REAL_OIDC_BUNDLE_DIR:?DESIRE_REAL_OIDC_BUNDLE_DIR is required}/runtime-secrets/db-iam-session-authenticator-v1
+  db-iam-onboarding-v1:
+    file: ${DESIRE_REAL_OIDC_BUNDLE_DIR:?DESIRE_REAL_OIDC_BUNDLE_DIR is required}/runtime-secrets/db-iam-onboarding-v1
+  db-profile-app-v1:
+    file: ${DESIRE_REAL_OIDC_BUNDLE_DIR:?DESIRE_REAL_OIDC_BUNDLE_DIR is required}/runtime-secrets/db-profile-app-v1
+  db-demand-self-v1:
+    file: ${DESIRE_REAL_OIDC_BUNDLE_DIR:?DESIRE_REAL_OIDC_BUNDLE_DIR is required}/runtime-secrets/db-demand-self-v1
+  db-demand-review-v1:
+    file: ${DESIRE_REAL_OIDC_BUNDLE_DIR:?DESIRE_REAL_OIDC_BUNDLE_DIR is required}/runtime-secrets/db-demand-review-v1
+  db-demand-finance-v1:
+    file: ${DESIRE_REAL_OIDC_BUNDLE_DIR:?DESIRE_REAL_OIDC_BUNDLE_DIR is required}/runtime-secrets/db-demand-finance-v1
+  db-trust-self-v1:
+    file: ${DESIRE_REAL_OIDC_BUNDLE_DIR:?DESIRE_REAL_OIDC_BUNDLE_DIR is required}/runtime-secrets/db-trust-self-v1
+  db-trust-officer-v1:
+    file: ${DESIRE_REAL_OIDC_BUNDLE_DIR:?DESIRE_REAL_OIDC_BUNDLE_DIR is required}/runtime-secrets/db-trust-officer-v1
+  db-trust-appeal-v1:
+    file: ${DESIRE_REAL_OIDC_BUNDLE_DIR:?DESIRE_REAL_OIDC_BUNDLE_DIR is required}/runtime-secrets/db-trust-appeal-v1
+  db-trust-decision-v1:
+    file: ${DESIRE_REAL_OIDC_BUNDLE_DIR:?DESIRE_REAL_OIDC_BUNDLE_DIR is required}/runtime-secrets/db-trust-decision-v1
+  db-matching-creator-v1:
+    file: ${DESIRE_REAL_OIDC_BUNDLE_DIR:?DESIRE_REAL_OIDC_BUNDLE_DIR is required}/runtime-secrets/db-matching-creator-v1
+  db-matching-selector-v1:
+    file: ${DESIRE_REAL_OIDC_BUNDLE_DIR:?DESIRE_REAL_OIDC_BUNDLE_DIR is required}/runtime-secrets/db-matching-selector-v1
+  db-matching-assignment-v1:
+    file: ${DESIRE_REAL_OIDC_BUNDLE_DIR:?DESIRE_REAL_OIDC_BUNDLE_DIR is required}/runtime-secrets/db-matching-assignment-v1
+  db-matching-review-v1:
+    file: ${DESIRE_REAL_OIDC_BUNDLE_DIR:?DESIRE_REAL_OIDC_BUNDLE_DIR is required}/runtime-secrets/db-matching-review-v1
+  db-demand-matching-v1:
+    file: ${DESIRE_REAL_OIDC_BUNDLE_DIR:?DESIRE_REAL_OIDC_BUNDLE_DIR is required}/runtime-secrets/db-demand-matching-v1
+  db-profile-matcher-v1:
+    file: ${DESIRE_REAL_OIDC_BUNDLE_DIR:?DESIRE_REAL_OIDC_BUNDLE_DIR is required}/runtime-secrets/db-profile-matcher-v1
+  db-matching-worker-v1:
+    file: ${DESIRE_REAL_OIDC_BUNDLE_DIR:?DESIRE_REAL_OIDC_BUNDLE_DIR is required}/runtime-secrets/db-matching-worker-v1
+  db-matching-coordinator-v1:
+    file: ${DESIRE_REAL_OIDC_BUNDLE_DIR:?DESIRE_REAL_OIDC_BUNDLE_DIR is required}/runtime-secrets/db-matching-coordinator-v1
+  key-oidc-state-v1:
+    file: ${DESIRE_REAL_OIDC_BUNDLE_DIR:?DESIRE_REAL_OIDC_BUNDLE_DIR is required}/runtime-secrets/key-oidc-state-v1
+  key-oidc-browser-binding-v1:
+    file: ${DESIRE_REAL_OIDC_BUNDLE_DIR:?DESIRE_REAL_OIDC_BUNDLE_DIR is required}/runtime-secrets/key-oidc-browser-binding-v1
+  key-oidc-nonce-v1:
+    file: ${DESIRE_REAL_OIDC_BUNDLE_DIR:?DESIRE_REAL_OIDC_BUNDLE_DIR is required}/runtime-secrets/key-oidc-nonce-v1
+  key-session-handle-v1:
+    file: ${DESIRE_REAL_OIDC_BUNDLE_DIR:?DESIRE_REAL_OIDC_BUNDLE_DIR is required}/runtime-secrets/key-session-handle-v1
+  key-csrf-v1:
+    file: ${DESIRE_REAL_OIDC_BUNDLE_DIR:?DESIRE_REAL_OIDC_BUNDLE_DIR is required}/runtime-secrets/key-csrf-v1
+  key-oidc-protocol-aead-v1:
+    file: ${DESIRE_REAL_OIDC_BUNDLE_DIR:?DESIRE_REAL_OIDC_BUNDLE_DIR is required}/runtime-secrets/key-oidc-protocol-aead-v1
+  key-oidc-subject-digest-v1:
+    file: ${DESIRE_REAL_OIDC_BUNDLE_DIR:?DESIRE_REAL_OIDC_BUNDLE_DIR is required}/runtime-secrets/key-oidc-subject-digest-v1
+  key-oidc-recipient-binding-v1:
+    file: ${DESIRE_REAL_OIDC_BUNDLE_DIR:?DESIRE_REAL_OIDC_BUNDLE_DIR is required}/runtime-secrets/key-oidc-recipient-binding-v1
+  key-oidc-client-secret-v1:
+    file: ${DESIRE_REAL_OIDC_BUNDLE_DIR:?DESIRE_REAL_OIDC_BUNDLE_DIR is required}/runtime-secrets/key-oidc-client-secret-v1
+  key-editor-id-derivation-v1:
+    file: ${DESIRE_REAL_OIDC_BUNDLE_DIR:?DESIRE_REAL_OIDC_BUNDLE_DIR is required}/runtime-secrets/key-editor-id-derivation-v1
+  key-profile-idempotency-v1:
+    file: ${DESIRE_REAL_OIDC_BUNDLE_DIR:?DESIRE_REAL_OIDC_BUNDLE_DIR is required}/runtime-secrets/key-profile-idempotency-v1
+  key-profile-payload-hash-v1:
+    file: ${DESIRE_REAL_OIDC_BUNDLE_DIR:?DESIRE_REAL_OIDC_BUNDLE_DIR is required}/runtime-secrets/key-profile-payload-hash-v1
+  key-demand-idempotency-v1:
+    file: ${DESIRE_REAL_OIDC_BUNDLE_DIR:?DESIRE_REAL_OIDC_BUNDLE_DIR is required}/runtime-secrets/key-demand-idempotency-v1
+  key-demand-idempotency-retained-2025-12:
+    file: ${DESIRE_REAL_OIDC_BUNDLE_DIR:?DESIRE_REAL_OIDC_BUNDLE_DIR is required}/runtime-secrets/key-demand-idempotency-retained-2025-12
+  key-demand-payload-hash-v1:
+    file: ${DESIRE_REAL_OIDC_BUNDLE_DIR:?DESIRE_REAL_OIDC_BUNDLE_DIR is required}/runtime-secrets/key-demand-payload-hash-v1
+  key-demand-payload-retained-2025-12:
+    file: ${DESIRE_REAL_OIDC_BUNDLE_DIR:?DESIRE_REAL_OIDC_BUNDLE_DIR is required}/runtime-secrets/key-demand-payload-retained-2025-12
+  key-demand-client-reference-v1:
+    file: ${DESIRE_REAL_OIDC_BUNDLE_DIR:?DESIRE_REAL_OIDC_BUNDLE_DIR is required}/runtime-secrets/key-demand-client-reference-v1
+  key-iam-receipt-idempotency-hmac-2026-01:
+    file: ${DESIRE_REAL_OIDC_BUNDLE_DIR:?DESIRE_REAL_OIDC_BUNDLE_DIR is required}/runtime-secrets/key-iam-receipt-idempotency-hmac-2026-01
+  key-iam-receipt-payload-hmac-2026-01:
+    file: ${DESIRE_REAL_OIDC_BUNDLE_DIR:?DESIRE_REAL_OIDC_BUNDLE_DIR is required}/runtime-secrets/key-iam-receipt-payload-hmac-2026-01
+  key-access-invitation-token-v1:
+    file: ${DESIRE_REAL_OIDC_BUNDLE_DIR:?DESIRE_REAL_OIDC_BUNDLE_DIR is required}/runtime-secrets/key-access-invitation-token-v1
+  key-iam-read-cursor-v1:
+    file: ${DESIRE_REAL_OIDC_BUNDLE_DIR:?DESIRE_REAL_OIDC_BUNDLE_DIR is required}/runtime-secrets/key-iam-read-cursor-v1
+  key-trust-idempotency-v1:
+    file: ${DESIRE_REAL_OIDC_BUNDLE_DIR:?DESIRE_REAL_OIDC_BUNDLE_DIR is required}/runtime-secrets/key-trust-idempotency-v1
+  key-trust-payload-hash-v1:
+    file: ${DESIRE_REAL_OIDC_BUNDLE_DIR:?DESIRE_REAL_OIDC_BUNDLE_DIR is required}/runtime-secrets/key-trust-payload-hash-v1
+  key-trust-sealed-note-v1:
+    file: ${DESIRE_REAL_OIDC_BUNDLE_DIR:?DESIRE_REAL_OIDC_BUNDLE_DIR is required}/runtime-secrets/key-trust-sealed-note-v1
+  key-trust-report-cursor-v1:
+    file: ${DESIRE_REAL_OIDC_BUNDLE_DIR:?DESIRE_REAL_OIDC_BUNDLE_DIR is required}/runtime-secrets/key-trust-report-cursor-v1
+  key-matching-idempotency-v1:
+    file: ${DESIRE_REAL_OIDC_BUNDLE_DIR:?DESIRE_REAL_OIDC_BUNDLE_DIR is required}/runtime-secrets/key-matching-idempotency-v1
+  key-matching-payload-v1:
+    file: ${DESIRE_REAL_OIDC_BUNDLE_DIR:?DESIRE_REAL_OIDC_BUNDLE_DIR is required}/runtime-secrets/key-matching-payload-v1
+  key-matching-read-cursor-v1:
+    file: ${DESIRE_REAL_OIDC_BUNDLE_DIR:?DESIRE_REAL_OIDC_BUNDLE_DIR is required}/runtime-secrets/key-matching-read-cursor-v1
+  key-matching-worker-idempotency-v1:
+    file: ${DESIRE_REAL_OIDC_BUNDLE_DIR:?DESIRE_REAL_OIDC_BUNDLE_DIR is required}/runtime-secrets/key-matching-worker-idempotency-v1
+  key-matching-worker-payload-hash-v1:
+    file: ${DESIRE_REAL_OIDC_BUNDLE_DIR:?DESIRE_REAL_OIDC_BUNDLE_DIR is required}/runtime-secrets/key-matching-worker-payload-hash-v1
+  key-matching-worker-lease-digest-v1:
+    file: ${DESIRE_REAL_OIDC_BUNDLE_DIR:?DESIRE_REAL_OIDC_BUNDLE_DIR is required}/runtime-secrets/key-matching-worker-lease-digest-v1
+  key-matching-coordinator-idempotency-v1:
+    file: ${DESIRE_REAL_OIDC_BUNDLE_DIR:?DESIRE_REAL_OIDC_BUNDLE_DIR is required}/runtime-secrets/key-matching-coordinator-idempotency-v1
+  key-matching-coordinator-payload-hash-v1:
+    file: ${DESIRE_REAL_OIDC_BUNDLE_DIR:?DESIRE_REAL_OIDC_BUNDLE_DIR is required}/runtime-secrets/key-matching-coordinator-payload-hash-v1
+  key-matching-coordinator-lease-digest-v1:
+    file: ${DESIRE_REAL_OIDC_BUNDLE_DIR:?DESIRE_REAL_OIDC_BUNDLE_DIR is required}/runtime-secrets/key-matching-coordinator-lease-digest-v1

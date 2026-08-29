@@ -1,0 +1,243 @@
+name: Private server runtime release artifact
+
+on:
+  workflow_dispatch:
+    inputs:
+      architecture:
+        description: Native Linux architecture for the release artifact
+        required: true
+        type: choice
+        options:
+          - amd64
+          - arm64
+
+permissions:
+  contents: read
+
+concurrency:
+  group: private-server-runtime-release-${{ github.sha }}-${{ inputs.architecture }}
+  cancel-in-progress: false
+
+env:
+  ARCHITECTURE: ${{ inputs.architecture }}
+  BUILDX_NO_DEFAULT_ATTESTATIONS: "1"
+  BUILDX_VERSION: v0.36.1
+  BUILDKIT_IMAGE: moby/buildkit:v0.32.2@sha256:28a898719c18a33f4e8000685287fa36fd0dd9560c6440227d3a732d79bb41d8
+  SBOM_SCANNER: docker.io/docker/buildkit-syft-scanner:1.11.0@sha256:79e7b013cbec16bbb436f312819a49a4a57752b2270c1a9332ae1a10fcc82a68
+  IMAGE_TAG: sha-${{ github.sha }}-${{ inputs.architecture }}-r${{ github.run_id }}-a${{ github.run_attempt }}
+  RELEASE_ROOT: ${{ runner.temp }}/private-server-runtime-release
+
+jobs:
+  release:
+    name: Build validated ${{ inputs.architecture }} server artifact
+    runs-on: ${{ inputs.architecture == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-24.04' }}
+    timeout-minutes: 90
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout the dispatched commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+          lfs: false
+          submodules: false
+
+      - name: Bind the clean checkout to the exact release commit
+        run: python -B scripts/check_private_server_source_readiness.py
+
+      - name: Verify the current-head v27 static contract
+        run: python -B scripts/verify_current_head_v27.py
+
+      - name: Close the native release workspace
+        run: |
+          set -euo pipefail
+          umask 077
+          case "$(uname -m)" in
+            x86_64) native_architecture=amd64 ;;
+            aarch64|arm64) native_architecture=arm64 ;;
+            *) echo "unsupported native runner architecture" >&2; exit 78 ;;
+          esac
+          [[ "$GITHUB_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$GITHUB_RUN_ID" =~ ^[0-9]+$ ]]
+          [[ "$GITHUB_RUN_ATTEMPT" =~ ^[0-9]+$ ]]
+          test "$native_architecture" = "$ARCHITECTURE"
+          test "$IMAGE_TAG" = "sha-${GITHUB_SHA}-${ARCHITECTURE}-r${GITHUB_RUN_ID}-a${GITHUB_RUN_ATTEMPT}"
+          test "$RELEASE_ROOT" = "$RUNNER_TEMP/private-server-runtime-release"
+          test ! -e "$RELEASE_ROOT"
+          install -d -m 0700 \
+            "$RELEASE_ROOT" \
+            "$RELEASE_ROOT/source" \
+            "$RELEASE_ROOT/images"
+
+      - name: Create the normalized source snapshot and build context
+        run: |
+          set -euo pipefail
+          umask 077
+          python -B scripts/private_server_runtime_release_source.py create \
+            --repository "$GITHUB_WORKSPACE" \
+            --commit "$GITHUB_SHA" \
+            --snapshot-output "$RELEASE_ROOT/source/source-snapshot.tar" \
+            --context-output "$RELEASE_ROOT/source/context" \
+            --dockerfile-set-output "$RELEASE_ROOT/source/dockerfile-digest-set.json" \
+            --facts-output "$RELEASE_ROOT/source/source-facts.json"
+
+      - name: Set up version-selected Buildx and digest-pinned BuildKit
+        id: buildx
+        uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
+        with:
+          version: v0.36.1
+          driver: docker-container
+          driver-opts: image=moby/buildkit:v0.32.2@sha256:28a898719c18a33f4e8000685287fa36fd0dd9560c6440227d3a732d79bb41d8
+          buildkitd-flags: --log-level=info
+          cache-binary: false
+          cleanup: true
+
+      - name: Verify the selected toolchain and native node
+        env:
+          BUILDER_NAME: ${{ steps.buildx.outputs.name }}
+        run: |
+          set -euo pipefail
+          buildx_version="$(docker buildx version)"
+          [[ "$buildx_version" =~ (^|[[:space:]])v0\.36\.1([[:space:]]|$) ]]
+          docker buildx inspect "$BUILDER_NAME" --bootstrap
+          docker buildx inspect "$BUILDER_NAME" | grep -F "BuildKit version: v0.32.2"
+          docker buildx inspect "$BUILDER_NAME" | grep -F "linux/${ARCHITECTURE}"
+
+      - name: Build the Platform OCI archive
+        env:
+          BUILDER_NAME: ${{ steps.buildx.outputs.name }}
+        run: |
+          set -euo pipefail
+          umask 077
+          docker buildx build \
+            --builder "$BUILDER_NAME" \
+            --file "$RELEASE_ROOT/source/context/Dockerfile" \
+            --target platform-runtime \
+            --platform "linux/${ARCHITECTURE}" \
+            --tag "desire-supply-platform:${IMAGE_TAG}" \
+            --pull \
+            --provenance "mode=min,version=v1" \
+            --sbom "generator=${SBOM_SCANNER}" \
+            --output "type=oci,dest=${RELEASE_ROOT}/images/platform.oci.tar,name=desire-supply-platform:${IMAGE_TAG},oci-mediatypes=true,oci-artifact=true,tar=true" \
+            "$RELEASE_ROOT/source/context"
+          chmod 0400 "$RELEASE_ROOT/images/platform.oci.tar"
+
+      - name: Build the Web OCI archive
+        env:
+          BUILDER_NAME: ${{ steps.buildx.outputs.name }}
+        run: |
+          set -euo pipefail
+          umask 077
+          docker buildx build \
+            --builder "$BUILDER_NAME" \
+            --file "$RELEASE_ROOT/source/context/Dockerfile" \
+            --target web-runtime \
+            --platform "linux/${ARCHITECTURE}" \
+            --tag "desire-supply-web:${IMAGE_TAG}" \
+            --pull \
+            --provenance "mode=min,version=v1" \
+            --sbom "generator=${SBOM_SCANNER}" \
+            --output "type=oci,dest=${RELEASE_ROOT}/images/web.oci.tar,name=desire-supply-web:${IMAGE_TAG},oci-mediatypes=true,oci-artifact=true,tar=true" \
+            "$RELEASE_ROOT/source/context"
+          chmod 0400 "$RELEASE_ROOT/images/web.oci.tar"
+
+      - name: Build the Edge OCI archive
+        env:
+          BUILDER_NAME: ${{ steps.buildx.outputs.name }}
+        run: |
+          set -euo pipefail
+          umask 077
+          docker buildx build \
+            --builder "$BUILDER_NAME" \
+            --file "$RELEASE_ROOT/source/context/Dockerfile" \
+            --target edge-runtime \
+            --platform "linux/${ARCHITECTURE}" \
+            --tag "desire-supply-edge:${IMAGE_TAG}" \
+            --pull \
+            --provenance "mode=min,version=v1" \
+            --sbom "generator=${SBOM_SCANNER}" \
+            --output "type=oci,dest=${RELEASE_ROOT}/images/edge.oci.tar,name=desire-supply-edge:${IMAGE_TAG},oci-mediatypes=true,oci-artifact=true,tar=true" \
+            "$RELEASE_ROOT/source/context"
+          chmod 0400 "$RELEASE_ROOT/images/edge.oci.tar"
+
+      - name: Build the real OIDC egress guard OCI archive
+        env:
+          BUILDER_NAME: ${{ steps.buildx.outputs.name }}
+        run: |
+          set -euo pipefail
+          umask 077
+          docker buildx build \
+            --builder "$BUILDER_NAME" \
+            --file "$RELEASE_ROOT/source/context/Dockerfile" \
+            --target oidc-egress-guard-runtime \
+            --platform "linux/${ARCHITECTURE}" \
+            --tag "desire-supply-oidc-egress-guard:${IMAGE_TAG}" \
+            --pull \
+            --provenance "mode=min,version=v1" \
+            --sbom "generator=${SBOM_SCANNER}" \
+            --output "type=oci,dest=${RELEASE_ROOT}/images/oidc-egress-guard.oci.tar,name=desire-supply-oidc-egress-guard:${IMAGE_TAG},oci-mediatypes=true,oci-artifact=true,tar=true" \
+            "$RELEASE_ROOT/source/context"
+          chmod 0400 "$RELEASE_ROOT/images/oidc-egress-guard.oci.tar"
+
+      - name: Fetch the pinned PostgreSQL registry evidence
+        run: |
+          set -euo pipefail
+          umask 077
+          python -B scripts/fetch_pinned_postgres_release_evidence.py \
+            --architecture "$ARCHITECTURE" \
+            --output-dir "$RELEASE_ROOT/postgres"
+
+      - name: Assemble and offline-verify the single server bundle
+        id: bundle
+        run: |
+          set -euo pipefail
+          umask 077
+          bundle_path="$RELEASE_ROOT/runtime-release-${IMAGE_TAG}.tar"
+          python -B scripts/prepare_private_server_runtime_release.py \
+            --architecture "$ARCHITECTURE" \
+            --commit "$GITHUB_SHA" \
+            --run-id "$GITHUB_RUN_ID" \
+            --run-attempt "$GITHUB_RUN_ATTEMPT" \
+            --source-snapshot "$RELEASE_ROOT/source/source-snapshot.tar" \
+            --source-dockerfile-set "$RELEASE_ROOT/source/dockerfile-digest-set.json" \
+            --source-facts "$RELEASE_ROOT/source/source-facts.json" \
+            --images-dir "$RELEASE_ROOT/images" \
+            --postgres-dir "$RELEASE_ROOT/postgres" \
+            --output "$bundle_path"
+          chmod 0400 "$bundle_path"
+          bundle_sha256="$(sha256sum "$bundle_path" | cut -d ' ' -f 1)"
+          printf 'path=%s\n' "$bundle_path" >> "$GITHUB_OUTPUT"
+          printf 'sha256=%s\n' "$bundle_sha256" >> "$GITHUB_OUTPUT"
+          {
+            echo '### Private server runtime release artifact'
+            echo "- local bundle SHA-256: \`$bundle_sha256\`"
+            echo '- status: `VALIDATED_RELEASE_ARTIFACT_NOT_AUTHORITY`'
+            echo '- execution permitted: `false`'
+            echo '- production authorized: `false`'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload the single unarchived server bundle
+        id: upload
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          path: ${{ steps.bundle.outputs.path }}
+          archive: false
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Record the distinct local and GitHub artifact digests
+        env:
+          LOCAL_BUNDLE_SHA256: ${{ steps.bundle.outputs.sha256 }}
+          GITHUB_ARTIFACT_DIGEST: ${{ steps.upload.outputs.artifact-digest }}
+        run: |
+          set -euo pipefail
+          test -n "$LOCAL_BUNDLE_SHA256"
+          test -n "$GITHUB_ARTIFACT_DIGEST"
+          {
+            echo "- local server bundle SHA-256: \`$LOCAL_BUNDLE_SHA256\`"
+            echo "- GitHub artifact upload digest: \`$GITHUB_ARTIFACT_DIGEST\`"
+            echo '- these values are reported as separate digest domains; this workflow grants no deployment authority'
+          } >> "$GITHUB_STEP_SUMMARY"
