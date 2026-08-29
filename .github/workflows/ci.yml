@@ -1,0 +1,266 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  PYTHON_VERSION: "3.14.1"
+  UV_VERSION: "0.9.15"
+  NODE_VERSION: "22.22.3"
+
+jobs:
+  foundations:
+    name: Foundations documentation
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6.0.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Verify documentation contracts
+        run: python -B scripts/verify_docs.py
+
+  deployment:
+    name: Container and Dev Container contracts
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6.0.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Bind the clean checkout to the exact source commit
+        run: python -B scripts/check_private_server_source_readiness.py
+
+      - name: Install cleanup portability shells
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends zsh
+
+      - name: Verify closed container contracts
+        run: |
+          /bin/sh -n deploy/devcontainer-runtime-closure.sh
+          /bin/sh -n deploy/devcontainer-toolchain-check.sh
+          python -B scripts/verify_container_stack.py
+          python -B scripts/verify_current_head_v27.py
+          python -B scripts/private_server_real_oidc_compose_contract.py --check-static
+          python -B -m unittest \
+            tests.deployment.test_private_server_real_oidc_compose \
+            tests.deployment.test_private_server_real_oidc_egress_guard \
+            tests.deployment.test_private_server_real_oidc_activation_plan \
+            tests.deployment.test_private_server_real_oidc_post_create_collector -v
+          python -B -m unittest discover -s tests/deployment -v
+          docker compose config --quiet
+          docker compose -f compose.yaml -f compose.dev.yaml config --quiet
+
+      - name: Build the exact Platform runtime image
+        run: docker build --target platform-runtime --tag desire-supply-platform:ci .
+
+      - name: Build the exact real OIDC egress guard image
+        run: >-
+          docker build --target oidc-egress-guard-runtime
+          --tag desire-supply-oidc-egress-guard:ci .
+
+      - name: Verify the Platform runtime public CA bundle
+        run: >-
+          docker run --rm --network none --entrypoint python
+          desire-supply-platform:ci -c
+          "import os; p='/etc/ssl/certs/ca-certificates.crt'; raise SystemExit(0 if os.path.isfile(p) and os.path.getsize(p) > 0 and os.access(p, os.R_OK) else 1)"
+
+      - name: Build the exact Edge runtime image
+        run: docker build --target edge-runtime --tag desire-supply-edge:ci .
+
+      - name: Build and smoke the exact Dev Container image
+        run: |
+          docker build --target devcontainer --tag desire-supply-devcontainer:ci .
+          docker run --rm --network none \
+            --tmpfs /var/lib/postgresql:rw,nosuid,nodev,noexec,size=1m \
+            --entrypoint /bin/bash \
+            desire-supply-devcontainer:ci -lc '
+              set -eu
+              toolchain_status="$(/usr/local/bin/desire-devcontainer-toolchain-check)"
+              test "$toolchain_status" = "READY:DEVCONTAINER_TOOLCHAIN"
+              printf "%s\n" "$toolchain_status"
+              test "$HOME" = "/home/node"
+              test "$NPM_CONFIG_CACHE" = "/home/node/.npm"
+              test "$(stat -c %U:%G /workspace)" = "node:node"
+              test ! -e /var/run/docker.sock
+            '
+
+  platform:
+    name: Platform (Python ${{ matrix.python-version }}, PostgreSQL 18)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version:
+          - "3.9.6"
+          - "3.14.1"
+    services:
+      postgres:
+        image: postgres:18.4-alpine@sha256:9a8afca54e7861fd90fab5fdf4c42477a6b1cb7d293595148e674e0a3181de15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d postgres"
+          --health-interval 2s
+          --health-timeout 5s
+          --health-retries 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6.0.0
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install pinned uv
+        run: python -m pip install --disable-pip-version-check "uv==${UV_VERSION}"
+
+      - name: Sync locked platform dependencies
+        working-directory: platform
+        # Server dependencies are part of the production composition contract.
+        run: uv sync --locked --extra test --extra server
+
+      - name: Verify wheel and sdist clean installs
+        working-directory: platform
+        run: >-
+          uv run --offline --locked --extra test --extra server python -m unittest
+          tests.packaging.test_distribution_resources -v
+
+      - name: Run complete platform suite against PostgreSQL 18
+        working-directory: platform
+        env:
+          # Do not add tests/: its top-level http package shadows stdlib http.client.
+          PYTHONPATH: src
+          DESIRE_IAM_TEST_POSTGRES_DSN: postgresql://postgres:postgres@127.0.0.1:5432/postgres
+          DESIRE_IAM_TEST_POSTGRES_EPHEMERAL: "1"
+        run: >-
+          uv run --offline --locked --extra test --extra server
+          python3 -m unittest discover -s tests -t . -v
+
+      - name: Verify preprovisioned real-OIDC identity safety contracts
+        working-directory: platform
+        env:
+          PYTHONPATH: src
+          DESIRE_IAM_TEST_POSTGRES_DSN: postgresql://postgres:postgres@127.0.0.1:5432/postgres
+          DESIRE_IAM_TEST_POSTGRES_EPHEMERAL: "1"
+        run: >-
+          uv run --offline --locked --extra test --extra server
+          pytest -q
+          tests/deployment/test_preprovisioned_identity_bootstrap_manifest_red.py
+          tests/deployment/test_preprovisioned_identity_bootstrap_orchestrator_red.py
+          tests/storage/postgres/test_preprovisioned_oidc_login_postgres.py
+
+  web:
+    name: Internal sandbox Web
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@395ad3262231945c25e8478fd5baf05154b88bb0 # v6.1.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install locked Web dependencies
+        working-directory: web
+        run: npm ci --ignore-scripts --no-audit
+
+      - name: Reject high-risk dependency advisories
+        working-directory: web
+        run: npm audit --audit-level=high
+
+      - name: Run Web acceptance tests
+        working-directory: web
+        run: npm test
+
+      - name: Type-check Web
+        working-directory: web
+        run: npm run typecheck
+
+      - name: Lint Web
+        working-directory: web
+        run: npm run lint
+
+      - name: Build the exact Web runtime image
+        run: docker build --target web-runtime --tag desire-supply-web:ci .
+
+      - name: Smoke-test the read-only Web runtime without network
+        run: sh scripts/smoke_web_container.sh desire-supply-web:ci
+
+  demo:
+    name: Synthetic Foundations demo
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@395ad3262231945c25e8478fd5baf05154b88bb0 # v6.1.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: demo/package-lock.json
+
+      - name: Install locked demo dependencies
+        working-directory: demo
+        run: npm ci --ignore-scripts --no-audit
+
+      - name: Reject high-risk demo dependency advisories
+        working-directory: demo
+        run: npm audit --audit-level=high
+
+      - name: Run demo acceptance tests
+        working-directory: demo
+        env:
+          WRANGLER_WRITE_LOGS: "false"
+        run: npm test
+
+      - name: Lint demo
+        working-directory: demo
+        run: npm run lint
+
+      - name: Type-check demo without downloads
+        working-directory: demo
+        run: npx --no-install tsc --noEmit
