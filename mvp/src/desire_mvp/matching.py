@@ -4,6 +4,38 @@ from typing import Any, Dict, Iterable, List, Sequence, Set, Tuple
 from .models import EligibilityResult, MatchScore
 
 
+MATCH_COMPONENTS = frozenset(
+    {
+        "interest",
+        "capability",
+        "availability",
+        "compensation",
+        "collaboration",
+        "evidence_trust",
+    }
+)
+
+HARD_FILTER_CODES = frozenset(
+    {
+        "CREATOR_INACTIVE",
+        "BOUNDARY_DOMAIN",
+        "BOUNDARY_TASK",
+        "MISSING_MUST_HAVE_SKILL",
+        "DATE_CONFLICT",
+        "CAPACITY_CONFLICT",
+        "DURATION_CONFLICT",
+        "CURRENCY_MISMATCH",
+        "BELOW_PRIVATE_FLOOR",
+        "DATA_POLICY_CONFLICT",
+        "AI_POLICY_CONFLICT",
+        "LANGUAGE_MISMATCH",
+        "WORK_MODE_CONFLICT",
+        "LOCATION_RESTRICTION",
+        "CONFLICT_OF_INTEREST",
+    }
+)
+
+
 def _strings(value: Any) -> List[str]:
     if not isinstance(value, list):
         return []

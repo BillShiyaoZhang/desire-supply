@@ -1,6 +1,9 @@
+import copy
+import sqlite3
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 from desire_mvp.budget import assess_budget
 from desire_mvp.config import load_config
@@ -12,6 +15,42 @@ from helpers import ROOT, load_sample
 
 
 class RepositoryAndReportTests(unittest.TestCase):
+    def test_put_entities_rolls_back_the_whole_batch_on_write_failure(self):
+        with tempfile.TemporaryDirectory() as directory:
+            repository = Repository(Path(directory))
+            repository.initialize()
+            before = copy.deepcopy(load_sample("creators.json")[0])
+            before["id"] = "creator-a"
+            repository.put_entity("creator", before)
+            changed = copy.deepcopy(before)
+            changed["availability"]["weekly_hours"] += 1
+            second = copy.deepcopy(load_sample("creators.json")[1])
+            second["id"] = "creator-b"
+
+            def write_one_then_fail(connection, rows):
+                first = list(rows)[0]
+                connection.execute(
+                    """
+                    UPDATE entities
+                    SET pilot_id=?, payload_schema_version=?, payload_json=?, updated_at=?
+                    WHERE kind=? AND entity_id=?
+                    """,
+                    (first[2], first[3], first[4], first[5], first[0], first[1]),
+                )
+                raise sqlite3.IntegrityError("forced batch failure")
+
+            with mock.patch.object(
+                repository,
+                "_write_entity_rows",
+                side_effect=write_one_then_fail,
+            ), self.assertRaises(sqlite3.IntegrityError):
+                repository.put_entities(
+                    "creator",
+                    [changed, second],
+                )
+
+            self.assertEqual(repository.list_entities("creator"), [before])
+
     def test_snapshot_survives_profile_changes_and_report_is_complete(self):
         configs = load_config(ROOT / "config")
         demands = load_sample("demands.json")

@@ -1,0 +1,175 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://desire-supply.local/schemas/demand-v1.schema.json",
+  "title": "Desire Supply demand payload v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "id", "pilot_id", "status", "consent_version",
+    "client_org_id", "decision_authority_confirmed", "funding_commitment",
+    "problem", "scope", "acceptance", "skills",
+    "matching", "schedule", "budget", "payment", "risk", "ai",
+    "collaboration", "location"
+  ],
+  "properties": {
+    "schema_version": {"type": "integer", "const": 1},
+    "id": {"$ref": "#/$defs/identifier"},
+    "pilot_id": {"$ref": "#/$defs/identifier"},
+    "status": {
+      "type": "string",
+      "enum": ["draft", "clarifying", "verified", "funded", "matching", "agreed", "cancelled"]
+    },
+    "consent_version": {"type": "string", "minLength": 1},
+    "client_org_id": {"$ref": "#/$defs/identifier"},
+    "decision_authority_confirmed": {"type": "boolean"},
+    "funding_commitment": {"type": "boolean"},
+    "funding_evidence_ref": {
+      "anyOf": [
+        {"$ref": "#/$defs/controlledReference"},
+        {"type": "string", "const": ""}
+      ]
+    },
+    "problem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["background", "domain", "target_users", "desired_outcome"],
+      "properties": {
+        "background": {"type": "string", "minLength": 1},
+        "domain": {"type": "string", "minLength": 1},
+        "target_users": {"$ref": "#/$defs/nonEmptyStringArray"},
+        "desired_outcome": {"type": "string", "minLength": 1}
+      }
+    },
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["deliverables", "out_of_scope"],
+      "properties": {
+        "deliverables": {"$ref": "#/$defs/nonEmptyStringArray"},
+        "out_of_scope": {"$ref": "#/$defs/stringArray"}
+      }
+    },
+    "acceptance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["criteria", "owner", "response_days"],
+      "properties": {
+        "criteria": {"$ref": "#/$defs/nonEmptyStringArray"},
+        "owner": {"type": "string", "minLength": 1},
+        "response_days": {"type": "number", "exclusiveMinimum": 0}
+      }
+    },
+    "skills": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["must_have", "nice_to_have", "level"],
+      "properties": {
+        "must_have": {"$ref": "#/$defs/nonEmptyStringArray"},
+        "nice_to_have": {"$ref": "#/$defs/stringArray"},
+        "level": {"type": "string", "minLength": 1}
+      }
+    },
+    "matching": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["problem_types", "domains", "tasks"],
+      "properties": {
+        "problem_types": {"$ref": "#/$defs/stringArray"},
+        "domains": {"$ref": "#/$defs/stringArray"},
+        "tasks": {"$ref": "#/$defs/stringArray"}
+      }
+    },
+    "schedule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["start_date", "due_date", "estimated_days", "weekly_hours", "duration_weeks"],
+      "properties": {
+        "start_date": {"$ref": "#/$defs/date"},
+        "due_date": {"$ref": "#/$defs/date"},
+        "estimated_days": {"type": "number", "exclusiveMinimum": 0},
+        "weekly_hours": {"type": "number", "minimum": 0},
+        "duration_weeks": {"type": "number", "minimum": 0}
+      }
+    },
+    "budget": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["minimum", "maximum", "currency", "direct_cost"],
+      "properties": {
+        "minimum": {"type": "number", "minimum": 0},
+        "maximum": {"type": "number", "exclusiveMinimum": 0},
+        "currency": {"type": "string", "minLength": 1},
+        "direct_cost": {"type": "number", "minimum": 0}
+      }
+    },
+    "payment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["plan"],
+      "properties": {
+        "plan": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["milestone", "percent"],
+            "properties": {
+              "milestone": {"type": "string", "minLength": 1},
+              "percent": {"type": "number", "exclusiveMinimum": 0, "maximum": 100}
+            }
+          }
+        }
+      }
+    },
+    "risk": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["uncertainty", "urgency", "external_dependencies", "data_sensitivity"],
+      "properties": {
+        "uncertainty": {"type": "string", "minLength": 1},
+        "urgency": {"type": "string", "minLength": 1},
+        "external_dependencies": {"type": "string", "minLength": 1},
+        "data_sensitivity": {"type": "string", "enum": ["public", "low", "medium", "high", "restricted"]},
+        "data_handling_plan": {"type": "string", "minLength": 1}
+      }
+    },
+    "ai": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["allowed", "required"],
+      "properties": {
+        "allowed": {"type": "boolean"},
+        "required": {"type": "boolean"},
+        "data_model_policy": {"type": "string", "minLength": 1}
+      }
+    },
+    "collaboration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["languages", "preferred_work_mode", "feedback_frequency", "team_preference"],
+      "properties": {
+        "languages": {"$ref": "#/$defs/nonEmptyStringArray"},
+        "preferred_work_mode": {"type": "string", "minLength": 1},
+        "feedback_frequency": {"type": "string", "minLength": 1},
+        "team_preference": {"type": "string", "minLength": 1}
+      }
+    },
+    "location": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["region", "allowed_creator_regions"],
+      "properties": {
+        "region": {"type": "string", "minLength": 1},
+        "allowed_creator_regions": {"$ref": "#/$defs/stringArray"}
+      }
+    }
+  },
+  "$defs": {
+    "identifier": {"type": "string", "pattern": "^(?=.*[A-Za-z])(?!.*[0-9]{7})[A-Za-z0-9][A-Za-z0-9_-]{1,127}$"},
+    "controlledReference": {"type": "string", "pattern": "^(?!.*[0-9]{7})(?:external://)?[A-Za-z][A-Za-z0-9_-]{1,127}$"},
+    "date": {"type": "string", "format": "date", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"},
+    "stringArray": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+    "nonEmptyStringArray": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}, "uniqueItems": true}
+  }
+}

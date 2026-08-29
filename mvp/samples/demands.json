@@ -1,5 +1,6 @@
 [
   {
+    "schema_version": 1,
     "id": "demand-demo-001",
     "pilot_id": "pilot-demo",
     "status": "funded",
@@ -22,6 +23,7 @@
     "location": {"region": "CN", "allowed_creator_regions": ["CN", "JP"]}
   },
   {
+    "schema_version": 1,
     "id": "demand-demo-002",
     "pilot_id": "pilot-demo",
     "status": "funded",
@@ -44,6 +46,7 @@
     "location": {"region": "CN", "allowed_creator_regions": ["CN"]}
   },
   {
+    "schema_version": 1,
     "id": "demand-demo-003",
     "pilot_id": "pilot-demo",
     "status": "funded",
@@ -66,4 +69,3 @@
     "location": {"region": "CN", "allowed_creator_regions": ["CN", "JP"]}
   }
 ]
-

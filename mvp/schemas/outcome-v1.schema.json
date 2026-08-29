@@ -1,0 +1,88 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://desire-supply.local/schemas/outcome-v1.schema.json",
+  "title": "Desire Supply outcome payload v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "project_id", "pilot_id", "demand_id", "creator_ids",
+    "status", "signed", "real_payment", "milestones", "scope_changes",
+    "dispute", "demand_clarity_improved", "creator_preference_confirmed",
+    "willing_to_use_again", "service_fee_accepted", "operator_hours",
+    "failure_primary", "failure_secondary", "safety_events"
+  ],
+  "properties": {
+    "schema_version": {"type": "integer", "const": 1},
+    "project_id": {"$ref": "#/$defs/identifier"},
+    "pilot_id": {"$ref": "#/$defs/identifier"},
+    "demand_id": {"$ref": "#/$defs/identifier"},
+    "creator_ids": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/identifier"}, "uniqueItems": true},
+    "status": {"type": "string", "enum": ["completed", "exited", "failed"]},
+    "signed": {"type": "boolean"},
+    "real_payment": {"type": "boolean"},
+    "planned_start": {"$ref": "#/$defs/date"},
+    "actual_start": {"$ref": "#/$defs/date"},
+    "planned_finish": {"$ref": "#/$defs/date"},
+    "actual_finish": {"$ref": "#/$defs/date"},
+    "milestones": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "amount", "accepted", "paid", "paid_on_terms"],
+        "properties": {
+          "id": {"$ref": "#/$defs/identifier"},
+          "amount": {"type": "number", "minimum": 0},
+          "accepted": {"type": "boolean"},
+          "paid": {"type": "boolean"},
+          "paid_on_terms": {"type": "boolean"}
+        }
+      }
+    },
+    "scope_changes": {"type": "integer", "minimum": 0},
+    "dispute": {"type": "boolean"},
+    "demand_clarity_improved": {"type": "boolean"},
+    "creator_preference_confirmed": {"type": "array", "items": {"type": "boolean"}},
+    "willing_to_use_again": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["demand", "creators"],
+      "properties": {
+        "demand": {"type": "boolean"},
+        "creators": {"type": "array", "items": {"type": "boolean"}}
+      }
+    },
+    "service_fee_accepted": {"type": "boolean"},
+    "operator_hours": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["recruiting", "interview", "matching", "coordination", "dispute"],
+      "properties": {
+        "recruiting": {"type": "number", "minimum": 0},
+        "interview": {"type": "number", "minimum": 0},
+        "matching": {"type": "number", "minimum": 0},
+        "coordination": {"type": "number", "minimum": 0},
+        "dispute": {"type": "number", "minimum": 0}
+      }
+    },
+    "failure_primary": {"type": ["string", "null"]},
+    "failure_secondary": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+    "safety_events": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["event_ref", "severity"],
+        "properties": {
+          "event_ref": {"$ref": "#/$defs/controlledReference"},
+          "severity": {"type": "string", "enum": ["low", "medium", "high", "critical"]}
+        }
+      }
+    }
+  },
+  "$defs": {
+    "identifier": {"type": "string", "pattern": "^(?=.*[A-Za-z])(?!.*[0-9]{7})[A-Za-z0-9][A-Za-z0-9_-]{1,127}$"},
+    "controlledReference": {"type": "string", "pattern": "^(?!.*[0-9]{7})(?:external://)?[A-Za-z][A-Za-z0-9_-]{1,127}$"},
+    "date": {"type": "string", "format": "date", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"}
+  }
+}

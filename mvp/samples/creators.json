@@ -1,5 +1,6 @@
 [
   {
+    "schema_version": 1,
     "id": "creator-demo-001",
     "status": "active",
     "consent_version": "pilot-consent-v1",
@@ -18,6 +19,7 @@
     "ai": {"allowed": true, "requires_ai": false, "human_review": "all-user-facing-output", "prohibited_cases": ["personal-data-upload", "autonomous-financial-decision"]}
   },
   {
+    "schema_version": 1,
     "id": "creator-demo-002",
     "status": "active",
     "consent_version": "pilot-consent-v1",
@@ -36,6 +38,7 @@
     "ai": {"allowed": true, "requires_ai": false, "human_review": "sample-and-critical-path", "prohibited_cases": ["restricted-data-upload"]}
   },
   {
+    "schema_version": 1,
     "id": "creator-demo-003",
     "status": "active",
     "consent_version": "pilot-consent-v1",
@@ -54,6 +57,7 @@
     "ai": {"allowed": true, "requires_ai": false, "human_review": "all-design-decisions", "prohibited_cases": ["student-personal-data-upload"]}
   },
   {
+    "schema_version": 1,
     "id": "creator-demo-004",
     "status": "active",
     "consent_version": "pilot-consent-v1",
@@ -72,6 +76,7 @@
     "ai": {"allowed": false, "requires_ai": false, "human_review": "not-applicable", "prohibited_cases": ["all-generative-output"]}
   },
   {
+    "schema_version": 1,
     "id": "creator-demo-005",
     "status": "active",
     "consent_version": "pilot-consent-v1",
@@ -90,6 +95,7 @@
     "ai": {"allowed": true, "requires_ai": false, "human_review": "source-by-source", "prohibited_cases": ["unverified-citation", "restricted-data-upload"]}
   },
   {
+    "schema_version": 1,
     "id": "creator-demo-006",
     "status": "active",
     "consent_version": "pilot-consent-v1",
@@ -108,6 +114,7 @@
     "ai": {"allowed": true, "requires_ai": false, "human_review": "all-claims", "prohibited_cases": ["private-source-upload"]}
   },
   {
+    "schema_version": 1,
     "id": "creator-demo-007",
     "status": "active",
     "consent_version": "pilot-consent-v1",
@@ -126,6 +133,7 @@
     "ai": {"allowed": true, "requires_ai": true, "human_review": "tests-and-code-review", "prohibited_cases": ["secrets-upload"]}
   },
   {
+    "schema_version": 1,
     "id": "creator-demo-008",
     "status": "active",
     "consent_version": "pilot-consent-v1",
@@ -144,4 +152,3 @@
     "ai": {"allowed": true, "requires_ai": true, "human_review": "all-published-output", "prohibited_cases": ["personal-data-upload"]}
   }
 ]
-

@@ -4,10 +4,10 @@
 
 `mvp/config/manifest.json` 是入口，固定四类文件：
 
-| 类型 | v1 文件 | 决定什么 |
+| 类型 | 当前文件 | 决定什么 |
 | --- | --- | --- |
 | `taxonomy` | `taxonomy-v1.yaml` | 领域、问题类型、任务、技能标签 |
-| `matching` | `matching-v1.yaml` | 六项权重与硬过滤清单 |
+| `matching` | `matching-v2.yaml`（保留 `matching-v1.yaml`） | 六项权重与硬过滤清单 |
 | `budget` | `budget-v1.yaml` | 地区基线、技能系数、风险和健康阈值 |
 | `reason_codes` | `reason-codes-v1.yaml` | 决定覆盖、候选反馈和项目失败原因 |
 
@@ -21,7 +21,7 @@ taxonomy 为访谈和匹配提供受控词表。标签使用稳定的英文 keba
 
 ## Matching
 
-当前权重：
+当前 `matching-v2` 权重与 v1 相同：
 
 ```json
 {
@@ -34,17 +34,17 @@ taxonomy 为访谈和匹配提供受控词表。标签使用稳定的英文 keba
 }
 ```
 
-权重总和必须为 1。`hard_filter_order` 是策略清单与文档辅助；当前代码仍直接实现每个条件，因此修改清单本身不会新增或删除过滤行为。规则变化必须同步代码和测试。
+权重总和必须为 1。`hard_filter_order` 是历史命名的策略清单与实现集合一致性契约；加载器要求 v2 与引擎可能产生的全部硬过滤代码完全一致，但不根据数组顺序驱动过滤执行。v2 只补齐 v1 遗漏的 `CREATOR_INACTIVE` 与 `CURRENCY_MISMATCH` 清单，不改变计算或资格行为。加载原始 `matching-v1` 供历史重放时保留一个精确兼容例外；新配置或 v1 的任何变体都不能借此绕过完整性检查。修改清单本身不会新增过滤，规则变化仍必须同步代码、测试和新配置版本。
 
 ## Budget
 
 ### 地区基线
 
-`regional_daily_baselines` 按需求 `location.region` 选择，未知地区使用 `default`。它代表首轮的体面劳动研究假设，不是报价上限、最低工资结论或精确市场价。
+`regional_daily_baselines` 按需求 `location.region` 选择。受支持的 CLI 输入边界会拒绝未知地区；预算纯函数中保留的 `default` 只为历史快照或直接库调用提供防御性计算，不能把拼写错误变成合法新输入。它代表首轮的体面劳动研究假设，不是报价上限、最低工资结论或精确市场价。
 
 ### 技能系数
 
-需求 `skills.level` 映射 `basic/standard/advanced/expert`。未知值当前回退到 1.0；正式平台应改为 schema 拒绝未知枚举。
+需求 `skills.level` 映射 `basic/standard/advanced/expert`。受支持的 CLI 输入边界拒绝未知值；预算纯函数中的 1.0 回退同样只服务历史快照或直接库调用，不是输入契约。
 
 ### 风险
 

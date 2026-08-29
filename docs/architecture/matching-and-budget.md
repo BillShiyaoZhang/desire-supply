@@ -1,6 +1,6 @@
 # 匹配、预算与决策
 
-> 当前实现使用确定性规则，不使用大模型、向量检索或机器学习。算法的职责是缩小候选范围并暴露理由，最终选择仍属于参与者。
+> 当前 MVP 实现使用确定性规则，不使用大模型、向量检索或机器学习。算法的职责是缩小候选范围并暴露理由，最终选择仍属于参与者。目标平台的规则发布、输入冻结、运行租约、业务邀请、选择、RLS与跨 Context 原子协议以 [MatchingAttempt、MatchRun、业务 Invitation 与 Selection](/architecture/matching-invitation-selection.md)为准；本页公式本身不构成平台写模型。
 
 ## 处理管线
 
@@ -65,7 +65,7 @@ health_ratio = demand.budget.maximum / recommended_minimum
 | `LOCATION_RESTRICTION` | 创作者地区不在允许范围 |
 | `CONFLICT_OF_INTEREST` | 创作者声明与需求组织有利益冲突 |
 
-配置中的 `hard_filter_order` 记录规则期望顺序，但当前实现会计算并返回所有命中原因，并不按该数组短路。新增硬过滤时需要同步实现、配置、原因说明、测试和本页文档。
+配置中的 `hard_filter_order` 是沿用旧名的完整代码清单，不是执行顺序；当前实现会按代码中的确定顺序计算并返回所有命中原因，不按该数组驱动或短路。新增硬过滤时需要同步实现、配置、原因说明、测试和本页文档。
 
 ## 六项评分
 

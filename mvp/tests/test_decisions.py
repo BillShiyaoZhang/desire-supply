@@ -56,6 +56,22 @@ class DecisionTests(unittest.TestCase):
                 self.reasons,
             )
 
+    def test_response_type_mutations_raise_decision_error(self):
+        for field, invalid in (("code", []), ("code", {}), ("creator_id", {})):
+            with self.subTest(field=field, invalid=invalid):
+                response = {"creator_id": "creator-1", "code": "ACCEPT"}
+                response[field] = invalid
+                with self.assertRaises(DecisionError):
+                    validate_decision(
+                        self.recommendation,
+                        None,
+                        ["creator-1"],
+                        [response],
+                        "ALGORITHM_TOP",
+                        None,
+                        self.reasons,
+                    )
+
 
 if __name__ == "__main__":
     unittest.main()
