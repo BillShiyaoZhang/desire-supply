@@ -4,12 +4,29 @@ __pycache__/
 .pytest_cache/
 .ruff_cache/
 .venv/
+node_modules/
+.next/
 dist/
 build/
 *.egg-info/
+*.tsbuildinfo
+.wrangler/
+.env.local
+.env.*.local
 
 # 礼宾式 MVP 的真实参与者资料、数据库、报告与导出
 mvp/local-data/*
 !mvp/local-data/.gitkeep
 mvp/exports/
 
+# 可删除的本地合成多角色平台运行状态；不得提交、备份或发布
+.local/
+platform/.local/
+web/.local/
+
+# Local plaintext backup drills must never enter version control.
+/backups/
+
+# Local Docker/Compose secret material; only the instructions are versioned.
+secrets/*
+!secrets/README.md

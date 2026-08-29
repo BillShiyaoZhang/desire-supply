@@ -1,2 +1,8 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+platform/src/desire_platform/identity_access/adapters/postgres/migrations/manifest.json text eol=lf
+platform/src/desire_platform/identity_access/adapters/postgres/migrations/*.sql text eol=lf
+platform/src/desire_platform/creator_profile/adapters/postgres/migrations/manifest.json text eol=lf
+platform/src/desire_platform/creator_profile/adapters/postgres/migrations/*.sql text eol=lf
+platform/src/desire_platform/demand/adapters/postgres/migrations/manifest.json text eol=lf
+platform/src/desire_platform/demand/adapters/postgres/migrations/*.sql text eol=lf
