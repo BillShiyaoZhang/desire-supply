@@ -168,8 +168,16 @@ class PrivateServerRuntimeReleaseWorkflowTests(unittest.TestCase):
             '--facts-output "$RELEASE_ROOT/source/source-facts.json"',
         ):
             self.assertIn(required, self.raw)
+        workflow_env = self.raw.split("env:\n", 1)[1].split("\njobs:\n", 1)[0]
+        self.assertNotIn("runner.", workflow_env)
         self.assertIn(
-            "RELEASE_ROOT: ${{ runner.temp }}/private-server-runtime-release",
+            "      - name: Close the native release workspace\n"
+            "        env:\n"
+            "          RELEASE_ROOT: ${{ runner.temp }}/private-server-runtime-release\n",
+            self.raw,
+        )
+        self.assertIn(
+            "printf 'RELEASE_ROOT=%s\\n' \"$RELEASE_ROOT\" >> \"$GITHUB_ENV\"",
             self.raw,
         )
 

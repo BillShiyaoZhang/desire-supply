@@ -25,7 +25,6 @@ env:
   BUILDKIT_IMAGE: moby/buildkit:v0.32.2@sha256:28a898719c18a33f4e8000685287fa36fd0dd9560c6440227d3a732d79bb41d8
   SBOM_SCANNER: docker.io/docker/buildkit-syft-scanner:1.11.0@sha256:79e7b013cbec16bbb436f312819a49a4a57752b2270c1a9332ae1a10fcc82a68
   IMAGE_TAG: sha-${{ github.sha }}-${{ inputs.architecture }}-r${{ github.run_id }}-a${{ github.run_attempt }}
-  RELEASE_ROOT: ${{ runner.temp }}/private-server-runtime-release
 
 jobs:
   release:
@@ -52,6 +51,8 @@ jobs:
         run: python -B scripts/verify_current_head_v27.py
 
       - name: Close the native release workspace
+        env:
+          RELEASE_ROOT: ${{ runner.temp }}/private-server-runtime-release
         run: |
           set -euo pipefail
           umask 077
@@ -71,6 +72,7 @@ jobs:
             "$RELEASE_ROOT" \
             "$RELEASE_ROOT/source" \
             "$RELEASE_ROOT/images"
+          printf 'RELEASE_ROOT=%s\n' "$RELEASE_ROOT" >> "$GITHUB_ENV"
 
       - name: Create the normalized source snapshot and build context
         run: |
