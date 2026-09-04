@@ -14,6 +14,7 @@ from datetime import timedelta
 from pathlib import Path
 from typing import Any, Callable
 import unittest
+from unittest import mock
 
 import psycopg
 
@@ -379,8 +380,8 @@ class RealPostgres18TaxonomySemanticRedTest(unittest.TestCase):
                     base,
                     signature=replace(
                         base.signature,
-                        verified_at=UTC_NOW - timedelta(minutes=3),
-                        valid_until=UTC_NOW - timedelta(minutes=2),
+                        verified_at=base.signature.verified_at - timedelta(minutes=2),
+                        valid_until=base.signature.verified_at - timedelta(minutes=1),
                     ),
                 ),
                 "SIGNATURE_INVALID",
@@ -411,6 +412,14 @@ class RealPostgres18TaxonomySemanticRedTest(unittest.TestCase):
                     )
                 )
                 self.assertEqual(observation.code, expected)
+
+    def test_publish_fixture_remains_valid_after_delayed_test_collection(self) -> None:
+        with mock.patch(
+            "tests.support.taxonomy_postgres_builders.UTC_NOW",
+            UTC_NOW - timedelta(hours=2),
+        ):
+            self._reset()
+            self._seed_published()
 
     def test_release_graph_is_immutable_after_publish(self) -> None:
         observation, _result = self._semantic(

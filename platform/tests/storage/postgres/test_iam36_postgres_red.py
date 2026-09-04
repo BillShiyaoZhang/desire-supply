@@ -108,6 +108,7 @@ class Iam36PostgresRedTest(unittest.TestCase):
                 "iam_migration_runner",
                 "profile_migration_runner",
                 "demand_migration_runner",
+                "matching_migration_runner",
                 "trust_migration_runner",
                 "taxonomy_migration_runner",
             ):

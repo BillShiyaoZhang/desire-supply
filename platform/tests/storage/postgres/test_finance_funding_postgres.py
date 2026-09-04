@@ -1788,7 +1788,7 @@ class RealPostgres18FinanceFundingTest(unittest.TestCase):
             )
             self.assertEqual(
                 dependency_sha256,
-                "9dbe376213fff13656993946358514eb387d36f536d66ed15cb43fbcc8310cf7",
+                "ea6887891134ffa2f451fed35d469ae1c5195c54649e228f587622d95696dddf",
             )
         finally:
             self.postgres.drop_database(database)

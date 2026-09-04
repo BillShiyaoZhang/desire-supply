@@ -36,6 +36,8 @@ from tests.support.taxonomy_builders import (
 )
 
 
+# Keep canonical release bytes stable across publish/read fixtures.  Expiring
+# evidence and authorizations use the time each fixture is constructed instead.
 UTC_NOW = datetime.now(timezone.utc)
 RAW_IDEMPOTENCY_KEY = "raw-taxonomy-postgres-key-sentinel-001"
 WORKLOAD_CREDENTIAL = "taxonomy-workload-credential-secret-001"
@@ -91,7 +93,7 @@ def receipt_material(
         payload_hash_key_id="taxonomy_payload_key_v2",
         identity_digest=_digest(f"identity:{raw_key}"),
         payload_digest=_digest("taxonomy-publish-payload-v1"),
-        retained_until=UTC_NOW + timedelta(days=30),
+        retained_until=datetime.now(timezone.utc) + timedelta(days=30),
     )
 
 
@@ -120,6 +122,7 @@ def artifact_set() -> TaxonomyPostgresArtifactSet:
 def publish_request(
     *, raw_key: str = RAW_IDEMPOTENCY_KEY
 ) -> TaxonomyPostgresPublishRequest:
+    now = datetime.now(timezone.utc)
     artifacts = artifact_set()
     manifest_digest = bytes.fromhex(
         artifacts.validated_release.release_manifest_sha256
@@ -130,8 +133,8 @@ def publish_request(
         signing_key_id="taxonomy_signing_key_0000001",
         algorithm="ED25519",
         release_manifest_sha256=manifest_digest,
-        verified_at=UTC_NOW - timedelta(minutes=1),
-        valid_until=UTC_NOW + timedelta(minutes=10),
+        verified_at=now - timedelta(minutes=1),
+        valid_until=now + timedelta(minutes=10),
     )
     trust = TaxonomyPostgresTrustEvidence(
         trust_record_id=signature.trust_record_id,
@@ -139,7 +142,7 @@ def publish_request(
         trust_status="ACTIVE",
         allowed_algorithm="ED25519",
         release_manifest_sha256=manifest_digest,
-        valid_until=UTC_NOW + timedelta(minutes=10),
+        valid_until=now + timedelta(minutes=10),
     )
     approvals = (
         TaxonomyPostgresApprovalEvidence(
@@ -149,8 +152,8 @@ def publish_request(
             approval_status="APPROVED",
             release_manifest_sha256=manifest_digest,
             golden_result_sha256=_digest("taxonomy-golden-result-v1"),
-            approved_at=UTC_NOW - timedelta(minutes=2),
-            valid_until=UTC_NOW + timedelta(minutes=10),
+            approved_at=now - timedelta(minutes=2),
+            valid_until=now + timedelta(minutes=10),
         ),
         TaxonomyPostgresApprovalEvidence(
             approval_id="taxonomy_safety_approval_0001",
@@ -159,8 +162,8 @@ def publish_request(
             approval_status="APPROVED",
             release_manifest_sha256=manifest_digest,
             golden_result_sha256=_digest("taxonomy-golden-result-v1"),
-            approved_at=UTC_NOW - timedelta(minutes=2),
-            valid_until=UTC_NOW + timedelta(minutes=10),
+            approved_at=now - timedelta(minutes=2),
+            valid_until=now + timedelta(minutes=10),
         ),
     )
     return TaxonomyPostgresPublishRequest(
@@ -443,7 +446,7 @@ def seed_consumer_authorization(
             request.release_manifest_sha256,
             _digest(request.scope.workload_credential_id),
             request.scope.workload_attestation_sha256,
-            UTC_NOW + timedelta(hours=1),
+            datetime.now(timezone.utc) + timedelta(hours=1),
         ),
     )
 
@@ -461,7 +464,7 @@ def seed_workload_authorizations(connection: Any) -> None:
                 scope.operation.value,
                 _digest(scope.workload_credential_id),
                 scope.workload_attestation_sha256,
-                UTC_NOW + timedelta(hours=1),
+                datetime.now(timezone.utc) + timedelta(hours=1),
             ),
         )
 

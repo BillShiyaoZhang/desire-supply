@@ -41,6 +41,13 @@ from desire_platform.internal_pilot.synthetic_seed_postgres import (
     PsycopgInternalSandboxProfileTaxonomyProjector,
     PsycopgInternalSandboxTaxonomyProvisioner,
 )
+from desire_platform.matching.adapters.postgres.migrations import (
+    MatchingContractSources,
+    MatchingMigrationCatalog,
+    MatchingMigrationRunner,
+    MatchingMigrationSettings,
+    PsycopgMatchingMigrationDriver,
+)
 from desire_platform.trust_safety.adapters.postgres.migrations import (
     PsycopgTrustMigrationDriver,
     TrustContractSources,
@@ -74,6 +81,9 @@ PROFILE_MIGRATION_ROOT = (
 )
 DEMAND_MIGRATION_ROOT = (
     PLATFORM_ROOT / "src/desire_platform/demand/adapters/postgres/migrations"
+)
+MATCHING_MIGRATION_ROOT = (
+    PLATFORM_ROOT / "src/desire_platform/matching/adapters/postgres/migrations"
 )
 TRUST_MIGRATION_ROOT = (
     PLATFORM_ROOT
@@ -312,6 +322,55 @@ class InternalSandboxTaxonomySeedPostgresTest(unittest.TestCase):
         self.assertEqual(
             trust_report.applied_versions,
             tuple(item.descriptor.version for item in trust_catalog.artifacts),
+        )
+
+        matching_catalog = MatchingMigrationCatalog.load(MATCHING_MIGRATION_ROOT)
+        matching_report = MatchingMigrationRunner(
+            driver=PsycopgMatchingMigrationDriver(
+                settings=MatchingMigrationSettings(
+                    conninfo=self.postgres.conninfo(
+                        database=self.database,
+                        user="matching_migration_runner",
+                    ),
+                    application_name="internal-sandbox-seed-pg-test",
+                ),
+                dbapi=psycopg,
+            ),
+            runner_version="internal-sandbox-seed-pg-test/1",
+        ).run(
+            catalog=matching_catalog,
+            contract_sources=MatchingContractSources(
+                api_contract_bytes=(
+                    PLATFORM_ROOT / "contracts/api/matching-v1.openapi.yaml"
+                ).read_bytes(),
+                event_contract_bytes=(
+                    PLATFORM_ROOT / "contracts/events/matching-v1.schema.json"
+                ).read_bytes(),
+                rule_contract_bytes=(
+                    PLATFORM_ROOT
+                    / "contracts/domain/matching-rule-release-v1.schema.json"
+                ).read_bytes(),
+                input_manifest_contract_bytes=(
+                    PLATFORM_ROOT
+                    / "contracts/domain/match-input-manifest-v1.schema.json"
+                ).read_bytes(),
+                run_input_contract_bytes=(
+                    PLATFORM_ROOT
+                    / "contracts/domain/match-run-input-v1.schema.json"
+                ).read_bytes(),
+                candidate_contract_bytes=(
+                    PLATFORM_ROOT
+                    / "contracts/domain/match-candidate-result-v1.schema.json"
+                ).read_bytes(),
+                disclosure_contract_bytes=(
+                    PLATFORM_ROOT
+                    / "contracts/domain/invitation-disclosure-v1.schema.json"
+                ).read_bytes(),
+            ),
+        )
+        self.assertEqual(
+            matching_report.applied_versions,
+            tuple(item.descriptor.version for item in matching_catalog.artifacts),
         )
 
     def _source(self, role: str) -> TrackingTaxonomyConnectionSource:
