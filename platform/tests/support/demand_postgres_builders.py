@@ -1313,8 +1313,8 @@ def match_input_snapshot(
             for item in content["location"]["allowed_creator_region_codes"]
         ),
         required_language_codes=codes(
-            "LANGUAGE." + item.upper()
-            for item in content["collaboration"]["languages"]
+            {"LANGUAGE." + item.split("-", 1)[0].upper()
+             for item in content["collaboration"]["languages"]}
         ),
         required_work_mode_code=(
             "WORK_MODE." + content["collaboration"]["work_mode"].upper()

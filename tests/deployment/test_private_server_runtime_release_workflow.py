@@ -137,12 +137,13 @@ class PrivateServerRuntimeReleaseWorkflowTests(unittest.TestCase):
 
     def test_source_snapshot_is_from_the_exact_checked_out_commit(self) -> None:
         readiness = "python -B scripts/check_private_server_source_readiness.py"
-        current_head = "python -B scripts/verify_current_head_v27.py"
+        current_head = "python -B scripts/verify_current_head_v28.py"
         self.assertIn(
-            "- name: Verify the current-head v27 static contract",
+            "- name: Verify the current-head v28 static contract",
             self.raw,
         )
         self.assertNotIn("python -B scripts/verify_current_head_v26.py", self.raw)
+        self.assertNotIn("python -B scripts/verify_current_head_v27.py", self.raw)
         self.assertNotIn("python -B scripts/verify_current_head_v25.py", self.raw)
         self.assertNotIn("python -B scripts/verify_current_head_v24.py", self.raw)
         self.assertNotIn("python -B scripts/verify_current_head_v23.py", self.raw)

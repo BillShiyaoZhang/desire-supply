@@ -682,6 +682,33 @@ class RealPostgres18IamHttpSessionSecurityRedTest(unittest.TestCase):
             "SERVICE_UNAVAILABLE",
         )
 
+    def test_explicit_current_session_revocation_rejects_cookie_and_csrf_without_replay(
+        self,
+    ) -> None:
+        for reason in ("USER_REVOKED_SESSION", "USER_LOGOUT_CURRENT_SESSION"):
+            with self.subTest(reason=reason):
+                self.fixture = self._reset_and_seed()
+                actor = self._expected_actor()
+                with self._admin() as connection:
+                    connection.execute(
+                        "UPDATE iam.sessions SET status='REVOKED',"
+                        "revoked_at=transaction_timestamp(),revocation_reason_code=%s,"
+                        "aggregate_version=aggregate_version+1,updated_at=transaction_timestamp() "
+                        "WHERE id=%s",
+                        (reason, self.fixture.current_session_id),
+                    )
+                before = self._replay_snapshot()
+                component, _source, _ids = self._component(id_label="explicit-revocation")
+                self.assertEqual(_authentication_outcome(
+                    component, raw_handle=self.fixture.raw_active_handle,
+                    trace_id=str(self.fixture.trace_id),
+                ), (None, "AUTHENTICATION_REQUIRED"))
+                self.assertEqual(_csrf_outcome(
+                    component, raw_handle=self.fixture.raw_active_handle,
+                    raw_token=self.fixture.active_csrf_token, actor=actor,
+                ), "AUTHENTICATION_REQUIRED")
+                self.assertEqual(self._replay_snapshot(), before)
+
     def test_revoked_old_handle_atomically_revokes_exact_family_with_events(self) -> None:
         component, _source, _ids = self._component(id_label="replay-first")
         actor, code = _authentication_outcome(

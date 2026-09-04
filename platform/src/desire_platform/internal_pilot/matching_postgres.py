@@ -48,6 +48,7 @@ from desire_platform.matching.adapters.postgres.operational_runtime import (
     MatchingReviewClaimRequest,
     MatchingReviewContext,
     MatchingReviewCreateInvitationRequest,
+    MatchingReviewCreateInvitationReplayRequest,
     MatchingReviewInvalidateAttemptRequest,
     MatchingReviewPrepareInvitationRequest,
     MatchingReviewPublishInvitationRequest,
@@ -822,26 +823,50 @@ class PostgresCreateMatchingInvitationHandler(
             target_id=command.match_run_id,
             assignment_id=command.assignment_id,
         )
+        material = self._material(actor=actor, command=command)
+        replay_request = MatchingReviewCreateInvitationReplayRequest(
+            context=context,
+            organization_id=resolution.organization_id,
+            match_run_id=_request_uuid(command.match_run_id),
+            expected_match_run_version=command.expected_run_version,
+            material=material,
+        )
+        replayed = self._runtime.replay_create_invitation(replay_request)
+        if replayed is not None:
+            return replayed
         invitation_id = _new_operational_id(
             self._id_source, "matching_invitation"
         )
         snapshot_id = _new_operational_id(
             self._id_source, "matching_invitation_disclosure_snapshot"
         )
-        prepared = self._runtime.prepare_invitation(
-            MatchingReviewPrepareInvitationRequest(
-                context=context,
-                organization_id=resolution.organization_id,
-                assignment_id=resolution.assignment_id,
-                expected_assignment_version=resolution.assignment_version,
-                match_run_id=_request_uuid(command.match_run_id),
-                expected_match_run_version=command.expected_run_version,
-                creator_user_id=_request_uuid(command.creator_user_id),
-                invitation_id=invitation_id,
-                snapshot_id=snapshot_id,
-                expires_at=command.expires_at,
+        try:
+            prepared = self._runtime.prepare_invitation(
+                MatchingReviewPrepareInvitationRequest(
+                    context=context,
+                    organization_id=resolution.organization_id,
+                    assignment_id=resolution.assignment_id,
+                    expected_assignment_version=resolution.assignment_version,
+                    match_run_id=_request_uuid(command.match_run_id),
+                    expected_match_run_version=command.expected_run_version,
+                    creator_user_id=_request_uuid(command.creator_user_id),
+                    invitation_id=invitation_id,
+                    snapshot_id=snapshot_id,
+                    expires_at=command.expires_at,
+                )
             )
-        )
+            trust = self._trust(actor=actor, workspace=workspace)
+        except (MatchingPostgresRejectedError, MatchingPostgresConfigurationError,
+                MatchingApplicationError):
+            # Another exact request may commit after the first read. Recheck
+            # current authority and its receipt before reporting a preflight
+            # rejection; no write is retried or inferred from a duplicate.
+            self._scope(actor=actor, target_id=command.match_run_id,
+                        assignment_id=command.assignment_id)
+            replayed = self._runtime.replay_create_invitation(replay_request)
+            if replayed is not None:
+                return replayed
+            raise
         return self._runtime.create_invitation(
             MatchingReviewCreateInvitationRequest(
                 context=context,
@@ -855,8 +880,8 @@ class PostgresCreateMatchingInvitationHandler(
                 snapshot_id=snapshot_id,
                 expires_at=command.expires_at,
                 prepared=prepared,
-                trust=self._trust(actor=actor, workspace=workspace),
-                material=self._material(actor=actor, command=command),
+                trust=trust,
+                material=material,
             )
         )
 

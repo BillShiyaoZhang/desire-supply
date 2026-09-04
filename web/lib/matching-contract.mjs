@@ -168,6 +168,17 @@ function utcTimestamp(value) {
   return value;
 }
 
+export function matchingUtcTimestampsEqual(left, right) {
+  const comparisonKey = (value) => {
+    const exact = utcTimestamp(value);
+    // Compare the full fractional precision without changing signed input text.
+    // Date.parse would discard distinctions below one millisecond.
+    const fraction = exact.slice(19, -1).replace(/0+$/, "").replace(/\.$/, "");
+    return exact.slice(0, 19) + fraction;
+  };
+  return comparisonKey(left) === comparisonKey(right);
+}
+
 function positiveVersion(value) {
   if (!Number.isSafeInteger(value) || value < 1 || value > 2147483647) invalid();
   return value;
@@ -289,7 +300,7 @@ export function parseMatchingInvitationDetail(value) {
   if (
     disclosure.invitation_id !== result.invitation_id
     || disclosure.snapshot_sha256 !== result.snapshot_sha256
-    || disclosure.expires_at !== result.expires_at
+    || !matchingUtcTimestampsEqual(disclosure.expires_at, result.expires_at)
   ) invalid("MATCHING_DISCLOSURE_BINDING_INVALID");
   return result;
 }
@@ -359,6 +370,20 @@ export function parseMatchingSelection(value) {
     || (new Set(["PENDING_CLOSE", "CLOSED_NO_SELECTION", "CANCELLED"]).has(result.status) && result.chosen_invitation_id !== null)
   ) invalid();
   return result;
+}
+
+export function matchesMatchingSelectionAssignmentVersion(selection, submittedVersion) {
+  positiveVersion(submittedVersion);
+  const current = positiveVersion(selection.candidate_selector_assignment_version);
+  if (selection.status === "PENDING_CHOICE" || selection.status === "PENDING_CLOSE") {
+    return current === submittedVersion;
+  }
+  if (selection.status === "SELECTED" || selection.status === "CLOSED_NO_SELECTION") {
+    // CompleteSelection closes the assignment (+1); an intervening expiry is
+    // the only additional transition permitted by the frozen coordinator (+2).
+    return current === submittedVersion + 1 || current === submittedVersion + 2;
+  }
+  return false;
 }
 
 export function parseMatchingCandidateSelectorAssignment(value, expectedDemandId) {

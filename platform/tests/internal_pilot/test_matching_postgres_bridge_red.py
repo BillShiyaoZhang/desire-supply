@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import datetime, timedelta, timezone
 import hashlib
 import hmac
@@ -11,6 +12,7 @@ from uuid import UUID
 
 import pytest
 
+from desire_platform.internal_pilot.runtime_adapters import SecureRuntimeSources
 from desire_platform.internal_pilot.matching_postgres import (
     MATCHING_POSTGRES_OPERATIONAL_SUPPORT,
     MatchingPostgresActorContext,
@@ -399,6 +401,7 @@ class ReviewRuntime(PsycopgMatchingReviewRuntime):
     def __init__(self) -> None:
         self.calls: list[tuple[str, object]] = []
         self.workspace = review_workspace()
+        self.create_replay = None
 
     def resolve_assignment(self, *, context, operation, target_id):
         self.calls.append(("resolve", (context, operation, target_id)))
@@ -430,6 +433,10 @@ class ReviewRuntime(PsycopgMatchingReviewRuntime):
     def release_assignment(self, request):
         self.calls.append(("release", request))
         return review_summary(status="REVOKED", version=2)
+
+    def replay_create_invitation(self, request):
+        self.calls.append(("probe_create", request))
+        return self.create_replay
 
     def prepare_invitation(self, request):
         self.calls.append(("prepare", request))
@@ -715,7 +722,7 @@ def test_operational_service_claims_only_from_authenticated_workspace_facts() ->
         assignment_runtime=assignment_runtime,
         review_runtime=review_runtime,
         keys=keys(),
-        id_source=Ids(),
+        id_source=SecureRuntimeSources(),
     )
     selector_response = service.handle(
         request=MatchingHttpRequest(
@@ -771,7 +778,7 @@ def test_review_claim_read_and_release_are_current_assignment_only() -> None:
         assignment_runtime=assignment_runtime,
         review_runtime=review_runtime,
         keys=keys(),
-        id_source=Ids(),
+        id_source=SecureRuntimeSources(),
     )
     claim = service.handle(
         request=MatchingHttpRequest(
@@ -903,7 +910,7 @@ def test_reviewer_commands_resolve_current_assignment_and_bind_trust_evidence() 
         review_runtime=review_runtime,
         demand_hold=hold,
         keys=keys(),
-        id_source=Ids(),
+        id_source=SecureRuntimeSources(),
     )
     assert isinstance(
         bindings.create_invitation, PostgresCreateMatchingInvitationHandler
@@ -937,7 +944,10 @@ def test_reviewer_commands_resolve_current_assignment_and_bind_trust_evidence() 
     )
     assert create_result.target_status == "CREATED"
     prepared = next(value for name, value in review_runtime.calls if name == "prepare")
+    probed = next(value for name, value in review_runtime.calls if name == "probe_create")
     created = next(value for name, value in review_runtime.calls if name == "create")
+    assert probed.material is created.material
+    assert [name for name, _ in review_runtime.calls].index("probe_create") < [name for name, _ in review_runtime.calls].index("prepare")
     assert prepared.snapshot_id == created.snapshot_id
     assert prepared.invitation_id == created.invitation_id
     assert created.assignment_id == UUID(ASSIGNMENT_ID)
@@ -995,6 +1005,78 @@ def test_reviewer_commands_resolve_current_assignment_and_bind_trust_evidence() 
             ),
         )
     assert hidden.value.code == "RESOURCE_NOT_FOUND"
+
+
+def test_completed_create_replay_retains_authority_but_skips_preparation_and_hold() -> None:
+    review_runtime = ReviewRuntime()
+    review_runtime.create_replay = MatchingCommandResult(
+        INVITATION_ID, "CREATED", 1, NOW, True, ("InvitationCreated",),
+    )
+    hold = AllowDemandHold()
+    bindings = build_matching_postgres_http_bindings(
+        runtime=Runtime(), review_runtime=review_runtime, demand_hold=hold,
+        keys=keys(), id_source=SecureRuntimeSources(),
+    )
+    actor = bindings.command_actors.resolve_actor(
+        actor=platform_actor(), operation_id="createMatchingInvitation",
+        path_parameters={"match_run_id": RUN_ID},
+    )
+    command = CreateInvitationCommand(
+        match_run_id=RUN_ID, creator_user_id=OTHER_USER_ID,
+        expires_at=NOW + timedelta(days=7), expected_run_version=4,
+        assignment_id=ASSIGNMENT_ID, idempotency_key="create-review-key-0001",
+    )
+    review_runtime.calls.clear()
+    result = bindings.create_invitation.handle(actor=actor, command=command)
+    assert result is review_runtime.create_replay
+    assert [name for name, _ in review_runtime.calls] == ["resolve", "read", "probe_create"]
+    assert hold.calls == []
+    review_runtime.calls.clear()
+    with pytest.raises(MatchingApplicationError) as denied:
+        bindings.create_invitation.handle(
+            actor=actor, command=replace(command, assignment_id=str(UUID(int=999))),
+        )
+    assert denied.value.code == "RESOURCE_NOT_FOUND"
+    assert "probe_create" not in [name for name, _ in review_runtime.calls]
+
+
+@pytest.mark.parametrize("committed_elsewhere", [False, True])
+def test_create_preflight_race_reads_exact_receipt_without_retrying_write(committed_elsewhere) -> None:
+    class RacingReviewRuntime(ReviewRuntime):
+        def prepare_invitation(self, request):
+            self.calls.append(("prepare", request))
+            if committed_elsewhere:
+                self.create_replay = MatchingCommandResult(
+                    INVITATION_ID, "CREATED", 1, NOW, True, ("InvitationCreated",),
+                )
+            raise MatchingPostgresRejectedError("INVITATION_ALREADY_EXISTS")
+
+    runtime = RacingReviewRuntime()
+    hold = AllowDemandHold()
+    bindings = build_matching_postgres_http_bindings(
+        runtime=Runtime(), review_runtime=runtime, demand_hold=hold,
+        keys=keys(), id_source=SecureRuntimeSources(),
+    )
+    actor = bindings.command_actors.resolve_actor(
+        actor=platform_actor(), operation_id="createMatchingInvitation",
+        path_parameters={"match_run_id": RUN_ID},
+    )
+    command = CreateInvitationCommand(
+        match_run_id=RUN_ID, creator_user_id=OTHER_USER_ID,
+        expires_at=NOW + timedelta(days=7), expected_run_version=4,
+        assignment_id=ASSIGNMENT_ID, idempotency_key="create-review-key-0001",
+    )
+    runtime.calls.clear()
+    if committed_elsewhere:
+        assert bindings.create_invitation.handle(actor=actor, command=command) is runtime.create_replay
+    else:
+        with pytest.raises(MatchingApplicationError) as rejected:
+            bindings.create_invitation.handle(actor=actor, command=command)
+        assert rejected.value.code == "INVITATION_ALREADY_EXISTS"
+    assert [name for name, _ in runtime.calls] == ["resolve", "read", "probe_create", "prepare", "resolve", "read", "probe_create"]
+    probes = [request for name, request in runtime.calls if name == "probe_create"]
+    assert probes[0] is probes[1]
+    assert hold.calls == []
 
 
 def test_operations_routes_are_explicitly_service_unavailable() -> None:

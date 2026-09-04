@@ -62,7 +62,12 @@ class CommitUnknownConnection:
             return Cursor(row=(self.role, self.role, 18))
         if statement.startswith("SELECT pg_catalog.set_config"):
             assert parameters is not None
-            return Cursor(row=(parameters[1],))
+            value = parameters[1]
+            if parameters[0] in {
+                "lock_timeout", "statement_timeout", "idle_in_transaction_session_timeout"
+            }:
+                value = {"2000ms": "2s", "15000ms": "15s", "20000ms": "20s"}[value]
+            return Cursor(row=(value,))
         if "claim_matching_requested_delivery_v1" in statement:
             return Cursor(rows=[self.result_row])
         if statement == "COMMIT":

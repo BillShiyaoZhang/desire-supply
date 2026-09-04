@@ -3411,10 +3411,7 @@ def _snapshot_from_capture_row(row: Tuple[Any, ...]) -> DemandPostgresMatchInput
                 "REGION." + item.upper()
                 for item in location["allowed_creator_region_codes"]
             ),
-            required_language_codes=_sorted_codes(
-                "LANGUAGE." + item.upper()
-                for item in collaboration["languages"]
-            ),
+            required_language_codes=_matching_language_codes(collaboration["languages"]),
             required_work_mode_code=(
                 "WORK_MODE." + collaboration["work_mode"].upper()
             ),
@@ -3575,10 +3572,7 @@ def _validate_match_snapshot_canonical_facts(
                 "REGION." + item.upper()
                 for item in location["allowed_creator_region_codes"]
             ),
-            "required_language_codes": _sorted_codes(
-                "LANGUAGE." + item.upper()
-                for item in collaboration["languages"]
-            ),
+            "required_language_codes": _matching_language_codes(collaboration["languages"]),
             "required_work_mode_code": (
                 "WORK_MODE." + collaboration["work_mode"].upper()
             ),
@@ -3623,6 +3617,13 @@ def _sorted_codes(values: Any) -> Tuple[str, ...]:
     result = tuple(sorted(tuple(values), key=lambda item: item.encode("utf-8")))
     _require_canonical_code_tuple(result, "derived MATCH_INPUT codes")
     return result
+
+
+def _matching_language_codes(values: Any) -> Tuple[str, ...]:
+    # Profile5's reviewed derived-input contract uses DISTINCT root languages,
+    # e.g. zh-CN and zh-TW both become LANGUAGE.ZH. Preserve source locale
+    # tags in canonical DemandVersion bytes and align only the matching view.
+    return _sorted_codes({"LANGUAGE." + item.split("-", 1)[0].upper() for item in values})
 
 
 def _require_code(value: Any, label: str) -> None:

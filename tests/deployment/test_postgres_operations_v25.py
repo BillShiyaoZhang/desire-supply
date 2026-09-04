@@ -15,7 +15,7 @@ V25_SCRIPT = ROOT / "deploy/postgres-backup-restore-v25.sh"
 V25_OVERLAY = ROOT / "deploy/postgres-operations-v25.compose.yaml"
 V25_FACTS = ROOT / "deploy/postgres-core-facts-v25.sql"
 CURRENT_FACTS = ROOT / "deploy/postgres-core-facts.sql"
-V27_FACTS = ROOT / "deploy/postgres-core-facts-v27.sql"
+V28_FACTS = ROOT / "deploy/postgres-core-facts-v28.sql"
 V25_FACTS_SHA256 = (
     "0845ec9025efdfc208bab24b1ce3b8f56a8e2e44613eae249a00af349802507e"
 )
@@ -144,8 +144,8 @@ class PostgresOperationsV25Test(unittest.TestCase):
             PRE_V25_NORMALIZED_FACTS_SHA256,
         )
 
-    def test_unversioned_facts_are_the_current_v27_alias(self) -> None:
-        self.assertEqual(CURRENT_FACTS.read_bytes(), V27_FACTS.read_bytes())
+    def test_unversioned_facts_are_the_current_v28_alias(self) -> None:
+        self.assertEqual(CURRENT_FACTS.read_bytes(), V28_FACTS.read_bytes())
         self.assertNotEqual(CURRENT_FACTS.read_bytes(), V25_FACTS.read_bytes())
 
     def test_v25_overlay_only_rebinds_the_two_operations_configs(self) -> None:

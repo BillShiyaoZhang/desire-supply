@@ -24,6 +24,7 @@ from psycopg.types.json import Jsonb
 from desire_platform.matching.application.commands import MatchingCommandResult
 from desire_platform.matching.domain import (
     InvitationDisclosureSnapshot,
+    MatchingDomainError,
     validate_invitation_disclosure,
 )
 from desire_platform.matching.engine_v1 import (
@@ -444,6 +445,24 @@ class MatchingReviewReleaseRequest:
 
 
 @dataclass(frozen=True)
+class MatchingReviewCreateInvitationReplayRequest:
+    context: MatchingReviewContext
+    organization_id: UUID
+    match_run_id: UUID
+    expected_match_run_version: int
+    material: MatchingOperationalCommandMaterial = field(repr=False)
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.context, MatchingReviewContext):
+            raise TypeError("Matching review context is unavailable")
+        if not isinstance(self.material, MatchingOperationalCommandMaterial):
+            raise TypeError("Matching command material is unavailable")
+        _require_uuid(self.organization_id, self.match_run_id)
+        _require_version(self.expected_match_run_version)
+        _require_outboxes(self.material, 1)
+
+
+@dataclass(frozen=True)
 class MatchingReviewPrepareInvitationRequest:
     context: MatchingReviewContext
     organization_id: UUID
@@ -676,6 +695,7 @@ class PsycopgMatchingReviewRuntime:
                 "matching_api.resolve_matching_review_assignment_v1(uuid,uuid,bytea,text,uuid)",
                 "matching_api.release_matching_review_v1(uuid,uuid,bytea,bigint,uuid,uuid,text,bytea,text,bytea,uuid,uuid,uuid,uuid)",
                 "matching_api.prepare_matching_invitation_v1(uuid,uuid,bytea,uuid,uuid,bigint,uuid,bigint,uuid,uuid,timestamptz)",
+                "matching_api.read_create_invitation_receipt_v1(uuid,uuid,bytea,uuid,uuid,bigint,text,bytea,text,bytea)",
                 "matching_api.create_matching_invitation_v1(uuid,uuid,bytea,uuid,uuid,bigint,uuid,bigint,uuid,timestamptz,bytea,jsonb,bytea,uuid,uuid,uuid,bytea,timestamptz,timestamptz,uuid,uuid,text,bytea,text,bytea,uuid,uuid,uuid,uuid)",
                 "matching_api.publish_matching_invitation_v1(uuid,uuid,bytea,uuid,uuid,bigint,uuid,bigint,bytea,uuid,bytea,timestamptz,timestamptz,uuid,uuid,text,bytea,text,bytea,uuid,uuid,uuid,uuid,uuid)",
                 "matching_api.invalidate_matching_attempt_v1(uuid,uuid,bytea,uuid,uuid,bigint,uuid,bigint,bytea,text,uuid,uuid,text,bytea,text,bytea,uuid,uuid,uuid,uuid[],uuid,uuid)",
@@ -844,6 +864,43 @@ class PsycopgMatchingReviewRuntime:
         projection, replayed = _one_projection(rows)
         return _review_summary(projection, replayed)
 
+    def replay_create_invitation(
+        self, request: MatchingReviewCreateInvitationReplayRequest
+    ) -> Optional[MatchingCommandResult]:
+        if not isinstance(request, MatchingReviewCreateInvitationReplayRequest):
+            raise TypeError("Matching create receipt request is unavailable")
+        context, material = request.context, request.material
+        rows = self._gateway.execute(
+            write=False,
+            scope="MATCHING_REVIEW",
+            operation="CREATE_INVITATION",
+            actor_user_id=context.actor_user_id,
+            session_id=context.session_id,
+            organization_id=request.organization_id,
+            match_run_id=request.match_run_id,
+            target_id=request.match_run_id,
+            authority_marker=context.principal_marker_sha256,
+            statement=(
+                "SELECT safe_response,replayed FROM "
+                "matching_api.read_create_invitation_receipt_v1("
+                + ",".join(["%s"] * 10) + ")"
+            ),
+            parameters=(
+                context.actor_user_id, context.session_id,
+                context.principal_marker_sha256, request.organization_id,
+                request.match_run_id, request.expected_match_run_version,
+                material.identity_key_id, material.identity_digest,
+                material.payload_hash_key_id, material.payload_hash,
+            ),
+            maximum_rows=2,
+        )
+        if not rows:
+            return None
+        projection, replayed = _one_projection(rows)
+        if not replayed:
+            raise MatchingPostgresConfigurationError()
+        return _invitation_command_result(projection, True, ("InvitationCreated",))
+
     def prepare_invitation(
         self, request: MatchingReviewPrepareInvitationRequest
     ) -> MatchingPreparedInvitationDisclosure:
@@ -899,7 +956,12 @@ class PsycopgMatchingReviewRuntime:
             snapshot_sha256=digest.hex(),
             canonical_bytes=canonical,
         )
-        validate_invitation_disclosure(snapshot)
+        try:
+            validate_invitation_disclosure(snapshot)
+        except MatchingDomainError:
+            # A malformed database-produced disclosure must not reach CREATE,
+            # and is a producer/configuration failure rather than user input.
+            raise MatchingPostgresConfigurationError() from None
         return MatchingPreparedInvitationDisclosure(snapshot=snapshot, document=document)
 
     def create_invitation(
@@ -2296,6 +2358,7 @@ class MatchingWorkerProcess:
         clock: Callable[[], datetime] = lambda: datetime.now(timezone.utc),
         id_source: Callable[[], UUID] = uuid4,
         lease_seconds: int = 60,
+        delivery_lease_digest_key_id: str = "demand-matching-delivery-lease-v1",
     ) -> None:
         if not isinstance(runtime, PsycopgMatchingWorkerRuntime):
             raise TypeError("Matching worker runtime is unavailable")
@@ -2326,6 +2389,7 @@ class MatchingWorkerProcess:
             raise TypeError("Matching worker source is unavailable")
         if type(lease_seconds) is not int or not 15 <= lease_seconds <= 300:
             raise ValueError("Matching worker lease is invalid")
+        _require_key(delivery_lease_digest_key_id)
         self._runtime = runtime
         self._demand_delivery = demand_delivery
         self._demand_capture = demand_capture
@@ -2337,6 +2401,9 @@ class MatchingWorkerProcess:
         self._clock = clock
         self._id_source = id_source
         self._lease_seconds = lease_seconds
+        # Demand owns its retained delivery-key identifiers. Matching job
+        # leases keep their own key ID; the HMAC labels separate both uses.
+        self._delivery_lease_digest_key_id = delivery_lease_digest_key_id
         self._delivery_slot = _new_operational_slot(id_source)
         self._claim_slot = _new_operational_slot(id_source)
 
@@ -2355,7 +2422,7 @@ class MatchingWorkerProcess:
         )
         delivery = self._demand_delivery.claim_matching_requested_delivery(
             context=delivery_context,
-            lease_digest_key_id=self._keys.lease_digest_key_id,
+            lease_digest_key_id=self._delivery_lease_digest_key_id,
             lease_digest=delivery_lease,
             lease_seconds=self._lease_seconds,
         )
@@ -2469,7 +2536,7 @@ class MatchingWorkerProcess:
             delivery_id=delivery.delivery_id,
             source_event_id=delivery.source_event_id,
             fencing_generation=delivery.fencing_generation,
-            lease_digest_key_id=self._keys.lease_digest_key_id,
+            lease_digest_key_id=self._delivery_lease_digest_key_id,
             lease_digest=lease_digest,
             matching_attempt_id=ingest.attempt_id,
         )
@@ -2786,7 +2853,8 @@ class MatchingCoordinatorProcess:
                 trust = self._trust_by_claim.get(cache_key)
                 if trust is None:
                     trust = _matching_trust_evidence(
-                        self._trust_evidence_provider, claim, now
+                        self._trust_evidence_provider, claim, now,
+                        clock=self._clock,
                     )
                     self._trust_by_claim[cache_key] = trust
             except Exception as error:
@@ -4140,6 +4208,8 @@ def _matching_trust_evidence(
     provider: Any,
     claim: MatchingSelectionCompletionClaim,
     now: datetime,
+    *,
+    clock: Any,
 ) -> MatchingTrustEvidence:
     if provider is None:
         raise MatchingPostgresConfigurationError()
@@ -4183,10 +4253,14 @@ def _matching_trust_evidence(
         evidence = provider(claim, now)
     else:
         raise MatchingPostgresConfigurationError()
+    # Trust evaluates in its own transaction after the claim. Compare its
+    # timestamp with the current clock after that read, not the earlier tick
+    # start, which would incorrectly reject every newly-produced SQL evidence.
+    checked_at = _operational_now(clock)
     if (
         not isinstance(evidence, MatchingTrustEvidence)
-        or evidence.evaluated_at > now
-        or evidence.valid_until <= now
+        or evidence.evaluated_at > checked_at
+        or evidence.valid_until <= checked_at
     ):
         raise MatchingPostgresConfigurationError()
     return evidence

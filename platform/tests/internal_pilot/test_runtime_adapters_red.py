@@ -88,9 +88,15 @@ class RuntimeAdapterTests(unittest.TestCase):
             policy_acceptance.PostgresAcceptCurrentPoliciesHandler,
             current_session_logout.PostgresRevokeCurrentSessionHandler,
             matching_postgres._PostgresMatchingCommandHandler,
+            matching_postgres._PostgresMatchingReviewCommandHandler,
+            matching_postgres.PostgresCreateMatchingInvitationHandler,
+            matching_postgres.MatchingPostgresOperationalHttpService,
+            matching_postgres._operational_material,
             appeal_production._PostgresAppealCommandHandler,
             trust_production._PostgresTrustCommandHandler,
             trust_outcome_evidence.PsycopgTrustOutcomeEvidenceProvider,
+        ) | frozenset(
+            f"matching_operational_outbox_event_{ordinal}" for ordinal in range(102)
         )
 
         self.assertEqual(runtime_adapters._ID_PURPOSES, required)
@@ -117,6 +123,9 @@ class RuntimeAdapterTests(unittest.TestCase):
             "submission",
             "user_role_grant",
             "consent_withdrawal",
+            "matching_unknown",
+            "matching_operational_outbox_event_-1",
+            "matching_operational_outbox_event_102",
         ):
             with self.subTest(purpose=purpose), self.assertRaises(ValueError):
                 sources.new_id(purpose)
@@ -264,6 +273,7 @@ def _literal_id_purposes(*owners: object) -> frozenset[str]:
     helper_argument = {
         "_new": 1,
         "_new_id": 1,
+        "_new_operational_id": 1,
         "_new_uuid": 1,
         "_required_generated_uuid": 1,
     }

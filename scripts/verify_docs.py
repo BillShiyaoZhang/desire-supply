@@ -162,7 +162,7 @@ def verify_ci_contract(ci_workflow: str, errors: list[str]) -> None:
 
     required_deployment_contracts = (
         "python -B scripts/verify_container_stack.py",
-        "python -B scripts/verify_current_head_v27.py",
+        "python -B scripts/verify_current_head_v28.py",
         "python -B -m unittest discover -s tests/deployment -v",
     )
     for expected in required_deployment_contracts:

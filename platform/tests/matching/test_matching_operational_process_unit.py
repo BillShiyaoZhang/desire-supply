@@ -7,6 +7,8 @@ from decimal import Decimal
 import hashlib
 from uuid import UUID
 
+import pytest
+
 from desire_platform.creator_profile.adapters.postgres import (
     CreatorProfilePostgresDerivedMatchCaptureResult,
 )
@@ -18,6 +20,7 @@ from desire_platform.matching.adapters.postgres import (
     MATCHING_OPERATIONAL_WORKLOAD_ID,
     MatchingCoordinatorProcess,
     MatchingOperationalKeyRing,
+    MatchingPostgresConfigurationError,
     MatchingPostgresRejectedError,
     MatchingSelectionCompletionClaim,
     MatchingSelectionCompletionResult,
@@ -32,6 +35,7 @@ from desire_platform.matching.adapters.postgres import (
 from desire_platform.matching.adapters.postgres.operational_runtime import (
     _operational_material,
     _operational_uuid,
+    _matching_trust_evidence,
     _score_text,
 )
 from desire_platform.matching.engine_v1 import load_default_rule_release_v1
@@ -56,6 +60,7 @@ def key_ring(prefix: str) -> MatchingOperationalKeyRing:
 class _NoDelivery:
     @staticmethod
     def claim_matching_requested_delivery(**_kwargs):
+        assert _kwargs["lease_digest_key_id"] == "demand-matching-delivery-lease-v1"
         return None
 
     @staticmethod
@@ -403,6 +408,36 @@ def test_coordinator_system_close_uses_immutable_original_actor_without_trust() 
     assert completed.claim.original_actor_user_id == original_actor
     assert completed.trust is None
     assert len(completed.material.outbox_event_ids) == 2
+
+
+@pytest.mark.parametrize("evaluated_seconds,valid_seconds,accepted", [
+    (1, 15, True),
+    (3, 15, False),
+    (1, 2, False),
+])
+def test_coordinator_checks_evidence_against_clock_after_trust_returns(
+    evaluated_seconds: int, valid_seconds: int, accepted: bool,
+) -> None:
+    started_at = datetime(2026, 9, 4, tzinfo=timezone.utc)
+    current = [started_at]
+    evidence = MatchingTrustEvidence(
+        evidence_id=uid(401), evidence_sha256=b"t" * 32,
+        evaluated_at=started_at + timedelta(seconds=evaluated_seconds),
+        valid_until=started_at + timedelta(seconds=valid_seconds),
+    )
+
+    def evaluate(_claim, tick_started_at):
+        assert tick_started_at == started_at
+        current[0] = started_at + timedelta(seconds=2)
+        return evidence
+
+    if accepted:
+        assert _matching_trust_evidence(evaluate, None, started_at,
+                                        clock=lambda: current[0]) is evidence
+    else:
+        with pytest.raises(MatchingPostgresConfigurationError):
+            _matching_trust_evidence(evaluate, None, started_at,
+                                     clock=lambda: current[0])
 
 
 def test_coordinator_rotates_claim_after_lease_expires_after_trust() -> None:

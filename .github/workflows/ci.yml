@@ -65,7 +65,7 @@ jobs:
           /bin/sh -n deploy/devcontainer-runtime-closure.sh
           /bin/sh -n deploy/devcontainer-toolchain-check.sh
           python -B scripts/verify_container_stack.py
-          python -B scripts/verify_current_head_v27.py
+          python -B scripts/verify_current_head_v28.py
           python -B scripts/private_server_real_oidc_compose_contract.py --check-static
           python -B -m unittest \
             tests.deployment.test_private_server_real_oidc_compose \

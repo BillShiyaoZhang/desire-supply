@@ -291,7 +291,7 @@ class PreparePrivateServerRuntimeReleaseTests(unittest.TestCase):
             self.assertEqual(schema_heads["profile"], 5)
             self.assertEqual(schema_heads["demand"], 15)
             self.assertEqual(schema_heads["trust"], 22)
-            self.assertEqual(schema_heads["matching"], 3)
+            self.assertEqual(schema_heads["matching"], 9)
             for slot in PREPARE.APP_SLOTS:
                 for kind in ("sbom", "provenance"):
                     member = archive.getmember(

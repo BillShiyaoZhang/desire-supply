@@ -594,6 +594,17 @@ class PsycopgIamSessionSecurity:
         trace = _nonzero_uuid_text(trace_id)
         if trace is None:
             raise IamError("SERVICE_UNAVAILABLE")
+        if (
+            row.family_status not in {"ACTIVE", "REVOKED"}
+            or row.generation > row.current_generation
+        ):
+            raise IamError("SERVICE_UNAVAILABLE")
+        if row.generation == row.current_generation:
+            # Explicit logout/revocation can terminate the current Session
+            # while its family remains ACTIVE. There is no successor handle
+            # to revoke; callers still reject this credential immediately.
+            # The replay program is reserved for revoked older generations.
+            return None
         try:
             security_event_id = _required_generated_uuid(
                 self._id_source,

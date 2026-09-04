@@ -32,11 +32,13 @@ import {
   parseMatchingInvitationDetail,
   parseMatchingInvitationList,
   parseMatchingSelection,
+  matchesMatchingSelectionAssignmentVersion,
   serializeMatchingPendingIntent,
 } from "../lib/matching-contract.mjs";
 
 const PENDING_KEY = "desire-pilot-pending:v1";
 const MATCHING_SELECTION_RECOVERY_KEY = "desire-pilot-matching-selection-recovery:v1";
+const MATCHING_SELECTION_REFERENCE_KEY = "desire-pilot-matching-selection-reference:v1";
 const MATCHING_DEMAND_STATUSES = new Set(["FUNDED", "MATCHING", "MATCHED", "NO_MATCH"]);
 const MATCHING_ID = /^[A-Za-z0-9][A-Za-z0-9_-]{15,127}$/;
 
@@ -191,7 +193,7 @@ function shortId(value: string) {
 function invitationStatus(value: MatchingInvitationDetail["status"]) {
   return ({
     SENT: "等待响应",
-    ACCEPTED: "已接受，等待人工选择",
+    ACCEPTED: "已接受",
     DECLINED: "已拒绝",
     WITHDRAWN: "已撤回接受",
     EXPIRED: "已过期",
@@ -262,6 +264,8 @@ export function MatchingWorkbench({
   const [selection, setSelection] = useState<MatchingSelection | null>(null);
   const [selectorAssignment, setSelectorAssignment] = useState<MatchingCandidateSelectorAssignment | null>(null);
   const selectionRef = useRef<MatchingSelection | null>(null);
+  const selectionIdsRef = useRef(new Map<string, string>());
+  const [savedSelectionReferences, setSavedSelectionReferences] = useState<Array<{ attemptId: string; selectionId: string }>>([]);
   const [selectionEntityTag, setSelectionEntityTag] = useState<string | null>(null);
   const [selectionBusy, setSelectionBusy] = useState(false);
   const [selectionError, setSelectionError] = useState<MatchingFailure | null>(null);
@@ -337,6 +341,10 @@ export function MatchingWorkbench({
     }
   }, [requestMatching]);
 
+  const selectionReferencePrefix = useCallback((demandId: string) => (
+    `${MATCHING_SELECTION_REFERENCE_KEY}:${session.session.session_id}:${organizationId}:${demandId}:`
+  ), [organizationId, session.session.session_id]);
+
   const loadAttempts = useCallback(async (demandId: string) => {
     if (!canSelect || !organizationId || !demandId) return;
     setSelectedDemandId(demandId);
@@ -347,13 +355,25 @@ export function MatchingWorkbench({
     setSelectionEntityTag(null);
     setSelectorAssignment(null);
     setSelectionError(null);
+    const references: Array<{ attemptId: string; selectionId: string }> = [];
+    try {
+      const prefix = selectionReferencePrefix(demandId);
+      for (let index = 0; index < sessionStorage.length; index += 1) {
+        const key = sessionStorage.key(index);
+        if (!key?.startsWith(prefix)) continue;
+        const attemptId = key.slice(prefix.length);
+        const selectionId = sessionStorage.getItem(key) ?? "";
+        if (MATCHING_ID.test(attemptId) && MATCHING_ID.test(selectionId)) references.push({ attemptId, selectionId });
+      }
+    } catch { /* reference storage is optional; all details still require an authenticated read */ }
+    setSavedSelectionReferences(references);
     try {
       const response = await requestMatching(`/v1/organizations/${organizationId}/demands/${demandId}/matching-attempts?limit=100`);
       const fresh = parseMatchingAttemptList(response.value, demandId);
       setAttemptDemandId(demandId);
       setAttemptList(fresh);
       setAttemptListError(null);
-      setNotice(`需求的 Matching Round 已由服务端验证；本页共 ${fresh.items.length} 轮。`);
+      setNotice(`当前会话的有效 Candidate Selector 分配已由服务端验证；本页共 ${fresh.items.length} 轮。`);
       return fresh;
     } catch (caught) {
       setAttemptListError(failure(caught));
@@ -361,10 +381,25 @@ export function MatchingWorkbench({
     } finally {
       setAttemptListBusy(false);
     }
-  }, [canSelect, organizationId, requestMatching]);
+  }, [canSelect, organizationId, requestMatching, selectionReferencePrefix]);
 
-  const readSelection = useCallback(async (attemptId: string) => {
+  const selectionReferenceKey = useCallback((attemptId: string) => (
+    `${selectionReferencePrefix(selectedDemandId)}${attemptId}`
+  ), [selectedDemandId, selectionReferencePrefix]);
+
+  const rememberSelection = useCallback((attemptId: string, selectionId: string) => {
+    selectionIdsRef.current.set(attemptId, selectionId);
+    setSavedSelectionReferences((current) => [...current.filter((item) => item.attemptId !== attemptId), { attemptId, selectionId }]);
+    try { sessionStorage.setItem(selectionReferenceKey(attemptId), selectionId); } catch { /* an authenticated read remains usable without browser persistence */ }
+  }, [selectionReferenceKey]);
+
+  const readSelection = useCallback(async (attemptId: string, exactSelectionId: string | null = null) => {
     if (!canSelect || !organizationId) return null;
+    let selectionId = exactSelectionId ?? selectionIdsRef.current.get(attemptId) ?? null;
+    if (!selectionId) {
+      try { selectionId = sessionStorage.getItem(selectionReferenceKey(attemptId)); } catch { /* use the active-assignment discovery route below */ }
+    }
+    if (selectionId && !MATCHING_ID.test(selectionId)) selectionId = null;
     if (selectionRef.current?.attempt_id !== attemptId) {
       selectionRef.current = null;
       setSelection(null);
@@ -373,10 +408,14 @@ export function MatchingWorkbench({
     setSelectionBusy(true);
     setSelectionError(null);
     try {
-      const response = await requestMatching(`/v1/organizations/${organizationId}/matching-attempts/${attemptId}/selection`);
+      const path = selectionId
+        ? `/v1/organizations/${organizationId}/selections/${selectionId}`
+        : `/v1/organizations/${organizationId}/matching-attempts/${attemptId}/selection`;
+      const response = await requestMatching(path);
       const fresh = parseMatchingSelection(response.value);
-      if (fresh.attempt_id !== attemptId) throw new TypeError("MATCHING_SELECTION_BINDING_INVALID");
+      if (fresh.attempt_id !== attemptId || (selectionId && fresh.selection_id !== selectionId)) throw new TypeError("MATCHING_SELECTION_BINDING_INVALID");
       assertMatchingEntityTag(response.etag, fresh.aggregate_version);
+      rememberSelection(attemptId, fresh.selection_id);
       selectionRef.current = fresh;
       setSelection(fresh);
       setSelectionEntityTag(response.etag);
@@ -397,7 +436,7 @@ export function MatchingWorkbench({
     } finally {
       setSelectionBusy(false);
     }
-  }, [canSelect, organizationId, requestMatching]);
+  }, [canSelect, organizationId, rememberSelection, requestMatching, selectionReferenceKey]);
 
   const persistPending = useCallback((record: PendingIntent, attemptId: string | null) => {
     const encoded = serializeMatchingPendingIntent(record);
@@ -500,7 +539,7 @@ export function MatchingWorkbench({
         clearPending(record);
         setSelectorAssignment(fresh);
         setNotice("Candidate Selector 已由当前组织工作区显式领取；页面将继续读取 exact assignment-scoped Selection。");
-        await readSelection(fresh.attempt_id);
+        await readSelection(fresh.attempt_id, fresh.selection_id);
       } else {
         const fresh = parseMatchingSelection(response.value);
         if (fresh.selection_id !== record.object_id) throw new TypeError("MATCHING_SELECTION_BINDING_INVALID");
@@ -509,7 +548,7 @@ export function MatchingWorkbench({
         if (
           fresh.current_invitation_set_sha256 !== record.intent.body.current_invitation_set_sha256
           || fresh.candidate_selector_assignment_id !== record.intent.body.candidate_selector_assignment_id
-          || fresh.candidate_selector_assignment_version !== record.intent.body.candidate_selector_assignment_version
+          || !matchesMatchingSelectionAssignmentVersion(fresh, record.intent.body.candidate_selector_assignment_version as number)
           || (choose && (
             fresh.chosen_invitation_id !== record.intent.body.invitation_id
             || !new Set(["PENDING_CHOICE", "SELECTED"]).has(fresh.status)
@@ -522,12 +561,13 @@ export function MatchingWorkbench({
         writeConfirmed = true;
         clearPending(record);
         selectionRef.current = fresh;
+        rememberSelection(fresh.attempt_id, fresh.selection_id);
         setSelection(fresh);
         setSelectionEntityTag(response.etag);
         setNotice(choose && fresh.status === "PENDING_CHOICE"
-          ? "选择意图已记录，Project/Agreement 原子创建仍在服务端协调；页面不会把 OPEN 伪装成完成。"
+          ? "选择意图已记录，Demand 与 Matching 终态正在服务端协调。"
           : choose
-            ? "人工选择已完成，后续 Project/Agreement 仍以服务端投影为准。"
+            ? "人工选择已完成，需求已匹配。项目协议与交付尚未接入当前工作台。"
             : fresh.status === "PENDING_CLOSE"
               ? "关闭意图已记录，Demand 与 Matching 终态仍在服务端原子协调。"
               : "本轮已明确关闭且不选择；没有创建 Project 或 Agreement。");
@@ -543,7 +583,7 @@ export function MatchingWorkbench({
         const fresh = record.resource_type === "MATCHING_INVITATION"
           ? await readInvitation(record.object_id)
           : recoveryAttemptIdRef.current
-            ? await readSelection(recoveryAttemptIdRef.current)
+            ? await readSelection(recoveryAttemptIdRef.current, record.object_id)
             : null;
         if (fresh) {
           clearPending(record);
@@ -566,7 +606,22 @@ export function MatchingWorkbench({
     } finally {
       setBusy(false);
     }
-  }, [claimWrite, clearPending, persistPending, readInvitation, readSelection, releaseWrite, requestMatching]);
+  }, [claimWrite, clearPending, persistPending, readInvitation, readSelection, releaseWrite, rememberSelection, requestMatching]);
+
+  useEffect(() => {
+    if (!selection || !new Set(["PENDING_CHOICE", "PENDING_CLOSE"]).has(selection.status) || busy || pending) return;
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout>;
+    const refresh = async () => {
+      if (cancelled) return;
+      const fresh = await readSelection(selection.attempt_id, selection.selection_id);
+      if (!cancelled && fresh && new Set(["PENDING_CHOICE", "PENDING_CLOSE"]).has(fresh.status)) {
+        timer = setTimeout(refresh, 2000);
+      }
+    };
+    timer = setTimeout(refresh, 1000);
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [busy, pending, readSelection, selection]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -856,7 +911,7 @@ export function MatchingWorkbench({
         </div>}
         {attemptListBusy && <p role="status">正在读取该需求的 Matching Round；尚未判定为空。</p>}
         {attemptListError && <div className="task-discovery-error" role="alert"><strong>Matching Round 读取未完成：{attemptListError.code}</strong><span>{attemptList ? "保留上一次已验证列表。" : "读取失败，不是已验证的空轮次。"}</span></div>}
-        {!attemptListBusy && !attemptListError && attemptList && attemptDemandId === selectedDemandId && attemptList.items.length === 0 && <p className="empty-state" role="status">该需求尚无 Matching Round（服务端已验证）。</p>}
+        {!attemptListBusy && !attemptListError && attemptList && attemptDemandId === selectedDemandId && attemptList.items.length === 0 && <p className="empty-state" role="status">当前会话没有可读取的有效 Candidate Selector 分配。可领取本轮分配；已完成的分配不会出现在此列表中。</p>}
         {attemptDemandId === selectedDemandId && attemptList?.items.map((attempt) => <button
           aria-current={selection?.attempt_id === attempt.attempt_id ? "page" : undefined}
           className="resource-link"
@@ -870,6 +925,17 @@ export function MatchingWorkbench({
           <code>{shortId(attempt.attempt_id)}</code>
         </button>)}
         {attemptList?.next_cursor && <p role="status">服务端仍有更早轮次；本页不推断未读取历史。</p>}
+        {savedSelectionReferences.length > 0 && <div className="safe-projection">
+          <strong>本次登录已访问的选择记录</strong>
+          <span>点击后重新验证读取权限与状态；新的登录不会继承原分配。</span>
+          {savedSelectionReferences.map((reference) => <button
+            className="resource-link"
+            disabled={nonRecoveryLocked || selectionBusy}
+            key={reference.selectionId}
+            type="button"
+            onClick={() => void readSelection(reference.attemptId, reference.selectionId)}
+          >读取选择记录 {shortId(reference.selectionId)}</button>)}
+        </div>}
       </section>
 
       <section className="workbench-card sensitive-card" aria-labelledby="matching-selection-title">
@@ -887,9 +953,10 @@ export function MatchingWorkbench({
             <code>Assignment {shortId(selection.candidate_selector_assignment_id)}</code>
             <code>Assignment version {selection.candidate_selector_assignment_version}</code>
           </div>
+          <button className="quiet-button" disabled={nonRecoveryLocked || selectionBusy} type="button" onClick={() => void readSelection(selection.attempt_id, selection.selection_id)}>刷新选择状态</button>
           {selection.status === "PENDING_CHOICE" && <p role="status">选择意图已记录，服务端正原子协调 Demand 与 Matching 终态；页面已锁定重复选择。</p>}
           {selection.status === "PENDING_CLOSE" && <p role="status">关闭意图已记录，服务端正原子协调 Demand 与 Matching 终态；页面已锁定重复操作。</p>}
-          {selection.accepted_invitations.length === 0 && <p className="empty-state" role="status">当前没有已接受的候选（服务端已验证）。可等待响应或明确关闭本轮。</p>}
+          {selection.accepted_invitations.length === 0 && <p className="empty-state" role="status">{selection.status === "OPEN" ? "当前没有已接受的候选（服务端已验证）。可等待响应或明确关闭本轮。" : "本轮没有获选创作者（服务端已验证）。"}</p>}
           <label>选择依据
             <select disabled={nonRecoveryLocked || selectionLocked || selectionError !== null} value={selectionBasisCode} onChange={(event) => setSelectionBasisCode(event.target.value as (typeof MATCHING_SELECTION_BASIS_CODES)[number])}>
               <option value="CAPABILITY_SUMMARY_FIT">能力摘要与交付适配</option>

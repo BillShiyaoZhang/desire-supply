@@ -10,6 +10,10 @@ from uuid import UUID, uuid4
 
 import psycopg
 
+from desire_platform.demand.adapters.postgres import (
+    DemandMatchingDeliveryContext,
+    PsycopgDemandMatchingRuntime,
+)
 from desire_platform.demand.adapters.postgres.migrations import (
     DemandContractSources,
     DemandMigrationCatalog,
@@ -25,6 +29,7 @@ from desire_platform.identity_access.adapters.postgres.migrations import (
     PsycopgMigrationSettings,
 )
 from tests.storage.postgres.postgres18_harness import TemporaryPostgres18
+from tests.support.demand_postgres_builders import TrackingDemandConnectionSource
 
 
 PLATFORM_ROOT = Path(__file__).resolve().parents[3]
@@ -116,6 +121,32 @@ class Demand15MatchingRuntimePostgres18Test(unittest.TestCase):
                 "has_function_privilege('matching_coordinator','demand_api.execute_complete_selection_system_v1(uuid,uuid,uuid,uuid,uuid,uuid,uuid,uuid,bigint,uuid,uuid,bigint,uuid,uuid,uuid,bytea,character varying,bytea,uuid,uuid,uuid)','EXECUTE')"
             ).fetchone()
         self.assertEqual(row, (True, True, True, False, True, False))
+
+    def test_python_gateway_readiness_and_empty_delivery_claim(self) -> None:
+        delivery = TrackingDemandConnectionSource(
+            self.postgres.conninfo(database=self.database, user="demand_matching")
+        )
+        coordinator = TrackingDemandConnectionSource(
+            self.postgres.conninfo(database=self.database, user="matching_coordinator")
+        )
+        self.addCleanup(delivery.close)
+        self.addCleanup(coordinator.close)
+        runtime = PsycopgDemandMatchingRuntime(
+            delivery_connections=delivery, coordinator_connections=coordinator
+        )
+        self.addCleanup(runtime.close)
+        runtime.check_readiness(timeout_ms=1_000)
+        result = runtime.claim_matching_requested_delivery(
+            context=DemandMatchingDeliveryContext(
+                workload_id=uuid4(), authority_marker_sha256=b"w" * 32
+            ),
+            lease_digest_key_id="demand-matching-delivery-lease-v1",
+            lease_digest=b"l" * 32,
+            lease_seconds=60,
+        )
+        self.assertIsNone(result)
+        self.assertEqual(delivery.discarded, [])
+        self.assertEqual(coordinator.discarded, [])
 
     def test_delivery_true_envelope_replay_fencing_and_cross_workload_denial(
         self,

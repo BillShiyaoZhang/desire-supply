@@ -190,9 +190,37 @@ class IamHttpSessionSecurityUnitRedTests(unittest.TestCase):
                 seed_row(source, session_row(keyring, **changes))
                 self.assertEqual(_auth_outcome(component, ACTIVE_HANDLE), expected)
 
+    def test_revoked_current_generation_is_unauthenticated_without_replay_write(self) -> None:
+        for family_status in ("ACTIVE", "REVOKED"):
+            with self.subTest(family_status=family_status):
+                source, keyring, ids, component = self._fixture()
+                row = session_row(keyring)
+                seed_row(source, row)
+                actor = _auth_outcome(component, ACTIVE_HANDLE)
+                self.assertIsInstance(actor, AuthenticatedHttpActor)
+                source.rows_by_digest.clear()
+                seed_row(source, session_row(
+                    keyring, session_status="REVOKED", family_status=family_status,
+                ))
+                self.assertEqual(_auth_outcome(component, ACTIVE_HANDLE), "AUTHENTICATION_REQUIRED")
+                self.assertEqual(_csrf_outcome(
+                    component, raw_handle=ACTIVE_HANDLE, raw_token=row["csrf_token"], actor=actor,
+                ), "AUTHENTICATION_REQUIRED")
+                self.assertEqual(source.replay_calls, 0)
+                self.assertEqual(ids.counter, 0)
+
+    def test_revoked_generation_or_family_corruption_is_unavailable(self) -> None:
+        for changes in ({"generation": 3}, {"family_status": "UNKNOWN"}):
+            with self.subTest(changes=changes):
+                source, keyring, ids, component = self._fixture()
+                seed_row(source, session_row(keyring, session_status="REVOKED", **changes))
+                self.assertEqual(_auth_outcome(component, ACTIVE_HANDLE), "SERVICE_UNAVAILABLE")
+                self.assertEqual(source.replay_calls, 0)
+                self.assertEqual(ids.counter, 0)
+
     def test_revoked_handle_runs_closed_replay_program_then_requires_auth(self) -> None:
         source, keyring, ids, component = self._fixture()
-        seed_row(source, session_row(keyring, session_status="REVOKED"))
+        seed_row(source, session_row(keyring, session_status="REVOKED", generation=1))
         self.assertEqual(
             _auth_outcome(component, ACTIVE_HANDLE),
             "AUTHENTICATION_REQUIRED",
@@ -217,7 +245,7 @@ class IamHttpSessionSecurityUnitRedTests(unittest.TestCase):
             keyring=keyring,
             id_source=ids,
         )
-        seed_row(source, session_row(keyring, session_status="REVOKED"))
+        seed_row(source, session_row(keyring, session_status="REVOKED", generation=1))
 
         self.assertEqual(
             _auth_outcome(component, ACTIVE_HANDLE),
@@ -244,7 +272,7 @@ class IamHttpSessionSecurityUnitRedTests(unittest.TestCase):
     def test_replay_commit_ack_loss_discards_and_reuses_exact_ids(self) -> None:
         source, keyring, ids, component = self._fixture()
         source.lose_replay_commit_ack = True
-        seed_row(source, session_row(keyring, session_status="REVOKED"))
+        seed_row(source, session_row(keyring, session_status="REVOKED", generation=1))
         self.assertEqual(
             _auth_outcome(component, ACTIVE_HANDLE),
             "AUTHENTICATION_REQUIRED",

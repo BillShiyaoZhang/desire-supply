@@ -61,7 +61,7 @@ class CurrentHeadV27ContractTest(unittest.TestCase):
                 self.assertIn(marker, self.verifier.EXPECTED_CONTRACTS)
         self.assertNotIn("__MATCHING_V3_", self.verifier.EXPECTED_CONTRACTS)
 
-    def test_fixture_is_canonical_and_matches_live_manifests(self) -> None:
+    def test_fixture_is_canonical_and_matches_the_historical_manifest_prefix(self) -> None:
         fixture_path = (
             ROOT / "tests/deployment/fixtures/current-head-v27/schema-pins.json"
         )
@@ -89,15 +89,29 @@ class CurrentHeadV27ContractTest(unittest.TestCase):
         ):
             with self.subTest(component=component):
                 manifest = ROOT / relative / "manifest.json"
+                live_document = json.loads(manifest.read_text(encoding="utf-8"))
+                if component == "matching":
+                    # v27 remains bound to the original v1-v3 bytes. The new
+                    # live head must preserve this prefix, not replace its pin.
+                    manifest = ROOT / "tests/deployment/fixtures/current-head-v28/matching-v3-manifest.json"
                 document = json.loads(manifest.read_text(encoding="utf-8"))
                 self.assertEqual(_sha(manifest), expected)
+                self.assertEqual(live_document[:len(document)], document)
                 self.assertEqual(
                     tuple(item["version"] for item in document),
                     versions,
                 )
+                for descriptor in document:
+                    self.assertEqual(
+                        _sha(ROOT / relative / descriptor["path"]),
+                        descriptor["sha256"],
+                    )
 
-    def test_all_migration_entries_pin_the_actual_artifact_bytes(self) -> None:
-        self.assertEqual(self.verifier._manifest_failures(ROOT), ())
+    def test_historical_verifier_rejects_the_newer_live_matching_manifest(self) -> None:
+        self.assertEqual(
+            self.verifier._manifest_failures(ROOT),
+            ("matching-manifest-pin-open",),
+        )
         self.assertEqual(self.verifier._historical_prefix_failures(ROOT), ())
 
     def test_matching_contract_files_are_exactly_pinned(self) -> None:
@@ -142,7 +156,7 @@ class CurrentHeadV27ContractTest(unittest.TestCase):
             with self.subTest(relative=relative):
                 self.assertEqual(_sha(ROOT / relative), expected)
 
-    def test_current_pointer_is_v27_while_v26_remains_discoverable(self) -> None:
+    def test_current_pointer_is_v28_while_v27_and_v26_remain_discoverable(self) -> None:
         ci = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
         release = (
             ROOT / ".github/workflows/private-server-runtime-release.yml"
@@ -150,10 +164,13 @@ class CurrentHeadV27ContractTest(unittest.TestCase):
         sidebar = (ROOT / "docs/_sidebar.md").read_text(encoding="utf-8")
         v26 = "python -B scripts/verify_current_head_v26.py"
         v27 = "python -B scripts/verify_current_head_v27.py"
+        v28 = "python -B scripts/verify_current_head_v28.py"
         self.assertEqual(ci.count(v26), 0)
-        self.assertEqual(ci.count(v27), 1)
+        self.assertEqual(ci.count(v27), 0)
+        self.assertEqual(ci.count(v28), 1)
         self.assertEqual(release.count(v26), 0)
-        self.assertEqual(release.count(v27), 1)
+        self.assertEqual(release.count(v27), 0)
+        self.assertEqual(release.count(v28), 1)
         self.assertIn(
             "[Current-head v27 静态模式头](/operations/current-head-v27.md)",
             sidebar,
@@ -163,14 +180,14 @@ class CurrentHeadV27ContractTest(unittest.TestCase):
             sidebar,
         )
 
-    def test_unversioned_operations_assets_resolve_to_v27(self) -> None:
+    def test_unversioned_operations_assets_resolve_to_v28(self) -> None:
         self.assertEqual(
             (ROOT / "deploy/postgres-backup-restore.sh").read_bytes(),
-            (ROOT / "deploy/postgres-backup-restore-v27.sh").read_bytes(),
+            (ROOT / "deploy/postgres-backup-restore-v28.sh").read_bytes(),
         )
         self.assertEqual(
             (ROOT / "deploy/postgres-core-facts.sql").read_bytes(),
-            (ROOT / "deploy/postgres-core-facts-v27.sql").read_bytes(),
+            (ROOT / "deploy/postgres-core-facts-v28.sql").read_bytes(),
         )
 
     def test_verifier_is_read_only_runtime_free_and_argument_closed(self) -> None:

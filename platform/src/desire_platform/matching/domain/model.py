@@ -12,6 +12,7 @@ from decimal import Decimal
 from enum import Enum
 import hashlib
 import json
+import re
 from typing import Any, Optional, Tuple, Union
 
 
@@ -1151,6 +1152,19 @@ def validate_invitation_disclosure(snapshot: InvitationDisclosureSnapshot) -> No
         "profile_content_sha256",
     }
     if not isinstance(value, dict) or set(value) != root_fields:
+        _reject("INVALID_REQUEST")
+    # The frozen disclosure-v1 Timestamp is RFC 3339 with a literal Z suffix.
+    # Validate the signed value before storage; never rewrite a signed string
+    # or its digest to accommodate a producer that emitted an offset instead.
+    expires_at = value["expires_at"]
+    if not isinstance(expires_at, str) or re.fullmatch(
+        r"[0-9]{4}-[0-9]{2}-[0-9]{2}[Tt][0-9]{2}:[0-9]{2}:[0-9]{2}(?:\.[0-9]+)?Z",
+        expires_at,
+    ) is None:
+        _reject("INVALID_REQUEST")
+    try:
+        datetime.fromisoformat(expires_at[:-1] + "+00:00")
+    except ValueError:
         _reject("INVALID_REQUEST")
     if snapshot.canonical_bytes != _jcs_bytes(value):
         _reject("INVALID_REQUEST")

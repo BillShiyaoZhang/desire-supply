@@ -11,6 +11,7 @@
 
 ## 从这里开始
 
+- [本机全部使用 Docker](./docs/operations/docker-local.md)：一条命令启动工作台，初始化、开发工具链和文档预览都在容器中完成
 - [Current-head v27 静态模式头](./docs/operations/current-head-v27.md)：IAM46 / Profile5 / Demand15 / Trust22 / Matching3 / Taxonomy2 的只读静态发布与恢复边界；`STATIC VERIFIED / NOT PRODUCTION EXECUTED`
 - [Current-head v26 静态模式头](./docs/operations/current-head-v26.md)：冻结历史，只保留 IAM43 / Profile3 / Demand13 / Trust19 / Taxonomy2 的原始静态事实
 - [Current-head v25 历史静态模式头](./docs/operations/current-head-v25.md)：冻结的 IAM42 / Profile3 / Demand12 / Trust18 / Taxonomy2 隐私安全 HTTP telemetry 与有界容器日志发布边界
@@ -28,7 +29,9 @@
 ## 文档站本地预览
 
 ```bash
-python3 -m http.server 5174 --directory docs
+./scripts/docker-local.sh up
+./scripts/docker-local.sh docs
 ```
 
-打开 `http://localhost:5174`。提交文档前运行 `python3 scripts/verify_docs.py` 检查导航与站内链接。
+打开 `http://localhost:5174`。已有 Python 环境时也可使用 `python3 -m http.server 5174 --directory docs`。
+提交文档前运行 `python3 scripts/verify_docs.py` 检查导航与站内链接，或在开发容器中执行该命令。

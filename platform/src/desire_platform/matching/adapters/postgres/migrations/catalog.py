@@ -62,11 +62,47 @@ MATCHING_MIGRATION_LAYOUT: Tuple[
         "matching_operational_runtime_v1",
         "0003_expand__matching_operational_runtime_v1.sql",
     ),
+    (
+        4,
+        MatchingMigrationPhase.EXPAND,
+        "matching_ingest_name_resolution",
+        "0004_expand__matching_ingest_name_resolution.sql",
+    ),
+    (
+        5,
+        MatchingMigrationPhase.EXPAND,
+        "matching_coordinator_claim_scope",
+        "0005_expand__matching_coordinator_claim_scope.sql",
+    ),
+    (
+        6,
+        MatchingMigrationPhase.EXPAND,
+        "matching_review_claim_visibility",
+        "0006_expand__matching_review_claim_visibility.sql",
+    ),
+    (
+        7,
+        MatchingMigrationPhase.EXPAND,
+        "matching_create_invitation_receipt_probe",
+        "0007_expand__matching_create_invitation_receipt_probe.sql",
+    ),
+    (
+        8,
+        MatchingMigrationPhase.EXPAND,
+        "matching_disclosure_utc_timestamp",
+        "0008_expand__matching_disclosure_utc_timestamp.sql",
+    ),
+    (
+        9,
+        MatchingMigrationPhase.EXPAND,
+        "matching_completion_intent_receipt_visibility",
+        "0009_expand__matching_completion_intent_receipt_visibility.sql",
+    ),
 )
 
 # Updated atomically with the restricted-canonical manifest.
 MATCHING_REVIEWED_MANIFEST_SHA256 = bytes.fromhex(
-    "b6c4169edcaf4c7cb771fde614ef72c3d90d56b4d2f4d5a0a633f8b634adbf18"
+    "ff3453c1f86739684dbe255a6ae16a0b5839dacf7ba680b120a50b089aa260e2"
 )
 
 _PATH = re.compile(r"[0-9]{4}_(?:expand|migrate|contract)__[a-z0-9_]+\.sql\Z")

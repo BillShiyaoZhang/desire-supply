@@ -830,7 +830,10 @@ def _html_response(body: bytes) -> SyntheticOidcResponse:
             ("Cache-Control", "no-store"),
             (
                 "Content-Security-Policy",
-                "default-src 'none'; form-action 'self'; base-uri 'none'; "
+                # Form navigation includes the redirect to the sole client.
+                # Both origins are fixed; no request input widens this policy.
+                "default-src 'none'; form-action https://identity.example.test "
+                "https://pilot.example.test; base-uri 'none'; "
                 "frame-ancestors 'none'",
             ),
             ("X-Content-Type-Options", "nosniff"),

@@ -131,7 +131,7 @@ class CurrentHeadV14RunbookTest(unittest.TestCase):
             self.assertNotIn(forbidden, verifier)
         self.assertIn('"status":"CURRENT_HEAD_V14_STATIC_VERIFIED"', verifier)
 
-    def test_ci_preserves_legacy_stack_validation_and_runs_only_v27_head_gate(self) -> None:
+    def test_ci_preserves_legacy_stack_validation_and_runs_only_v28_head_gate(self) -> None:
         ci = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
         self.assertIn("python -B scripts/verify_container_stack.py", ci)
         self.assertEqual(ci.count("python -B scripts/verify_current_head_v14.py"), 0)
@@ -139,7 +139,8 @@ class CurrentHeadV14RunbookTest(unittest.TestCase):
         self.assertEqual(ci.count("python -B scripts/verify_current_head_v24.py"), 0)
         self.assertEqual(ci.count("python -B scripts/verify_current_head_v25.py"), 0)
         self.assertEqual(ci.count("python -B scripts/verify_current_head_v26.py"), 0)
-        self.assertEqual(ci.count("python -B scripts/verify_current_head_v27.py"), 1)
+        self.assertEqual(ci.count("python -B scripts/verify_current_head_v27.py"), 0)
+        self.assertEqual(ci.count("python -B scripts/verify_current_head_v28.py"), 1)
 
     def test_current_pointers_do_not_rewrite_the_frozen_v13_runbook(self) -> None:
         operations = (ROOT / "docs/operations/run-and-check.md").read_text(

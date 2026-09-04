@@ -11,12 +11,14 @@ GitHub run 与两个摘要域，把 bundle 放入服务器 owner-only 目录，�
 机器合同是 `deploy/private-server-runtime-release-v1.schema.json`。
 
 当前新生成制品的模式头固定为 PostgreSQL18 / IAM46 / Profile5 / Demand15 / Trust22 /
-Matching3 / Taxonomy2。workflow 在构建前运行 current-head v27 静态 verifier，对
-IAM46/Profile5/Demand15/Trust22/Matching3/Taxonomy2 做独立只读检查；新 runtime release 的同一模式头
-绑定还由本版本 core、schema 与 bundle 合同闭合。v27 前移 schema、应用与运维合同，但不改变
+Matching9 / Taxonomy2。workflow 在构建前运行 current-head v28 静态 verifier，对
+IAM46/Profile5/Demand15/Trust22/Matching9/Taxonomy2 做独立只读检查；新 runtime release 的同一模式头
+绑定还由本版本 core、schema 与 bundle 合同闭合。v28 前向修复 Matching ingest 名称歧义和 coordinator
+领取 scope/审计、reviewer claim 可见性/行锁，并增加精确 CREATE 回执恢复，不改变
 runtime release format `v1`；其发布状态仅为
 `STATIC VERIFIED / NOT PRODUCTION EXECUTED`，不能据此声称 workflow、Docker、migration、backup/restore
-或生产执行。所有历史 bundle、fixture、manifest 与回执仍保留原模式头事实，包括冻结的 current-head v26
+或生产执行。所有历史 bundle、fixture、manifest 与回执仍保留原模式头事实，包括冻结的 current-head v27
+IAM46 / Profile5 / Demand15 / Trust22 / Matching3 / Taxonomy2，以及冻结的 current-head v26
 IAM43 / Profile3 / Demand13 / Trust19 / Taxonomy2、冻结的 current-head v25 与 current-head v24
 IAM42 / Demand12 / Trust18、current-head v23
 IAM42 / Demand12 / Trust17、current-head v22 的 IAM42 / Demand12 / Trust16、current-head v20 的
@@ -92,7 +94,7 @@ python3 -B scripts/check_private_server_source_readiness.py \
 
 这项 gate 已同时接入 CI 与 runtime-release workflow。workflow checkout 再次执行它，避免发布
 流程在 source snapshot 前缺少同一关闭入口；该重复通过仍只表示 GitHub checkout 与其 HEAD
-一致。随后 workflow 还会运行 current-head v27 的只读静态 verifier；它闭合当前
+一致。随后 workflow 还会运行 current-head v28 的只读静态 verifier；它闭合当前
 IAM46/Profile5/Demand15/Trust22/Matching3/Taxonomy2 静态基线，但不替代 runtime release manifest
 对同一模式头的验证，也不把
 `NOT EXECUTED` 提升为动态成功，或替代 CI 结论、人工批准与后续服务器验包。

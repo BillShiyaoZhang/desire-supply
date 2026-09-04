@@ -18,6 +18,7 @@ from uuid import UUID
 
 from psycopg.pq import TransactionStatus
 
+from ..creator_profile.adapters.postgres import PROFILE_POSTGRES_SCHEMA_HEAD_VERSION
 from ..taxonomy.adapters.postgres import (
     PsycopgTaxonomyUnitOfWorkFactory,
     TaxonomyPostgresApprovalEvidence,
@@ -64,10 +65,10 @@ _PROFILE_PREFLIGHT = (
     "profile_migration_runner",
     18,
     "profile",
-    3,
-    3,
-    3,
-    3,
+    PROFILE_POSTGRES_SCHEMA_HEAD_VERSION,
+    PROFILE_POSTGRES_SCHEMA_HEAD_VERSION,
+    PROFILE_POSTGRES_SCHEMA_HEAD_VERSION,
+    PROFILE_POSTGRES_SCHEMA_HEAD_VERSION,
 )
 _OPAQUE_ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9_-]{15,127}\Z")
 _SHA256_TEXT = re.compile(r"[0-9a-f]{64}\Z")

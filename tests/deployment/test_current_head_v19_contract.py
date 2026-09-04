@@ -165,7 +165,8 @@ class CurrentHeadV19ContractTest(unittest.TestCase):
         self.assertEqual(ci.count("python -B scripts/verify_current_head_v24.py"), 0)
         self.assertEqual(ci.count("python -B scripts/verify_current_head_v25.py"), 0)
         self.assertEqual(ci.count("python -B scripts/verify_current_head_v26.py"), 0)
-        self.assertEqual(ci.count("python -B scripts/verify_current_head_v27.py"), 1)
+        self.assertEqual(ci.count("python -B scripts/verify_current_head_v27.py"), 0)
+        self.assertEqual(ci.count("python -B scripts/verify_current_head_v28.py"), 1)
         self.assertEqual(
             release.count("python -B scripts/verify_current_head_v18.py"), 0
         )
@@ -194,7 +195,10 @@ class CurrentHeadV19ContractTest(unittest.TestCase):
             release.count("python -B scripts/verify_current_head_v26.py"), 0
         )
         self.assertEqual(
-            release.count("python -B scripts/verify_current_head_v27.py"), 1
+            release.count("python -B scripts/verify_current_head_v27.py"), 0
+        )
+        self.assertEqual(
+            release.count("python -B scripts/verify_current_head_v28.py"), 1
         )
 
 

@@ -151,7 +151,7 @@
         "profile": {"const": 5},
         "demand": {"const": 15},
         "trust": {"const": 22},
-        "matching": {"const": 3},
+        "matching": {"const": 9},
         "taxonomy": {"const": 2}
       }
     },

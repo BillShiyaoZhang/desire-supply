@@ -377,6 +377,38 @@ def test_chooser_represents_ten_bootstrap_accounts_and_one_provider_only_invitee
         assert response.status == 404
 
 
+def test_chooser_csp_allows_only_the_provider_and_fixed_callback_origins():
+    application, _ = _provider()
+    chooser = _authorization(application)
+    policy = dict(chooser.headers)["Content-Security-Policy"]
+    directives = {
+        parts[0]: parts[1:]
+        for directive in policy.split(";")
+        if (parts := directive.strip().split())
+    }
+    assert directives == {
+        "default-src": ["'none'"],
+        "form-action": ["https://identity.example.test", "https://pilot.example.test"],
+        "base-uri": ["'none'"],
+        "frame-ancestors": ["'none'"],
+    }
+    # Chromium checks the redirect after a form POST against this directive,
+    # so both the form endpoint and the exact registered callback must fit.
+    selected = application.handle(
+        method="POST", raw_target="/authorize",
+        headers=PUBLIC_HEADERS + (("Content-Type", "application/x-www-form-urlencoded"),),
+        body=urlencode({
+            "request_handle": _interaction_handle(chooser),
+            "account_code": "creator_01",
+        }).encode("ascii"),
+    )
+    assert selected.status == 303
+    callback = urlsplit(dict(selected.headers)["Location"])
+    assert callback._replace(query="", fragment="").geturl() == REDIRECT_URI
+    for target in (urlsplit(ISSUER + "/authorize"), callback):
+        assert f"{target.scheme}://{target.netloc}" in directives["form-action"]
+
+
 def test_provider_only_invitee_is_absent_from_identity_bootstrap_and_role_inputs():
     platform_root = Path(__file__).resolve().parents[2]
     template = json.loads(

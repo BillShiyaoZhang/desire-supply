@@ -393,18 +393,27 @@ class PostgresEditorService:
         current = self._repo.get_profile(
             principal=principal, profile_id=profile_id, authority=authority
         )
-        if current.status not in {"DRAFT", "ACTIVE"}:
-            raise EditorServiceError(
-                status=409,
-                code="INVALID_STATE_TRANSITION",
-                path="/status",
-            )
-        self._require_etag(
-            current=current,
-            if_match=if_match,
-            base_version_id=base_version_id,
-            yours=content,
+        expected_revision = (
+            current.revision
+            if hmac.compare_digest(current.etag, if_match)
+            else _profile_replay_etag_revision(profile_id, if_match)
         )
+
+        def validate_new_draft() -> None:
+            self._require_etag(
+                current=current,
+                if_match=if_match,
+                base_version_id=base_version_id,
+                yours=content,
+            )
+            if current.status not in {"DRAFT", "ACTIVE"}:
+                raise EditorServiceError(
+                    status=409,
+                    code="INVALID_STATE_TRANSITION",
+                    path="/status",
+                )
+            self._validate_editor_choices("CREATOR_PROFILE", content)
+
         try:
             frozen = freeze_profile_content(content, for_publish=False)
             next_version_no = max(
@@ -436,7 +445,7 @@ class PostgresEditorService:
             idempotency_key=idempotency_key,
             payload=payload,
             authority=authority,
-            expected_version=current.revision,
+            expected_version=expected_revision,
             profile_version_id=self._scoped_id(command_id, "profile-version"),
             based_on_profile_version_id=(
                 None if base_version_id is None else _uuid(base_version_id)
@@ -448,9 +457,7 @@ class PostgresEditorService:
         self._execute_profile(
             command,
             current=current,
-            membership_validation=lambda: self._validate_editor_choices(
-                "CREATOR_PROFILE", content
-            ),
+            membership_validation=validate_new_draft,
         )
         return self._repo.get_profile(
             principal=principal, profile_id=profile_id, authority=authority
@@ -478,18 +485,29 @@ class PostgresEditorService:
             (
                 item
                 for item in current.versions
-                if item.version_id == draft_version_id and item.status == "DRAFT"
+                if item.version_id == draft_version_id
             ),
             None,
         )
         if draft is None or current.current_version is None:
             self._not_found()
-        self._require_etag(
-            current=current,
-            if_match=if_match,
-            base_version_id=draft_version_id,
-            yours=draft.content,
+        expected_revision = (
+            current.revision
+            if hmac.compare_digest(current.etag, if_match)
+            else _profile_replay_etag_revision(profile_id, if_match)
         )
+
+        def validate_new_publish() -> None:
+            self._require_etag(
+                current=current,
+                if_match=if_match,
+                base_version_id=draft_version_id,
+                yours=draft.content,
+            )
+            if draft.status != "DRAFT":
+                self._not_found()
+            self._validate_editor_choices("CREATOR_PROFILE", draft.content)
+
         now = self._now()
         hold = self._evidence.profile_hold(
             principal=principal,
@@ -497,7 +515,7 @@ class PostgresEditorService:
             profile_id=_uuid(profile_id),
             profile_version_no=draft.version_no,
             taxonomy_bundle_id=_uuid(draft.taxonomy_bundle_id),
-            prospective_aggregate_version=current.revision + 1,
+            prospective_aggregate_version=expected_revision + 1,
             content_sha256=bytes.fromhex(draft.content_sha256),
             content=draft.content,
             evaluated_at=now,
@@ -516,7 +534,7 @@ class PostgresEditorService:
             idempotency_key=idempotency_key,
             payload=payload,
             authority=authority,
-            expected_version=current.revision,
+            expected_version=expected_revision,
             profile_version_id=_uuid(draft_version_id),
             confirmed=True,
             hold=hold,
@@ -524,9 +542,7 @@ class PostgresEditorService:
         self._execute_profile(
             command,
             current=current,
-            membership_validation=lambda: self._validate_editor_choices(
-                "CREATOR_PROFILE", draft.content
-            ),
+            membership_validation=validate_new_publish,
         )
         return self._repo.get_profile(
             principal=principal, profile_id=profile_id, authority=authority
@@ -1029,19 +1045,30 @@ class PostgresEditorService:
         current = self._repo.get_demand(
             principal=principal, demand_id=demand_id, authority=authority
         )
-        self._require_etag(
-            current=current,
-            if_match=if_match,
-            base_version_id=base_version_id,
-            yours=content,
+        expected_revision = (
+            current.revision
+            if hmac.compare_digest(current.etag, if_match)
+            else _demand_etag_revision(demand_id, if_match)
         )
-        if current.current_version is None or current.current_version.version_id != base_version_id:
-            raise EditorServiceError(
-                status=412,
-                code="PRECONDITION_FAILED",
-                path="/base_version_id",
-                etag=current.etag,
+
+        def validate_new_draft() -> None:
+            # The PostgreSQL UoW validates current authority and an exact
+            # completed receipt before calling this new-mutation guard.
+            self._require_etag(
+                current=current,
+                if_match=if_match,
+                base_version_id=base_version_id,
+                yours=content,
             )
+            if current.current_version is None or current.current_version.version_id != base_version_id:
+                raise EditorServiceError(
+                    status=412,
+                    code="PRECONDITION_FAILED",
+                    path="/base_version_id",
+                    etag=current.etag,
+                )
+            self._validate_editor_choices("DEMAND", content)
+
         frozen = _freeze_demand_content(content)
         next_version_no = max(
             (item.version_no for item in current.versions), default=0
@@ -1068,7 +1095,7 @@ class PostgresEditorService:
             idempotency_key=idempotency_key,
             payload=payload,
             authority=authority,
-            expected_version=current.revision,
+            expected_version=expected_revision,
             demand_version_id=self._scoped_id(command_id, "demand-version"),
             based_on_demand_version_id=_uuid(base_version_id),
             taxonomy_bundle_id=_uuid(taxonomy_bundle_id),
@@ -1078,9 +1105,7 @@ class PostgresEditorService:
         self._execute_demand(
             command,
             current=current,
-            membership_validation=lambda: self._validate_editor_choices(
-                "DEMAND", content
-            ),
+            membership_validation=validate_new_draft,
         )
         return self._repo.get_demand(
             principal=principal, demand_id=demand_id, authority=authority
@@ -1105,12 +1130,23 @@ class PostgresEditorService:
         )
         if current.current_version is None:
             self._not_found()
-        self._require_etag(
-            current=current,
-            if_match=if_match,
-            base_version_id=current.current_version.version_id,
-            yours=current.current_version.content,
+        expected_revision = (
+            current.revision
+            if hmac.compare_digest(current.etag, if_match)
+            else _demand_etag_revision(demand_id, if_match)
         )
+
+        def validate_new_submission() -> None:
+            self._require_etag(
+                current=current,
+                if_match=if_match,
+                base_version_id=current.current_version.version_id,
+                yours=current.current_version.content,
+            )
+            self._validate_editor_choices(
+                "DEMAND", current.current_version.content
+            )
+
         now = self._now()
         target = _uuid(demand_id)
         version_id = _uuid(current.current_version.version_id)
@@ -1132,7 +1168,7 @@ class PostgresEditorService:
             principal=principal,
             demand_id=target,
             demand_version_id=version_id,
-            prospective_aggregate_version=current.revision + 1,
+            prospective_aggregate_version=expected_revision + 1,
             content_sha256=content_hash,
             action="SUBMIT_DEMAND",
             content_policy=policy,
@@ -1158,7 +1194,7 @@ class PostgresEditorService:
             idempotency_key=idempotency_key,
             payload=payload,
             authority=authority,
-            expected_version=current.revision,
+            expected_version=expected_revision,
             demand_version_id=version_id,
             submission_id=self._scoped_id(command_id, "demand-submission"),
             content_policy=policy,
@@ -1168,9 +1204,7 @@ class PostgresEditorService:
         self._execute_demand(
             command,
             current=current,
-            membership_validation=lambda: self._validate_editor_choices(
-                "DEMAND", current.current_version.content
-            ),
+            membership_validation=validate_new_submission,
         )
         return self._repo.get_demand(
             principal=principal, demand_id=demand_id, authority=authority

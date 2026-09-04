@@ -72,7 +72,11 @@ class _ReadinessConnection:
 
     def execute(self, statement, parameters=()):
         if "set_config" in statement:
-            return _ReadinessCursor((parameters[0],))
+            # Actual PostgreSQL 18 results, including canonical whole seconds.
+            normalized = {
+                "50ms": "50ms", "1000ms": "1s", "2500ms": "2500ms", "30000ms": "30s"
+            }
+            return _ReadinessCursor((normalized[parameters[0]],))
         if "server_version_num" in statement:
             return _ReadinessCursor((self.role, self.role, 18))
         if "pg_catalog.pg_proc" in statement:
@@ -449,10 +453,12 @@ class MatchingRuntimeWiringTest(unittest.TestCase):
             )
         )
 
-        readiness.check_readiness(timeout_ms=1_000)
+        for timeout_ms in (50, 1_000, 2_500, 30_000):
+            with self.subTest(timeout_ms=timeout_ms):
+                readiness.check_readiness(timeout_ms=timeout_ms)
 
-        self.assertEqual(worker_pool.released, 1)
-        self.assertEqual(coordinator_pool.released, 1)
+        self.assertEqual(worker_pool.released, 4)
+        self.assertEqual(coordinator_pool.released, 4)
         self.assertEqual(worker_pool.discarded, 0)
         self.assertEqual(coordinator_pool.discarded, 0)
         self.assertEqual(len(snapshot), 33)

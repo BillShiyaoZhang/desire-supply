@@ -6,10 +6,15 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 import io
 from pathlib import Path
+import runpy
+import sys
 import tempfile
 import threading
 import unittest
+from unittest.mock import patch
+import warnings
 
+from desire_platform.matching import runtime_process
 from desire_platform.internal_pilot.secrets import (
     FileSecretCarrier,
     ManagedRuntimeSecrets,
@@ -109,6 +114,29 @@ class MatchingRuntimeProcessTest(unittest.TestCase):
         self.assertEqual(sleeps, [0.01])
         self.assertEqual(self.health.read_bytes(), b'{"status":"READY"}\n')
         self.assertEqual(list(self.health.parent.glob(".matching-heartbeat-*")), [])
+
+    def test_module_entrypoint_accepts_the_package_factory_plan(self) -> None:
+        resource = _Resource()
+        plan = self._plan(
+            worker=_Runner([_Tick("IDLE", False)]),
+            coordinator=_Runner([_Tick("IDLE", False)]),
+            resources=(resource,),
+        )
+        stopped = threading.Event()
+        stopped.set()
+        with (
+            patch.object(runtime_process, "DEFAULT_DEPENDENCY_FACTORY", return_value=plan),
+            patch.object(threading, "Event", return_value=stopped),
+            patch.object(sys, "argv", ["desire_platform.matching.runtime_process"]),
+            warnings.catch_warnings(),
+        ):
+            # runpy warns because the test already imported the canonical module.
+            warnings.simplefilter("ignore", RuntimeWarning)
+            with self.assertRaises(SystemExit) as result:
+                runpy.run_module("desire_platform.matching.runtime_process", run_name="__main__")
+        self.assertEqual(result.exception.code, 0)
+        self.assertEqual(resource.readiness_calls, [1_000])
+        self.assertEqual(resource.closed, 1)
 
     def test_five_failures_remove_health_and_return_stable_failure(self) -> None:
         self.health.write_text("stale", encoding="utf-8")

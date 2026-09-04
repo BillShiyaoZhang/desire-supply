@@ -418,7 +418,12 @@ def _write_status(stderr: TextIO, *, code: str, status: str) -> None:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    # The wiring module imports this module's plan class by its package name.
+    # Dispatch through that same module when invoked with python -m, so the
+    # __main__ copy does not reject an otherwise valid plan via isinstance.
+    from desire_platform.matching.runtime_process import main as package_main
+
+    raise SystemExit(package_main())
 
 
 __all__ = [

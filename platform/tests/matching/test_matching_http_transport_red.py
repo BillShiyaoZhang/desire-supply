@@ -404,6 +404,7 @@ def test_route_catalog_is_exact_and_excludes_worker_and_coordination_commands():
         "withdrawMatchingInvitationAcceptance",
         "listDemandMatchingAttempts",
         "getMatchingSelection",
+        "getMatchingSelectionById",
         "chooseMatchingCreator",
         "closeMatchingSelection",
         "createMatchingInvitation",
@@ -417,6 +418,61 @@ def test_route_catalog_is_exact_and_excludes_worker_and_coordination_commands():
     )
     assert route.operation_id == "chooseMatchingCreator"
     assert parameters == {"organization_id": ORG_ID, "selection_id": SELECTION_ID}
+
+
+def test_terminal_selection_get_uses_exact_id_reader_and_preserves_org_boundary():
+    app, projections, *_ = dispatcher()
+    projections.selection = selection(status="SELECTED", version=4)
+    request = MatchingHttpRequest(
+        method="GET",
+        path=f"/v1/organizations/{ORG_ID}/selections/{SELECTION_ID}",
+        headers={}, json_body={},
+    )
+    actor = http_actor(kind="ORGANIZATION")
+    result = app.handle(request=request, actor=actor)
+    assert result.status == 200
+    assert (result.status, result.json_body["status"], result.headers["etag"]) == (
+        200, "SELECTED", '"v4"',
+    )
+    assert projections.calls[-1] == ("selection", {
+        "actor": actor, "organization_id": ORG_ID, "selection_id": SELECTION_ID,
+    })
+    before = len(projections.calls)
+    denied = app.handle(request=request, actor=http_actor())
+    assert denied.status == 404
+    assert len(projections.calls) == before
+    cross_org = app.handle(
+        request=MatchingHttpRequest(
+            method="GET",
+            path=f"/v1/organizations/20000000-0000-4000-8000-000000000099/selections/{SELECTION_ID}",
+            headers={}, json_body={},
+        ), actor=actor,
+    )
+    assert cross_org.status == 404
+    assert len(projections.calls) == before
+    query = app.handle(
+        request=MatchingHttpRequest(
+            method="GET", path=request.path, headers={}, json_body={},
+            query={"limit": ("1",)},
+        ), actor=actor,
+    )
+    assert query.status == 400
+    assert len(projections.calls) == before
+
+
+def test_selection_read_supplement_reuses_frozen_response_and_assignment_boundary():
+    contract = yaml.safe_load(
+        (Path(__file__).parents[2] / "contracts/api/matching-selection-read-v1.openapi.yaml").read_text()
+    )
+    path = "/v1/organizations/{organization_id}/selections/{selection_id}"
+    assert set(contract["paths"]) == {path}
+    operation = contract["paths"][path]["get"]
+    assert operation["operationId"] == "getMatchingSelectionById"
+    assert operation["security"] == [{"cookieAuth": []}]
+    assert operation["responses"]["200"]["$ref"] == (
+        "matching-v1.openapi.yaml#/components/responses/SelectionRead"
+    )
+    assert set(operation["responses"]) == {"200", "400", "401", "404", "503"}
 
 
 def test_projection_is_closed_and_rejects_ranking_or_snapshot_drift():

@@ -1,0 +1,47 @@
+# Daily local use; keep the base deployment and historical audit files intact.
+services:
+  api:
+    restart: unless-stopped
+  web:
+    restart: unless-stopped
+  synthetic-oidc:
+    restart: unless-stopped
+  edge:
+    restart: unless-stopped
+    networks:
+      app:
+        aliases:
+          - pilot.example.test
+          - identity.example.test
+
+  docs:
+    profiles: [docs]
+    image: desire-supply-platform:${DESIRE_IMAGE_TAG:-local}
+    command: [python, -m, http.server, "5174", --bind, "0.0.0.0", --directory, /docs]
+    user: "10001:10001"
+    read_only: true
+    init: true
+    restart: unless-stopped
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges=true]
+    logging:
+      driver: local
+      options:
+        max-size: "10m"
+        max-file: "3"
+        compress: "true"
+    volumes:
+      - type: bind
+        source: ./docs
+        target: /docs
+        read_only: true
+        bind:
+          create_host_path: false
+    ports:
+      - "127.0.0.1:5174:5174"
+    networks: [ingress]
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:5174/', timeout=2)"]
+      interval: 10s
+      timeout: 3s
+      retries: 5

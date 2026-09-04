@@ -1952,7 +1952,7 @@ def _validate_schema_contract_constants() -> None:
         or TRUST_SCHEMA_HEAD_VERSION != 22
         or TRUST_REQUIRED_IAM_SCHEMA_VERSION != 46
         or TRUST_REQUIRED_DEMAND_SCHEMA_VERSION != 15
-        or MATCHING_SCHEMA_HEAD_VERSION != 3
+        or MATCHING_SCHEMA_HEAD_VERSION != 9
         or MATCHING_REQUIRED_IAM_SCHEMA_VERSION != 46
     ):
         raise InternalSandboxProductionPlanError(

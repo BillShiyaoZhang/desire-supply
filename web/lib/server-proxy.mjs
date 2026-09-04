@@ -36,6 +36,8 @@ import {
   parseMatchingReviewerAttempt,
   parseMatchingReviewerInvitation,
   parseMatchingSelection,
+  matchesMatchingSelectionAssignmentVersion,
+  matchingUtcTimestampsEqual,
 } from "./matching-contract.mjs";
 
 const LOCAL_ALLOWED_ROUTES = new Map([
@@ -148,6 +150,7 @@ const MATCHING_INVITATION_DETAIL_ROUTE = new RegExp(`^/v1/me/matching-invitation
 const MATCHING_INVITATION_WRITE_ROUTE = new RegExp(`^/v1/me/matching-invitations/(${OPAQUE_ID_SEGMENT})/(accept|decline|withdraw)$`);
 const MATCHING_ATTEMPT_COLLECTION_ROUTE = new RegExp(`^/v1/organizations/(${OPAQUE_ID_SEGMENT})/demands/(${OPAQUE_ID_SEGMENT})/matching-attempts$`);
 const MATCHING_SELECTION_READ_ROUTE = new RegExp(`^/v1/organizations/(${OPAQUE_ID_SEGMENT})/matching-attempts/(${OPAQUE_ID_SEGMENT})/selection$`);
+const MATCHING_SELECTION_ID_READ_ROUTE = new RegExp(`^/v1/organizations/(${OPAQUE_ID_SEGMENT})/selections/(${OPAQUE_ID_SEGMENT})$`);
 const MATCHING_SELECTION_CHOOSE_ROUTE = new RegExp(`^/v1/organizations/(${OPAQUE_ID_SEGMENT})/selections/(${OPAQUE_ID_SEGMENT})/choose$`);
 const MATCHING_SELECTION_CLOSE_ROUTE = new RegExp(`^/v1/organizations/(${OPAQUE_ID_SEGMENT})/selections/(${OPAQUE_ID_SEGMENT})/close$`);
 const MATCHING_ASSIGNMENT_CLAIM_ROUTE = "/v1/matching/candidate-selector-assignments/claim";
@@ -164,6 +167,7 @@ function isMatchingRoutePath(pathname) {
     || MATCHING_INVITATION_WRITE_ROUTE.test(pathname)
     || MATCHING_ATTEMPT_COLLECTION_ROUTE.test(pathname)
     || MATCHING_SELECTION_READ_ROUTE.test(pathname)
+    || MATCHING_SELECTION_ID_READ_ROUTE.test(pathname)
     || MATCHING_SELECTION_CHOOSE_ROUTE.test(pathname)
     || MATCHING_SELECTION_CLOSE_ROUTE.test(pathname)
     || pathname === MATCHING_ASSIGNMENT_CLAIM_ROUTE
@@ -547,7 +551,9 @@ function assertAllowedIamRoute(url, method) {
   const isMatchingInvitationDetail = normalizedMethod === "GET" && MATCHING_INVITATION_DETAIL_ROUTE.test(url.pathname);
   const isMatchingInvitationWrite = normalizedMethod === "POST" && MATCHING_INVITATION_WRITE_ROUTE.test(url.pathname);
   const isMatchingAttemptList = normalizedMethod === "GET" && MATCHING_ATTEMPT_COLLECTION_ROUTE.test(url.pathname);
-  const isMatchingSelectionRead = normalizedMethod === "GET" && MATCHING_SELECTION_READ_ROUTE.test(url.pathname);
+  const isMatchingSelectionRead = normalizedMethod === "GET" && (
+    MATCHING_SELECTION_READ_ROUTE.test(url.pathname) || MATCHING_SELECTION_ID_READ_ROUTE.test(url.pathname)
+  );
   const isMatchingSelectionChoose = normalizedMethod === "POST" && MATCHING_SELECTION_CHOOSE_ROUTE.test(url.pathname);
   const isMatchingSelectionClose = normalizedMethod === "POST" && MATCHING_SELECTION_CLOSE_ROUTE.test(url.pathname);
   const isMatchingAssignmentClaim = normalizedMethod === "POST" && url.pathname === MATCHING_ASSIGNMENT_CLAIM_ROUTE;
@@ -1523,6 +1529,7 @@ export async function createIamProxyRequest(source, baseUrl) {
     || MATCHING_INVITATION_WRITE_ROUTE.test(sourceUrl.pathname);
   const matchingOrganizationId = sourceUrl.pathname.match(MATCHING_ATTEMPT_COLLECTION_ROUTE)?.[1]
     ?? sourceUrl.pathname.match(MATCHING_SELECTION_READ_ROUTE)?.[1]
+    ?? sourceUrl.pathname.match(MATCHING_SELECTION_ID_READ_ROUTE)?.[1]
     ?? sourceUrl.pathname.match(MATCHING_SELECTION_CHOOSE_ROUTE)?.[1]
     ?? sourceUrl.pathname.match(MATCHING_SELECTION_CLOSE_ROUTE)?.[1]
     ?? null;
@@ -1812,6 +1819,7 @@ async function validateMatchingProxyResponse(source, response, forwardedRequest 
   const invitationWrite = pathname.match(MATCHING_INVITATION_WRITE_ROUTE);
   const attemptList = pathname.match(MATCHING_ATTEMPT_COLLECTION_ROUTE);
   const selectionRead = pathname.match(MATCHING_SELECTION_READ_ROUTE);
+  const selectionIdRead = pathname.match(MATCHING_SELECTION_ID_READ_ROUTE);
   const selectionChoose = pathname.match(MATCHING_SELECTION_CHOOSE_ROUTE);
   const selectionClose = pathname.match(MATCHING_SELECTION_CLOSE_ROUTE);
   const assignmentClaim = pathname === MATCHING_ASSIGNMENT_CLAIM_ROUTE;
@@ -1823,7 +1831,7 @@ async function validateMatchingProxyResponse(source, response, forwardedRequest 
   const reviewInvalidate = pathname.match(MATCHING_REVIEW_INVALIDATE_ROUTE);
   const isInvitationList = pathname === MATCHING_INVITATION_COLLECTION_ROUTE;
   const isMatching = isInvitationList || invitationDetail || invitationWrite || attemptList
-    || selectionRead || selectionChoose || selectionClose || assignmentClaim || reviewClaim
+    || selectionRead || selectionIdRead || selectionChoose || selectionClose || assignmentClaim || reviewClaim
     || reviewRead || reviewRelease || reviewCreate || reviewPublish || reviewInvalidate;
   if (!isMatching) return null;
   const traceId = response.headers.get("x-trace-id");
@@ -1877,7 +1885,7 @@ async function validateMatchingProxyResponse(source, response, forwardedRequest 
       if (
         projection.match_run_id !== reviewCreate[1]
         || projection.creator_user_id !== command.creator_user_id
-        || projection.expires_at !== command.expires_at
+        || !matchingUtcTimestampsEqual(projection.expires_at, command.expires_at)
         || projection.status !== "CREATED"
       ) throw new TypeError("INVALID_MATCHING_BACKEND_RESPONSE");
       assertMatchingEntityTag(response.headers.get("etag"), projection.aggregate_version);
@@ -1922,13 +1930,16 @@ async function validateMatchingProxyResponse(source, response, forwardedRequest 
       if (selectionRead && projection.attempt_id !== selectionRead[2]) {
         throw new TypeError("INVALID_MATCHING_BACKEND_RESPONSE");
       }
+      if (selectionIdRead && projection.selection_id !== selectionIdRead[2]) {
+        throw new TypeError("INVALID_MATCHING_BACKEND_RESPONSE");
+      }
       if ((selectionChoose || selectionClose) && projection.selection_id !== (selectionChoose ?? selectionClose)?.[2]) {
         throw new TypeError("INVALID_MATCHING_BACKEND_RESPONSE");
       }
       if ((selectionChoose || selectionClose) && (
         projection.current_invitation_set_sha256 !== command.current_invitation_set_sha256
         || projection.candidate_selector_assignment_id !== command.candidate_selector_assignment_id
-        || projection.candidate_selector_assignment_version !== command.candidate_selector_assignment_version
+        || !matchesMatchingSelectionAssignmentVersion(projection, command.candidate_selector_assignment_version)
       )) throw new TypeError("INVALID_MATCHING_BACKEND_RESPONSE");
       if (selectionChoose && (
         projection.chosen_invitation_id !== command.invitation_id
@@ -1943,7 +1954,7 @@ async function validateMatchingProxyResponse(source, response, forwardedRequest 
   } else {
     const contract = matchingErrorContract({
       isInvitationList, invitationDetail, invitationWrite, attemptList,
-      selectionRead, selectionChoose, selectionClose, assignmentClaim, reviewClaim,
+      selectionRead: selectionRead ?? selectionIdRead, selectionChoose, selectionClose, assignmentClaim, reviewClaim,
       reviewRead, reviewRelease, reviewCreate, reviewPublish, reviewInvalidate,
     });
     if (

@@ -241,7 +241,11 @@ class _RuntimeDependencyReadiness:
                     "('statement_timeout',%s,false)",
                     (timeout_value,),
                 ).fetchone()
-                if configured != (timeout_value,):
+                # PostgreSQL returns canonical units: 1000ms becomes 1s.
+                expected_timeout = (
+                    f"{timeout_ms // 1000}s" if timeout_ms % 1000 == 0 else timeout_value
+                )
+                if configured != (expected_timeout,):
                     raise RuntimeError
                 identity = connection.execute(
                     "SELECT session_user,current_user,"
@@ -341,7 +345,10 @@ class _CaptureAndTrustReadiness:
                     "('statement_timeout',%s,false)",
                     (timeout_value,),
                 ).fetchone()
-                if configured != (timeout_value,):
+                expected_timeout = (
+                    f"{timeout_ms // 1000}s" if timeout_ms % 1000 == 0 else timeout_value
+                )
+                if configured != (expected_timeout,):
                     raise RuntimeError
                 identity = connection.execute(
                     "SELECT session_user,current_user,"

@@ -30,6 +30,7 @@ from desire_platform.matching.adapters.postgres.operational_runtime import (
     MatchingCandidateSelectorClaimRequest,
     MatchingOperationalCommandMaterial,
     MatchingRulePublicationRequest,
+    MatchingRequestedIngestRequest,
     MatchingWorkloadContext,
     PsycopgMatchingAssignmentRuntime,
     PsycopgMatchingCoordinatorRuntime,
@@ -548,7 +549,9 @@ class MatchingMigrationPostgres18Test(unittest.TestCase):
 
     def setUp(self) -> None:
         with self._admin(autocommit=False) as connection:
-            connection.execute("TRUNCATE matching.rule_bundles CASCADE")
+            # A deleted rule graph must not leave publication receipts that
+            # replay successfully without recreating that test-only graph.
+            connection.execute("TRUNCATE matching.rule_bundles,matching.command_receipts CASCADE")
             self._seed_graph(connection)
 
     @classmethod
@@ -802,17 +805,752 @@ class MatchingMigrationPostgres18Test(unittest.TestCase):
             ),
         )
 
+    def test_operational_ingest_creates_exact_graph_and_replays_source(self) -> None:
+        from dataclasses import replace
+        with self._admin(autocommit=False) as connection:
+            connection.execute("TRUNCATE matching.rule_bundles CASCADE")
+        def identifier(group, ordinal):
+            return UUID(int=(0xDE51 << 112) + (group << 32) + ordinal, version=4)
+        rule = load_default_rule_release_v1()
+        context = MatchingWorkloadContext(workload_id=UUID(WORKLOAD_ID), authority_marker_sha256=MARKER)
+        worker = PsycopgMatchingWorkerRuntime(connections=_RuntimeConnections(
+            self.postgres.conninfo(database=self.database, user="matching_worker")))
+
+        def material(group, events):
+            return MatchingOperationalCommandMaterial(
+                receipt_id=identifier(group, 1), command_id=identifier(group, 2),
+                identity_key_id="matching-idempotency-v1",
+                identity_digest=hashlib.sha256(f"ingest-regression-identity-{group}".encode()).digest(),
+                payload_hash_key_id="matching-payload-v1",
+                payload_hash=hashlib.sha256(f"ingest-regression-payload-{group}".encode()).digest(),
+                audit_event_id=identifier(group, 3),
+                outbox_event_ids=tuple(identifier(group, 4 + i) for i in range(events)),
+                correlation_id=identifier(group, 7), trace_id=identifier(group, 8),
+            )
+
+        worker.publish_rule_bundle(MatchingRulePublicationRequest(
+            context=context, organization_id=UUID(ORGANIZATION_ID), rule=rule,
+            signature_key_id="matching-rule-review-v1", review_approval_id=identifier(30, 9),
+            review_approval_version=1, material=material(30, 1),
+        ))
+        source_id, demand_id = identifier(31, 10), identifier(31, 11)
+        requested = {
+            "source_event_id": str(source_id), "event_type": "MatchingRequested", "schema_version": 1,
+            "aggregate_type": "Demand", "source_aggregate_id": str(demand_id), "source_aggregate_version": 12,
+            "original_actor_user_id": CREATOR_ID, "organization_id": ORGANIZATION_ID, "demand_id": str(demand_id),
+            "demand_version_id": str(identifier(31, 12)), "envelope_sha256": HASH.hex(),
+            "demand_content_sha256": OTHER_HASH.hex(), "demand_aggregate_version": 12,
+            "matching_request_id": str(identifier(31, 13)), "matching_request_version": 1,
+            "funding_id": str(identifier(31, 14)), "composite_rule_requirement_id": str(identifier(31, 15)),
+            "matching_rule_bundle_id": rule.bundle_id, "matching_selector_digest": rule.selector_digest,
+            "rule_requirement_sha256": HASH.hex(), "authorization_digest": MARKER.hex(),
+            "authorized_workload_principal_id": WORKLOAD_ID,
+        }
+        request = MatchingRequestedIngestRequest(
+            context=context, organization_id=UUID(ORGANIZATION_ID), requested=requested,
+            attempt_id=identifier(31, 20), run_id=identifier(31, 21), job_id=identifier(31, 22),
+            selection_id=identifier(31, 23), coordinator_workload_id=identifier(31, 24),
+            coordinator_authority_marker_sha256=OTHER_MARKER, material=material(31, 2),
+        )
+        first = worker.ingest_matching_requested(request)
+        replay = worker.ingest_matching_requested(request)
+        source_replay = worker.ingest_matching_requested(replace(request, material=material(32, 2)))
+        self.assertEqual((first.status, first.replayed), ("OPEN", False))
+        self.assertTrue(replay.replayed)
+        self.assertTrue(source_replay.replayed)
+        self.assertEqual(first.attempt_id, source_replay.attempt_id)
+        with self._admin() as connection:
+            self.assertEqual(connection.execute(
+                "SELECT status,target_attempt_id,original_actor_user_id FROM matching.source_inbox "
+                "WHERE consumer_name='matching-requested-v1' AND source_event_id=%s", (source_id,)
+            ).fetchone(), ("COMPLETED", request.attempt_id, UUID(CREATOR_ID)))
+            self.assertEqual(connection.execute(
+                "SELECT a.demand_id,a.status,r.status,j.status,s.status FROM matching.matching_attempts a "
+                "JOIN matching.match_runs r ON r.id=a.current_match_run_id "
+                "JOIN matching.match_jobs j ON j.match_run_id=r.id "
+                "JOIN matching.selections s ON s.id=a.selection_id WHERE a.source_event_id=%s", (source_id,)
+            ).fetchall(), [(demand_id, "OPEN", "QUEUED", "AVAILABLE", "OPEN")])
+            self.assertEqual(connection.execute(
+                "SELECT count(*) FROM infra.outbox_events WHERE event_id=ANY(%s)",
+                (list(request.material.outbox_event_ids),)
+            ).fetchone(), (2,))
+
+    def test_zero_eligible_worker_and_coordinator_close_both_contexts(self) -> None:
+        from uuid import uuid4
+        from desire_platform.creator_profile.adapters.postgres import PsycopgCreatorProfileMatcherRepository
+        from desire_platform.demand.adapters.postgres import (
+            DemandPostgresOperation, PsycopgDemandMatchingRepository, PsycopgDemandMatchingRuntime,
+            PsycopgDemandRuleCatalog, PsycopgDemandUnitOfWorkFactory,
+        )
+        from desire_platform.internal_pilot.contract_validation import DemandPostgresContractValidator
+        from desire_platform.internal_pilot.matching_workflow import (
+            MatchingSystemWorkflow, MatchingWorkflowTarget, PsycopgMatchingWorkflowTargetReader,
+        )
+        from desire_platform.matching.adapters.postgres.operational_runtime import (
+            MatchingCoordinatorProcess, MatchingOperationalKeyRing, MatchingWorkerProcess,
+            MATCHING_OPERATIONAL_WORKLOAD_ID, MATCHING_OPERATIONAL_AUTHORITY_MARKER_SHA256,
+        )
+        from desire_platform.trust_safety.adapters.postgres import PsycopgTrustDemandSafetyHoldProvider
+        from tests.support import demand_postgres_builders as demand
+
+        def source(role):
+            return _RuntimeConnections(self.postgres.conninfo(database=self.database, user=role))
+
+        with self._admin(autocommit=False) as connection:
+            connection.execute("TRUNCATE matching.rule_bundles CASCADE")
+            demand.reset_demand_postgres_state(connection)
+            demand.seed_demand_operation_graph(connection, DemandPostgresOperation.REQUEST_MATCHING_SYSTEM)
+        validator = DemandPostgresContractValidator()
+        system = source("demand_system")
+        holds = PsycopgTrustDemandSafetyHoldProvider(decision_connections=source("trust_decision"))
+        requested = MatchingSystemWorkflow(
+            targets=PsycopgMatchingWorkflowTargetReader(connections=system),
+            rules=PsycopgDemandRuleCatalog(connections=source("demand_self")), holds=holds,
+            writer=PsycopgDemandUnitOfWorkFactory(connections=system,
+                event_validator=validator, response_validator=validator),
+            idempotency_key=b"i" * 32, payload_key=b"p" * 32,
+        ).request(MatchingWorkflowTarget(demand.ORGANIZATION_ID, demand.DEMAND_ID, 1, uuid4()))
+        self.assertEqual(requested.status, "MATCHING")
+        worker_context = MatchingWorkloadContext(workload_id=MATCHING_OPERATIONAL_WORKLOAD_ID,
+            authority_marker_sha256=MATCHING_OPERATIONAL_AUTHORITY_MARKER_SHA256)
+        coordinator_context = MatchingWorkloadContext(workload_id=uuid4(), authority_marker_sha256=OTHER_MARKER)
+        keys = MatchingOperationalKeyRing(identity_key_id="matching-idempotency-v1", identity_key=b"i" * 32,
+            payload_hash_key_id="matching-payload-v1", payload_hash_key=b"p" * 32,
+            lease_digest_key_id="matching-lease-v1", lease_digest_key=b"l" * 32)
+        worker = MatchingWorkerProcess(
+            runtime=PsycopgMatchingWorkerRuntime(connections=source("matching_worker")),
+            demand_delivery=PsycopgDemandMatchingRuntime(delivery_connections=source("demand_matching"),
+                coordinator_connections=source("matching_coordinator")),
+            demand_capture=PsycopgDemandMatchingRepository(connections=source("demand_matching")),
+            profile_capture=PsycopgCreatorProfileMatcherRepository(connections=source("profile_matcher")),
+            context=worker_context, coordinator_context=coordinator_context, keys=keys,
+            default_rule=load_default_rule_release_v1(),
+        )
+        coordinator = MatchingCoordinatorProcess(
+            runtime=PsycopgMatchingCoordinatorRuntime(connections=source("matching_coordinator")),
+            context=coordinator_context, keys=keys, trust_evidence=holds,
+        )
+        self.assertEqual(worker.run_once().status, "DELIVERY_INGESTED")
+        self.assertEqual(worker.run_once().status, "MATCH_COMPLETED")
+        self.assertEqual(coordinator.run_once().status, "SELECTION_COMPLETED")
+        self.assertEqual(coordinator.run_once().status, "IDLE")
+        with self._admin() as connection:
+            self.assertEqual(connection.execute(
+                "SELECT d.status,r.status,a.status,s.status,j.status FROM demand.demands d "
+                "JOIN demand.matching_requests r ON r.demand_id=d.id "
+                "JOIN matching.matching_attempts a ON a.matching_request_id=r.id "
+                "JOIN matching.selections s ON s.id=a.selection_id "
+                "JOIN matching.selection_completion_jobs j ON j.selection_id=s.id WHERE d.id=%s",
+                (demand.DEMAND_ID,),
+            ).fetchone(), (
+                "NO_MATCH", "CLOSED", "CLOSED_NO_SELECTION",
+                "CLOSED_NO_SELECTION", "COMPLETED",
+            ))
+
+    def test_disclosure_timestamp_preserves_microseconds_in_non_utc_session(self) -> None:
+        from tests.support import demand_postgres_builders as demand
+        with self._admin(autocommit=False) as connection:
+            connection.execute("SET LOCAL TIME ZONE 'America/New_York'")
+            actual = connection.execute(
+                "SELECT matching.expected_invitation_disclosure_v1("
+                "%s,%s,%s,%s,%s,%s,%s,%s::timestamptz,%s,%s,%s::jsonb)->>'expires_at'",
+                (INVITATION_ID, ORGANIZATION_ID, ATTEMPT_ID, DEMAND_ID,
+                 DEMAND_VERSION_ID, PROFILE_ID, PROFILE_VERSION_ID,
+                 "2026-09-06T19:42:12.123456+12:00", MARKER, OTHER_MARKER,
+                 json.dumps({"content": demand.thaw_json(demand.valid_content())})),
+            ).fetchone()[0]
+        self.assertEqual(actual, "2026-09-06T07:42:12.123456Z")
+
+    def test_review_claim_and_replay_from_real_capture(self) -> None:
+        self._assert_full_review_completion_from_real_capture(choose=True)
+
+    def test_close_completion_and_replay_from_real_capture(self) -> None:
+        self._assert_full_review_completion_from_real_capture(choose=False)
+
+    def _assert_full_review_completion_from_real_capture(self, *, choose: bool) -> None:
+        from dataclasses import replace
+        from uuid import uuid4
+        from unittest.mock import patch
+        from tests.support import creator_profile_postgres_builders as profile
+        from desire_platform.creator_profile.adapters.postgres import CreatorProfilePostgresOperation
+        from desire_platform.matching.adapters.postgres.operational_runtime import (
+            MatchingReviewContext, MatchingReviewClaimRequest, PsycopgMatchingReviewRuntime,
+            MatchingReviewPrepareInvitationRequest, MatchingReviewCreateInvitationRequest,
+            MatchingReviewCreateInvitationReplayRequest, MatchingReviewPublishInvitationRequest,
+            MatchingTrustEvidence,
+        )
+        from desire_platform.matching.adapters.postgres.runtime import MatchingPostgresRejectedError
+        from desire_platform.creator_profile.adapters.postgres import PsycopgCreatorProfileMatcherRepository
+        from desire_platform.demand.adapters.postgres import (
+            DemandPostgresOperation, PsycopgDemandMatchingRepository, PsycopgDemandMatchingRuntime,
+            PsycopgDemandRuleCatalog, PsycopgDemandUnitOfWorkFactory,
+        )
+        from desire_platform.internal_pilot.contract_validation import DemandPostgresContractValidator
+        from desire_platform.internal_pilot.matching_workflow import (
+            MatchingSystemWorkflow, MatchingWorkflowTarget, PsycopgMatchingWorkflowTargetReader,
+        )
+        from desire_platform.matching.adapters.postgres.operational_runtime import (
+            MatchingCoordinatorProcess, MatchingOperationalKeyRing, MatchingWorkerProcess,
+            MATCHING_OPERATIONAL_WORKLOAD_ID, MATCHING_OPERATIONAL_AUTHORITY_MARKER_SHA256,
+        )
+        from desire_platform.trust_safety.adapters.postgres import PsycopgTrustDemandSafetyHoldProvider
+        from tests.support import demand_postgres_builders as demand
+
+        def source(role):
+            return _RuntimeConnections(self.postgres.conninfo(database=self.database, user=role))
+
+        reviewer_id, reviewer_session_id, reviewer_family_id = uuid4(), uuid4(), uuid4()
+
+        def cleanup_fixture():
+            with self._admin(autocommit=False) as connection:
+                connection.execute("SET LOCAL session_replication_role='replica'")
+                connection.execute("DELETE FROM iam.membership_role_grants WHERE organization_id=%s", (demand.ORGANIZATION_ID,))
+                connection.execute("DELETE FROM iam.memberships WHERE organization_id=%s", (demand.ORGANIZATION_ID,))
+                connection.execute("DELETE FROM iam.organizations WHERE id=%s", (demand.ORGANIZATION_ID,))
+                connection.execute("DELETE FROM iam.platform_duty_grants WHERE user_id=%s", (reviewer_id,))
+                connection.execute("DELETE FROM iam.sessions WHERE id=%s", (reviewer_session_id,))
+                connection.execute("DELETE FROM iam.session_families WHERE id=%s", (reviewer_family_id,))
+                connection.execute("DELETE FROM iam.users WHERE id=%s", (reviewer_id,))
+                profile.reset_creator_profile_database(connection)
+
+        self.addCleanup(cleanup_fixture)
+        with self._admin(autocommit=False) as connection:
+            connection.execute("TRUNCATE matching.rule_bundles CASCADE")
+            demand.reset_demand_postgres_state(connection)
+            fixture_content = demand.thaw_json(demand.valid_content())
+            fixture_content["skills"]["must_have"] = [
+                {"skill_code": "SKILL.RESEARCH", "minimum_level_code": "WORKING"}
+            ]
+            fixture_content["collaboration"]["work_mode"] = "REMOTE"
+            fixture_content["location"]["allowed_creator_region_codes"] = []
+            with patch.object(demand, "valid_content", return_value=demand.freeze_json(fixture_content)):
+                demand.seed_demand_operation_graph(connection, DemandPostgresOperation.REQUEST_MATCHING_SYSTEM)
+            profile.seed_creator_profile_prestate(connection, CreatorProfilePostgresOperation.CAPTURE_DERIVED_MATCH_INPUTS)
+            connection.execute("SET LOCAL session_replication_role='replica'")
+            connection.execute(
+                "INSERT INTO iam.organizations SELECT (jsonb_populate_record(NULL::iam.organizations, "
+                "to_jsonb(org)||jsonb_build_object('id',%s::text,'client_reference',%s::text))).* "
+                "FROM iam.organizations AS org WHERE org.id=%s",
+                (demand.ORGANIZATION_ID, demand.ORGANIZATION_ID, ORGANIZATION_ID),
+            )
+            membership_id = uuid4()
+            membership_invitation_id = uuid4()
+            connection.execute(
+                "INSERT INTO iam.memberships SELECT (jsonb_populate_record(NULL::iam.memberships, "
+                "to_jsonb(member)||jsonb_build_object('id',%s::text,'organization_id',%s::text,'source_invitation_id',%s::text))).* "
+                "FROM iam.memberships AS member WHERE member.id=%s",
+                (membership_id, demand.ORGANIZATION_ID, membership_invitation_id, SELECTOR_MEMBERSHIP_ID),
+            )
+            connection.execute(
+                "INSERT INTO iam.membership_role_grants SELECT (jsonb_populate_record(NULL::iam.membership_role_grants, "
+                "to_jsonb(grant_row)||jsonb_build_object('id',%s::text,'organization_id',%s::text,'membership_id',%s::text,'source_invitation_id',%s::text))).* "
+                "FROM iam.membership_role_grants AS grant_row WHERE grant_row.id=%s",
+                (uuid4(), demand.ORGANIZATION_ID, membership_id, membership_invitation_id, SELECTOR_MEMBERSHIP_ROLE_GRANT_ID),
+            )
+        validator = DemandPostgresContractValidator()
+        system = source("demand_system")
+        holds = PsycopgTrustDemandSafetyHoldProvider(decision_connections=source("trust_decision"))
+        requested = MatchingSystemWorkflow(
+            targets=PsycopgMatchingWorkflowTargetReader(connections=system),
+            rules=PsycopgDemandRuleCatalog(connections=source("demand_self")), holds=holds,
+            writer=PsycopgDemandUnitOfWorkFactory(connections=system,
+                event_validator=validator, response_validator=validator),
+            idempotency_key=b"i" * 32, payload_key=b"p" * 32,
+        ).request(MatchingWorkflowTarget(demand.ORGANIZATION_ID, demand.DEMAND_ID, 1, uuid4()))
+        self.assertEqual(requested.status, "MATCHING")
+        worker_context = MatchingWorkloadContext(workload_id=MATCHING_OPERATIONAL_WORKLOAD_ID,
+            authority_marker_sha256=MATCHING_OPERATIONAL_AUTHORITY_MARKER_SHA256)
+        coordinator_context = MatchingWorkloadContext(workload_id=uuid4(), authority_marker_sha256=OTHER_MARKER)
+        keys = MatchingOperationalKeyRing(identity_key_id="matching-idempotency-v1", identity_key=b"i" * 32,
+            payload_hash_key_id="matching-payload-v1", payload_hash_key=b"p" * 32,
+            lease_digest_key_id="matching-lease-v1", lease_digest_key=b"l" * 32)
+        worker = MatchingWorkerProcess(
+            runtime=PsycopgMatchingWorkerRuntime(connections=source("matching_worker")),
+            demand_delivery=PsycopgDemandMatchingRuntime(delivery_connections=source("demand_matching"),
+                coordinator_connections=source("matching_coordinator")),
+            demand_capture=PsycopgDemandMatchingRepository(connections=source("demand_matching")),
+            profile_capture=PsycopgCreatorProfileMatcherRepository(connections=source("profile_matcher")),
+            context=worker_context, coordinator_context=coordinator_context, keys=keys,
+            default_rule=load_default_rule_release_v1(),
+        )
+        coordinator = MatchingCoordinatorProcess(
+            runtime=PsycopgMatchingCoordinatorRuntime(connections=source("matching_coordinator")),
+            context=coordinator_context, keys=keys, trust_evidence=holds,
+        )
+        self.assertEqual(worker.run_once().status, "DELIVERY_INGESTED")
+        self.assertEqual(worker.run_once().status, "MATCH_COMPLETED")
+        with self._admin() as connection:
+            candidates = connection.execute(
+                "SELECT eligibility,exclusion_reason_codes FROM matching.match_candidates"
+            ).fetchall()
+            self.assertEqual(candidates, [("ELIGIBLE", [])])
+        with self._admin(autocommit=False) as connection:
+            connection.execute("SET LOCAL session_replication_role='replica'")
+            connection.execute(
+                "INSERT INTO iam.users (id,status,display_handle,aggregate_version,created_at,updated_at) "
+                "VALUES (%s,'ACTIVE',%s,1,transaction_timestamp(),transaction_timestamp())",
+                (reviewer_id, "matching_reviewer_" + reviewer_id.hex),
+            )
+            connection.execute(
+                "INSERT INTO iam.session_families "
+                "(id,user_id,status,current_generation,aggregate_version,created_at,updated_at) "
+                "VALUES (%s,%s,'ACTIVE',1,1,transaction_timestamp(),transaction_timestamp())",
+                (reviewer_family_id, reviewer_id),
+            )
+            connection.execute(
+                "INSERT INTO iam.sessions SELECT (jsonb_populate_record(NULL::iam.sessions, "
+                "to_jsonb(session)||jsonb_build_object('id',%s::text,'user_id',%s::text,"
+                "'family_id',%s::text,'handle_digest',%s::bytea,"
+                "'auth_time',transaction_timestamp()-interval '1 minute',"
+                "'created_at',transaction_timestamp()-interval '30 seconds',"
+                "'last_activity_at',transaction_timestamp()-interval '10 seconds'))).* "
+                "FROM iam.sessions AS session WHERE session.id=%s",
+                (reviewer_session_id, reviewer_id, reviewer_family_id,
+                 hashlib.sha256(reviewer_session_id.bytes).digest(), SELECTOR_SESSION_ID),
+            )
+            connection.execute(
+                "INSERT INTO iam.platform_duty_grants "
+                "(id,user_id,duty_code,granted_by_kind,granted_by_id,granted_at,aggregate_version,created_at,updated_at) "
+                "VALUES (%s,%s,'OPERATIONS_REVIEWER','SYSTEM',%s,transaction_timestamp(),1,"
+                "transaction_timestamp(),transaction_timestamp())",
+                (uuid4(), reviewer_id, uuid4()),
+            )
+        with source("iam_app").checkout() as connection:
+            connection.autocommit = False
+            for key, value in (
+                ("app.scope_kind", "EDITOR_PRINCIPAL"),
+                ("app.actor_user_id", str(reviewer_id)),
+                ("app.session_id", str(reviewer_session_id)),
+            ):
+                connection.execute("SELECT set_config(%s,%s,true)", (key, value))
+            row = connection.execute(
+                "SELECT principal_marker_sha256 FROM iam_api.resolve_editor_principal_v1(%s,%s) LIMIT 1",
+                (reviewer_id, reviewer_session_id),
+            ).fetchone()
+            self.assertIsNotNone(row)
+            reviewer_marker = bytes(row[0])
+        reviewer = PsycopgMatchingReviewRuntime(connections=source("matching_review"))
+        reviewer_context = MatchingReviewContext(
+            actor_user_id=reviewer_id,
+            session_id=reviewer_session_id,
+            principal_marker_sha256=reviewer_marker,
+        )
+        nonce = uuid4()
+        material = MatchingOperationalCommandMaterial(
+            receipt_id=uuid4(), command_id=uuid4(),
+            identity_key_id="matching-idempotency-v1",
+            identity_digest=hashlib.sha256(b"id" + nonce.bytes).digest(),
+            payload_hash_key_id="matching-payload-v1",
+            payload_hash=hashlib.sha256(b"payload" + nonce.bytes).digest(),
+            audit_event_id=uuid4(), outbox_event_ids=(uuid4(),),
+            correlation_id=uuid4(), trace_id=uuid4(),
+        )
+        request = MatchingReviewClaimRequest(
+            context=reviewer_context, assignment_id=uuid4(), material=material,
+        )
+        arguments = (
+            reviewer_id, reviewer_session_id, reviewer_marker, request.assignment_id,
+            material.command_id, material.receipt_id, material.identity_key_id,
+            material.identity_digest, material.payload_hash_key_id, material.payload_hash,
+            material.audit_event_id, material.outbox_event_ids[0],
+            material.correlation_id, material.trace_id,
+        )
+        for wrong_setting in (
+            ("app.scope_kind", "MATCHING_REVIEW"),
+            ("app.operation", "READ_MATCHING_REVIEW_ASSIGNMENT"),
+            ("app.organization_id", str(demand.ORGANIZATION_ID)),
+        ):
+            with self.subTest(wrong_setting=wrong_setting):
+                with source("matching_review").checkout() as connection:
+                    connection.autocommit = False
+                    for key, value in (
+                        ("app.scope_kind", "MATCHING_REVIEW_CLAIM"),
+                        ("app.operation", "CLAIM_MATCHING_REVIEW"),
+                        ("app.actor_user_id", str(reviewer_id)),
+                        ("app.session_id", str(reviewer_session_id)),
+                        ("app.authority_marker_sha256", reviewer_marker.hex()),
+                        ("app.command_id", str(material.command_id)),
+                        wrong_setting,
+                    ):
+                        connection.execute("SELECT set_config(%s,%s,true)", (key, value))
+                    with self.assertRaises(psycopg.errors.RaiseException) as denied:
+                        connection.execute(
+                            "SELECT * FROM matching_api.claim_matching_review_v1("
+                            + ",".join(["%s"] * 14) + ")", arguments,
+                        )
+                    self.assertEqual(denied.exception.diag.message_primary, "ACCESS_DENIED")
+        with self._admin() as connection:
+            self.assertEqual(connection.execute(
+                "SELECT (SELECT count(*) FROM matching.matching_review_assignments),"
+                "(SELECT count(*) FROM matching.command_receipts WHERE operation='CLAIM_MATCHING_REVIEW')"
+            ).fetchone(), (0, 0))
+        claim = reviewer.claim_assignment(request)
+        self.assertIsNotNone(claim)
+        self.assertEqual(claim.purpose_code, "INVITATION_REVIEW")
+        self.assertEqual(reviewer.claim_assignment(request).assignment_id, claim.assignment_id)
+        self.assertTrue(reviewer.claim_assignment(request).replayed)
+
+        workspace = reviewer.read_assignment(reviewer_context)
+        self.assertIsNotNone(workspace)
+        invitation_id, snapshot_id = uuid4(), uuid4()
+        expires_at = (datetime.now(timezone.utc) + timedelta(days=7)).replace(microsecond=123456)
+        nonce = uuid4()
+        create_material = replace(material, receipt_id=uuid4(), command_id=uuid4(),
+            identity_digest=hashlib.sha256(b"create-id" + nonce.bytes).digest(),
+            payload_hash=hashlib.sha256(b"create-payload" + nonce.bytes).digest(),
+            audit_event_id=uuid4(), outbox_event_ids=(uuid4(),))
+        replay_request = MatchingReviewCreateInvitationReplayRequest(
+            context=reviewer_context, organization_id=claim.organization_id,
+            match_run_id=claim.match_run_id,
+            expected_match_run_version=workspace.run.aggregate_version,
+            material=create_material,
+        )
+        self.assertIsNone(reviewer.replay_create_invitation(replay_request))
+        prepare_request = MatchingReviewPrepareInvitationRequest(
+            context=reviewer_context, organization_id=claim.organization_id,
+            assignment_id=claim.assignment_id,
+            expected_assignment_version=claim.aggregate_version,
+            match_run_id=claim.match_run_id,
+            expected_match_run_version=workspace.run.aggregate_version,
+            creator_user_id=workspace.eligible_candidates[0].creator_user_id,
+            invitation_id=invitation_id, snapshot_id=snapshot_id, expires_at=expires_at,
+        )
+        prepared = reviewer.prepare_invitation(prepare_request)
+        self.assertEqual(prepared.document["expires_at"], expires_at.isoformat().replace("+00:00", "Z"))
+        evidence = holds.evaluate_for_matching(
+            actor_id=str(reviewer_id), organization_id=str(claim.organization_id),
+            demand_id=str(workspace.attempt.demand_id),
+            prospective_aggregate_version=workspace.attempt.demand_aggregate_version,
+            demand_version_id=str(workspace.attempt.demand_version_id),
+            content_sha256=workspace.attempt.demand_content_sha256.hex(),
+            action="REQUEST_MATCHING", policy_version="demand-safety-hold-v1",
+        )
+        created = reviewer.create_invitation(MatchingReviewCreateInvitationRequest(
+            **prepare_request.__dict__, prepared=prepared,
+            trust=MatchingTrustEvidence(evidence_id=uuid4(),
+                evidence_sha256=evidence.evidence_sha256,
+                evaluated_at=evidence.evaluated_at, valid_until=evidence.valid_until),
+            material=create_material,
+        ))
+        self.assertEqual(created.target_id, str(invitation_id))
+        self.assertEqual(created.target_status, "CREATED")
+        self.assertFalse(created.replayed)
+        # The preflight guard remains strict; recovery must precede this call.
+        with self.assertRaises(MatchingPostgresRejectedError) as duplicate:
+            reviewer.prepare_invitation(prepare_request)
+        self.assertEqual(duplicate.exception.code, "INVITATION_ALREADY_EXISTS")
+        replayed = reviewer.replay_create_invitation(replay_request)
+        self.assertTrue(replayed.replayed)
+        self.assertEqual(replace(replayed, replayed=False), created)
+        for changed in (
+            replace(replay_request, material=replace(create_material, payload_hash=b"x" * 32)),
+            replace(replay_request, expected_match_run_version=workspace.run.aggregate_version + 1),
+        ):
+            with self.assertRaises(MatchingPostgresRejectedError) as rejected:
+                reviewer.replay_create_invitation(changed)
+            self.assertEqual(rejected.exception.code, "IDEMPOTENCY_KEY_REUSED")
+        for changed_context in (
+            replace(reviewer_context, principal_marker_sha256=OTHER_MARKER),
+            replace(reviewer_context, session_id=uuid4()),
+        ):
+            with self.assertRaises(MatchingPostgresRejectedError) as rejected:
+                reviewer.replay_create_invitation(replace(replay_request, context=changed_context))
+            self.assertEqual(rejected.exception.code, "RESOURCE_NOT_FOUND")
+        with source("matching_review").checkout() as connection:
+            connection.autocommit = False
+            with self.assertRaises(psycopg.errors.RaiseException) as rejected:
+                connection.execute(
+                    "SELECT * FROM matching_api.read_create_invitation_receipt_v1("
+                    + ",".join(["%s"] * 10) + ")",
+                    (reviewer_id, reviewer_session_id, reviewer_marker, claim.organization_id,
+                     claim.match_run_id, workspace.run.aggregate_version,
+                     create_material.identity_key_id, create_material.identity_digest,
+                     create_material.payload_hash_key_id, create_material.payload_hash),
+                )
+            self.assertEqual(rejected.exception.diag.message_primary, "ACCESS_DENIED")
+        with self._admin(autocommit=False) as connection:
+            self.assertEqual(connection.execute(
+                "SELECT (SELECT count(*) FROM matching.invitations WHERE id=%s),"
+                "(SELECT count(*) FROM matching.command_receipts WHERE operation='CREATE_INVITATION'),"
+                "(SELECT count(*) FROM infra.outbox_events WHERE event_type='InvitationCreated')",
+                (invitation_id,),
+            ).fetchone(), (1, 1, 1))
+
+        # Read the newly persisted snapshot through the real recipient adapter
+        # and the unchanged public HTTP DTO, including its canonical SHA check.
+        from desire_platform.internal_pilot.matching_postgres import _recipient_data
+        from desire_platform.matching.http import MatchingHttpProjection
+        nonce = uuid4()
+        publish_material = replace(material, receipt_id=uuid4(), command_id=uuid4(),
+            identity_digest=hashlib.sha256(b"publish-id" + nonce.bytes).digest(),
+            payload_hash=hashlib.sha256(b"publish-payload" + nonce.bytes).digest(),
+            audit_event_id=uuid4(), outbox_event_ids=(uuid4(), uuid4()))
+        publish_evidence = holds.evaluate_for_matching(
+            actor_id=str(reviewer_id), organization_id=str(claim.organization_id),
+            demand_id=str(workspace.attempt.demand_id),
+            prospective_aggregate_version=workspace.attempt.demand_aggregate_version,
+            demand_version_id=str(workspace.attempt.demand_version_id),
+            content_sha256=workspace.attempt.demand_content_sha256.hex(),
+            action="REQUEST_MATCHING", policy_version="demand-safety-hold-v1",
+        )
+        published = reviewer.publish_invitation(MatchingReviewPublishInvitationRequest(
+            context=reviewer_context, organization_id=claim.organization_id,
+            assignment_id=claim.assignment_id,
+            expected_assignment_version=claim.aggregate_version,
+            invitation_id=invitation_id, expected_invitation_version=1,
+            expected_snapshot_sha256=bytes.fromhex(prepared.snapshot.snapshot_sha256),
+            trust=MatchingTrustEvidence(evidence_id=uuid4(),
+                evidence_sha256=publish_evidence.evidence_sha256,
+                evaluated_at=publish_evidence.evaluated_at,
+                valid_until=publish_evidence.valid_until),
+            material=publish_material,
+        ))
+        self.assertEqual((published.target_status, published.aggregate_version), ("SENT", 2))
+        with source("iam_app").checkout() as connection:
+            connection.autocommit = False
+            for key, value in (("app.scope_kind", "EDITOR_PRINCIPAL"),
+                ("app.actor_user_id", CREATOR_ID),
+                ("app.session_id", str(IAM_CREATOR_SESSION_ID))):
+                connection.execute("SELECT set_config(%s,%s,true)", (key, value))
+            creator_principal = connection.execute(
+                "SELECT principal_marker_sha256 FROM iam_api.resolve_editor_principal_v1(%s,%s) LIMIT 1",
+                (CREATOR_ID, IAM_CREATOR_SESSION_ID),
+            ).fetchone()
+            self.assertIsNotNone(creator_principal)
+        creator_context = MatchingCreatorContext(actor_user_id=UUID(CREATOR_ID),
+            session_id=IAM_CREATOR_SESSION_ID, authority_marker_sha256=bytes(creator_principal[0]))
+        recipient_runtime = self._runtime()
+        page = recipient_runtime.list_creator_invitations(context=creator_context, limit=10)
+        self.assertEqual(len(page.items), 1)
+        public_list = MatchingHttpProjection(kind="RECIPIENT_INVITATION_LIST",
+            data={"items": [_recipient_data(item) for item in page.items], "next_cursor": None})
+        detail = recipient_runtime.read_creator_invitation(context=creator_context, invitation_id=invitation_id)
+        self.assertIsNotNone(detail)
+        public_detail = MatchingHttpProjection(kind="RECIPIENT_INVITATION",
+            data=_recipient_data(detail), entity_tag='"v2"')
+        self.assertEqual(public_list.as_json()["items"], [public_detail.as_json()])
+        self.assertEqual(public_detail.as_json()["disclosure"]["expires_at"], prepared.document["expires_at"])
+        self.assertEqual(public_detail.as_json()["snapshot_sha256"], prepared.snapshot.snapshot_sha256)
+        with self._admin(autocommit=False) as connection:
+            connection.execute(
+                "UPDATE matching.matching_review_assignments "
+                "SET created_at=transaction_timestamp()-interval '2 minutes',"
+                "expires_at=transaction_timestamp()-interval '1 second' "
+                "WHERE id=%s", (claim.assignment_id,),
+            )
+        with self.assertRaises(MatchingPostgresRejectedError) as expired:
+            reviewer.replay_create_invitation(replay_request)
+        self.assertEqual(expired.exception.code, "RESOURCE_NOT_FOUND")
+
+        response_operation = CreatorInvitationOperation.ACCEPT if choose else CreatorInvitationOperation.DECLINE
+        response_request = replace(self._creator_request(operation=response_operation, ordinal=13),
+            creator=creator_context, organization_id=claim.organization_id,
+            invitation_id=invitation_id,
+            expected_snapshot_sha256=bytes.fromhex(prepared.snapshot.snapshot_sha256),
+            reason_code=None if choose else "RECIPIENT_DECLINED")
+        respond = recipient_runtime.accept_invitation if choose else recipient_runtime.decline_invitation
+        responded = respond(response_request)
+        self.assertEqual(responded.invitation.status, "ACCEPTED" if choose else "DECLINED")
+        self.assertTrue(respond(response_request).replayed)
+        with source("iam_app").checkout() as connection:
+            connection.autocommit = False
+            for key, value in (("app.scope_kind", "EDITOR_PRINCIPAL"),
+                ("app.actor_user_id", SELECTOR_ID), ("app.session_id", SELECTOR_SESSION_ID)):
+                connection.execute("SELECT set_config(%s,%s,true)", (key, value))
+            owner_marker = bytes(connection.execute(
+                "SELECT principal_marker_sha256 FROM iam_api.resolve_editor_principal_v1(%s,%s) LIMIT 1",
+                (SELECTOR_ID, SELECTOR_SESSION_ID),
+            ).fetchone()[0])
+        nonce = uuid4()
+        assignment_runtime = PsycopgMatchingAssignmentRuntime(connections=source("matching_assignment"))
+        selector_claim = assignment_runtime.claim_candidate_selector(MatchingCandidateSelectorClaimRequest(
+            context=MatchingAssignmentContext(actor_user_id=UUID(SELECTOR_ID),
+                session_id=UUID(SELECTOR_SESSION_ID), organization_id=claim.organization_id,
+                principal_marker_sha256=owner_marker), demand_id=workspace.attempt.demand_id,
+            assignment_id=uuid4(), material=replace(material, receipt_id=uuid4(), command_id=uuid4(),
+                identity_digest=hashlib.sha256(b"selector-id" + nonce.bytes).digest(),
+                payload_hash=hashlib.sha256(b"selector-payload" + nonce.bytes).digest(),
+                audit_event_id=uuid4(), outbox_event_ids=(uuid4(),))))
+        selector_context = MatchingSelectorContext(actor_user_id=UUID(SELECTOR_ID),
+            session_id=UUID(SELECTOR_SESSION_ID), organization_id=claim.organization_id,
+            selection_id=selector_claim.selection_id, assignment_id=selector_claim.assignment_id,
+            assignment_version=selector_claim.assignment_version, authority_marker_sha256=owner_marker)
+        selector_discovery = MatchingSelectorDiscoveryContext(actor_user_id=UUID(SELECTOR_ID),
+            session_id=UUID(SELECTOR_SESSION_ID), organization_id=claim.organization_id,
+            authority_marker_sha256=owner_marker)
+        selection_before = recipient_runtime.read_selection(context=selector_context)
+        self.assertIsNotNone(selection_before)
+        decision_request = replace(self._selector_request(
+            operation=CandidateSelectionOperation.CHOOSE if choose else CandidateSelectionOperation.CLOSE,
+            selection_version=selection_before.aggregate_version,
+            invitation_set_sha256=bytes.fromhex(selection_before.current_invitation_set_sha256), ordinal=14),
+            selector=selector_context, invitation_id=invitation_id if choose else None)
+        decide = recipient_runtime.choose_creator if choose else recipient_runtime.close_selection
+        decision = decide(decision_request)
+        self.assertEqual(decision.selection.status, "PENDING_CHOICE" if choose else "PENDING_CLOSE")
+        self.assertTrue(decide(decision_request).replayed)
+        self._assert_coordinator_intent_receipt_visibility(
+            organization_id=claim.organization_id, selection_id=selector_claim.selection_id,
+            receipt_id=decision_request.material.receipt_id, context=coordinator_context)
+
+        captured_completions = []
+        class RecordingCoordinatorRuntime(PsycopgMatchingCoordinatorRuntime):
+            def complete_claimed_selection(inner, request):
+                captured_completions.append(request)
+                return super().complete_claimed_selection(request)
+        completion_runtime = RecordingCoordinatorRuntime(connections=source("matching_coordinator"))
+        completion_process = MatchingCoordinatorProcess(runtime=completion_runtime,
+            context=coordinator_context, keys=keys, trust_evidence=holds)
+        self.assertEqual(completion_process.run_once().status, "SELECTION_COMPLETED")
+        self.assertEqual(len(captured_completions), 1)
+        self.assertTrue(completion_runtime.complete_claimed_selection(captured_completions[0]).replayed)
+        self.assertEqual(completion_process.run_once().status, "IDLE")
+        terminal = recipient_runtime.read_selection_by_id(context=selector_discovery,
+            selection_id=selector_claim.selection_id)
+        self.assertIsNotNone(terminal)
+        self.assertEqual(terminal.status, "SELECTED" if choose else "CLOSED_NO_SELECTION")
+        from desire_platform.internal_pilot.matching_postgres import _selection_data
+        MatchingHttpProjection(kind="SELECTION", data=_selection_data(terminal), entity_tag=terminal.entity_tag)
+        self.assertIsNone(recipient_runtime.read_selection_by_attempt(context=selector_discovery,
+            attempt_id=claim.attempt_id))
+        self.assertEqual(recipient_runtime.list_selector_attempts(context=selector_discovery,
+            demand_id=workspace.attempt.demand_id, limit=10).items, ())
+        self.assertIsNone(recipient_runtime.read_selection_by_id(
+            context=replace(selector_discovery, session_id=uuid4()), selection_id=selector_claim.selection_id))
+        with self._admin() as connection:
+            self.assertEqual(connection.execute(
+                "SELECT d.status,d.current_matching_request_id=r.id,r.status,a.status,s.status,j.status,j.attempt_count "
+                "FROM demand.demands d JOIN demand.matching_requests r ON r.demand_id=d.id "
+                "JOIN matching.matching_attempts a ON a.demand_id=d.id AND a.matching_request_id=r.id "
+                "JOIN matching.selections s ON s.id=a.selection_id "
+                "JOIN matching.selection_completion_jobs j ON j.selection_id=s.id WHERE d.id=%s",
+                (workspace.attempt.demand_id,),
+            ).fetchone(), ("MATCHED" if choose else "NO_MATCH", True if choose else None, "CLOSED",
+                "SELECTED" if choose else "CLOSED_NO_SELECTION",
+                "SELECTED" if choose else "CLOSED_NO_SELECTION", "COMPLETED", 1))
+
+    def _assert_coordinator_intent_receipt_visibility(self, *, organization_id, selection_id, receipt_id, context) -> None:
+        from uuid import uuid4
+        with self._admin(autocommit=False) as connection:
+            connection.execute(
+                "CREATE FUNCTION matching_api.test_completion_receipt_visibility(target uuid) RETURNS bigint "
+                "LANGUAGE sql SECURITY DEFINER SET search_path=pg_catalog,matching AS "
+                "'SELECT count(*) FROM matching.command_receipts WHERE id=target'"
+            )
+            connection.execute("ALTER FUNCTION matching_api.test_completion_receipt_visibility(uuid) OWNER TO matching_schema_owner")
+            connection.execute("REVOKE ALL ON FUNCTION matching_api.test_completion_receipt_visibility(uuid) FROM PUBLIC")
+            connection.execute("GRANT EXECUTE ON FUNCTION matching_api.test_completion_receipt_visibility(uuid) TO matching_coordinator")
+        try:
+            for changed in ({},
+                {"app.organization_id": str(uuid4())},
+                {"app.selection_id": str(uuid4())},
+                {"app.workload_id": str(uuid4())},
+                {"app.authority_marker_sha256": MARKER.hex()},
+                {"app.operation": "CLAIM_SELECTION_COMPLETION"},
+                {"app.scope_kind": "MATCHING_COORDINATOR_CLAIM"},
+            ):
+                with self.subTest(visibility_scope=tuple(changed)):
+                    with psycopg.connect(self.postgres.conninfo(database=self.database, user="matching_coordinator")) as connection:
+                        scope = {"app.scope_kind": "MATCHING_COORDINATOR", "app.operation": "COMPLETE_SELECTION",
+                            "app.organization_id": str(organization_id), "app.selection_id": str(selection_id),
+                            "app.workload_id": str(context.workload_id),
+                            "app.authority_marker_sha256": context.authority_marker_sha256.hex()}
+                        scope.update(changed)
+                        for key, value in scope.items():
+                            connection.execute("SELECT set_config(%s,%s,true)", (key, value))
+                        self.assertEqual(connection.execute(
+                            "SELECT matching_api.test_completion_receipt_visibility(%s)", (receipt_id,)
+                        ).fetchone(), (0 if changed else 1,))
+            with psycopg.connect(self.postgres.conninfo(database=self.database, user="matching_coordinator")) as connection:
+                with self.assertRaises(psycopg.errors.InsufficientPrivilege):
+                    connection.execute("SELECT id FROM matching.command_receipts WHERE id=%s", (receipt_id,))
+        finally:
+            with self._admin(autocommit=False) as connection:
+                connection.execute("DROP FUNCTION matching_api.test_completion_receipt_visibility(uuid)")
+
+    def test_review_claim_policies_allow_locks_but_no_direct_access_or_updates(self) -> None:
+        with self._admin(autocommit=False) as connection:
+            connection.execute(
+                "CREATE FUNCTION matching_api.test_review_claim_update_probe_v1(target uuid, is_run boolean) "
+                "RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,matching AS "
+                "'BEGIN IF is_run THEN UPDATE matching.match_runs SET aggregate_version=aggregate_version+1 WHERE id=target; "
+                "ELSE UPDATE matching.matching_attempts SET aggregate_version=aggregate_version+1 WHERE id=target; END IF; END'"
+            )
+            connection.execute("ALTER FUNCTION matching_api.test_review_claim_update_probe_v1(uuid,boolean) OWNER TO matching_schema_owner")
+            connection.execute("REVOKE ALL ON FUNCTION matching_api.test_review_claim_update_probe_v1(uuid,boolean) FROM PUBLIC")
+            connection.execute("GRANT EXECUTE ON FUNCTION matching_api.test_review_claim_update_probe_v1(uuid,boolean) TO matching_review")
+        try:
+            for table in ("match_run_results", "match_candidates", "match_run_inputs"):
+                with self.subTest(table=table):
+                    with psycopg.connect(self.postgres.conninfo(database=self.database, user="matching_review")) as connection:
+                        with self.assertRaises(psycopg.errors.InsufficientPrivilege):
+                            connection.execute("SELECT * FROM matching." + table)
+            for target, is_run in ((ATTEMPT_ID, False), (RUN_ID, True)):
+                with self.subTest(is_run=is_run):
+                    with psycopg.connect(self.postgres.conninfo(database=self.database, user="matching_review")) as connection:
+                        for key, value in (
+                            ("app.scope_kind", "MATCHING_REVIEW_CLAIM"),
+                            ("app.operation", "CLAIM_MATCHING_REVIEW"),
+                        ):
+                            connection.execute("SELECT set_config(%s,%s,true)", (key, value))
+                        with self.assertRaises(psycopg.errors.InsufficientPrivilege):
+                            connection.execute("SELECT matching_api.test_review_claim_update_probe_v1(%s,%s)", (target, is_run))
+        finally:
+            with self._admin(autocommit=False) as connection:
+                connection.execute("DROP FUNCTION matching_api.test_review_claim_update_probe_v1(uuid,boolean)")
+
+    def _assert_completion_claim_and_replay(self, expected_kind: str) -> None:
+        from dataclasses import replace
+        from uuid import uuid4
+        from desire_platform.matching.adapters.postgres.operational_runtime import MatchingCoordinatorClaimRequest
+        runtime = PsycopgMatchingCoordinatorRuntime(connections=_RuntimeConnections(
+            self.postgres.conninfo(database=self.database, user="matching_coordinator")))
+        nonce = uuid4()
+        request = MatchingCoordinatorClaimRequest(
+            context=MatchingWorkloadContext(workload_id=UUID(WORKLOAD_ID), authority_marker_sha256=MARKER),
+            lease_digest_key_id="coordinator-lease-v1", lease_digest=hashlib.sha256(nonce.bytes).digest(), lease_seconds=30,
+            material=MatchingOperationalCommandMaterial(receipt_id=uuid4(), command_id=uuid4(),
+                identity_key_id="matching-idempotency-v1", identity_digest=hashlib.sha256(b"id" + nonce.bytes).digest(),
+                payload_hash_key_id="matching-payload-v1", payload_hash=hashlib.sha256(b"payload" + nonce.bytes).digest(),
+                audit_event_id=uuid4(), outbox_event_ids=(uuid4(),), correlation_id=uuid4(), trace_id=uuid4()),
+        )
+        for context in (
+            MatchingWorkloadContext(workload_id=uuid4(), authority_marker_sha256=MARKER),
+            MatchingWorkloadContext(workload_id=UUID(WORKLOAD_ID), authority_marker_sha256=OTHER_MARKER),
+        ):
+            with self.subTest(context=context):
+                self.assertIsNone(runtime.claim_completion(replace(request, context=context)))
+        with self._admin() as connection:
+            self.assertEqual(connection.execute(
+                "SELECT status,attempt_count,fencing_generation "
+                "FROM matching.selection_completion_jobs WHERE selection_id=%s",
+                (SELECTION_ID,),
+            ).fetchone(), ("AVAILABLE", 0, 0))
+        claim = runtime.claim_completion(request)
+        self.assertIsNotNone(claim)
+        self.assertEqual((claim.intent_kind, claim.original_actor_user_id), (expected_kind, UUID(SELECTOR_ID)))
+        self.assertEqual(claim.selection_id, UUID(SELECTION_ID))
+        replay = runtime.claim_completion(request)
+        self.assertTrue(replay.replayed)
+        self.assertEqual(claim.completion_job_id, replay.completion_job_id)
+        with self._admin() as connection:
+            self.assertEqual(connection.execute(
+                "SELECT organization_id,actor_id,before_version,after_version "
+                "FROM audit.audit_events WHERE event_id=%s",
+                (request.material.audit_event_id,),
+            ).fetchone(), (UUID(ORGANIZATION_ID), UUID(WORKLOAD_ID), None, 1))
+
     def test_runner_is_forward_only_and_schema_is_force_rls(self) -> None:
-        self.assertEqual(self.first_report.applied_versions, (1, 2, 3))
+        self.assertEqual(self.first_report.applied_versions, (1, 2, 3, 4, 5, 6, 7, 8, 9))
         replay = self.runner.run(catalog=self.catalog, contract_sources=self.sources)
         self.assertEqual(replay.applied_versions, ())
-        self.assertEqual(replay.skipped_versions, (1, 2, 3))
+        self.assertEqual(replay.skipped_versions, (1, 2, 3, 4, 5, 6, 7, 8, 9))
         with self._admin() as connection:
             compatibility = connection.execute(
                 "SELECT component,current_schema_version,schema_head_version,"
                 "required_iam_schema_version FROM matching.schema_compatibility"
             ).fetchone()
-            self.assertEqual(compatibility, ("matching", 3, 3, 46))
+            self.assertEqual(compatibility, ("matching", 9, 9, 46))
             rls = tuple(
                 connection.execute(
                     "SELECT relname,relrowsecurity,relforcerowsecurity "
@@ -1076,7 +1814,7 @@ class MatchingMigrationPostgres18Test(unittest.TestCase):
                 )
         self.assertEqual(caught.exception.diag.message_primary, "LEASE_LOST")
 
-    def test_exact_v2_to_v3_upgrade_and_replay(self) -> None:
+    def test_exact_v2_to_current_head_upgrade_and_replay(self) -> None:
         database = self.postgres.create_database()
         try:
             IamMigrationRunner(
@@ -1201,7 +1939,7 @@ class MatchingMigrationPostgres18Test(unittest.TestCase):
                 catalog=self.catalog,
                 contract_sources=self.sources,
             )
-            self.assertEqual(upgraded.applied_versions, (3,))
+            self.assertEqual(upgraded.applied_versions, (3, 4, 5, 6, 7, 8, 9))
             self.assertEqual(upgraded.skipped_versions, (1, 2))
 
             selector_runtime = PsycopgMatchingRuntime(
@@ -1403,7 +2141,7 @@ class MatchingMigrationPostgres18Test(unittest.TestCase):
                 contract_sources=self.sources,
             )
             self.assertEqual(replayed.applied_versions, ())
-            self.assertEqual(replayed.skipped_versions, (1, 2, 3))
+            self.assertEqual(replayed.skipped_versions, (1, 2, 3, 4, 5, 6, 7, 8, 9))
             with self._admin(database) as connection:
                 self.assertEqual(
                     connection.execute(
@@ -1411,7 +2149,7 @@ class MatchingMigrationPostgres18Test(unittest.TestCase):
                         "required_iam_schema_version,migration_manifest_sha256 "
                         "FROM matching.schema_compatibility"
                     ).fetchone(),
-                    (3, 3, 46, self.catalog.manifest_sha256),
+                    (9, 9, 46, self.catalog.manifest_sha256),
                 )
                 self.assertEqual(
                     connection.execute(
@@ -1834,6 +2572,7 @@ class MatchingMigrationPostgres18Test(unittest.TestCase):
         self.assertTrue(all(len(value) == 32 for value in intent[5:]))
         self.assertEqual(durable_status, ("OPEN",))
         self.assertEqual(outbox, [("SelectionIntentRecorded",)])
+        self._assert_completion_claim_and_replay("CHOOSE")
 
     def test_runtime_creator_can_withdraw_before_selection_intent(self) -> None:
         runtime = self._runtime()
@@ -1940,6 +2679,7 @@ class MatchingMigrationPostgres18Test(unittest.TestCase):
         )
         self.assertEqual(durable_intent, ("READY", "AVAILABLE", "CLOSE"))
         self.assertEqual(events, ("SelectionCloseIntentRecorded",))
+        self._assert_completion_claim_and_replay("CLOSE")
 
     def _runtime(self) -> PsycopgMatchingRuntime:
         return PsycopgMatchingRuntime(

@@ -31,7 +31,7 @@ MIGRATION_ROOT = (
 class MatchingMigrationStaticTest(unittest.TestCase):
     def test_catalog_is_reviewed_byte_exact_and_immutable(self) -> None:
         catalog = MatchingMigrationCatalog.load(MIGRATION_ROOT)
-        self.assertEqual(MATCHING_SCHEMA_HEAD_VERSION, 3)
+        self.assertEqual(MATCHING_SCHEMA_HEAD_VERSION, 9)
         self.assertEqual(MATCHING_REQUIRED_IAM_SCHEMA_VERSION, 46)
         self.assertEqual(
             catalog.manifest_sha256,
@@ -39,7 +39,7 @@ class MatchingMigrationStaticTest(unittest.TestCase):
         )
         self.assertEqual(
             tuple(item.descriptor.version for item in catalog.artifacts),
-            (1, 2, 3),
+            (1, 2, 3, 4, 5, 6, 7, 8, 9),
         )
         self.assertEqual(
             tuple(item.descriptor.checksum_sha256.hex() for item in catalog.artifacts),
@@ -47,6 +47,12 @@ class MatchingMigrationStaticTest(unittest.TestCase):
                 "b4910364f494d519d0f010665b7aa4deda01986925975c8e7c9c39c74102d70b",
                 "6e27ad97ab01807e012e6d0043a527ecaf8d0eed4f49ffae3180a7466eb4f516",
                 "3f28f26cfca5af93a716aa34403288d644e3eab44c4af258a383b42e82b8b434",
+                "9cd168affafd3d0006a991c803e8d1095b5193da5aea2464648db76b48802c8b",
+                "859f003a39317e4b496c4a29d493c0d282bc7e79fcb7736c2cf5700f35fd79c7",
+                "581d9f8e5394f67dba1b659807870c857b84a5ef4464d0197ce7370f611eb499",
+                "0037718c52ee0d30e6787031ef8a46be7cfddc9847167bb47295c3a0b5b1e649",
+                "4059c3b2f13bbd5a5a1b51b20becc3fc385a8509dc20f5cd886f6c56585bf8c2",
+                "726907b4d5f7f0473bc0b826a59134bb59007d34344bb6ddd4ff70a07a477de9",
             ),
         )
         descriptor = MatchingMigrationDescriptor(

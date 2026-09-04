@@ -271,6 +271,75 @@ test("Matching parses closed recipient list/detail and binds immutable disclosur
   ]) assert.throws(() => parseMatchingInvitationDetail(malformed), TypeError);
 });
 
+test("Matching binds UTC expiry values without changing signed fractional text", () => {
+  for (const [outer, signed] of [
+    ["2026-09-02T08:00:00Z", "2026-09-02T08:00:00.000000Z"],
+    ["2026-09-02T08:00:00.123Z", "2026-09-02T08:00:00.123000Z"],
+    ["2026-09-02T08:00:00.123456Z", "2026-09-02T08:00:00.123456000Z"],
+  ]) {
+    const value = detail({ expires_at: outer, disclosure: disclosure({ expires_at: signed }) });
+    const original = JSON.stringify(value);
+    assert.equal(parseMatchingInvitationDetail(value), value);
+    assert.deepEqual(parseMatchingInvitationList({ items: [value], next_cursor: null }).items, [value]);
+    assert.equal(JSON.stringify(value), original);
+  }
+  for (const signed of [
+    "2026-09-02T08:00:00.123457Z",
+    "2026-09-02T08:00:00.123456001Z",
+    "2026-09-02T08:00:00.123456+00:00",
+  ]) {
+    assert.throws(() => parseMatchingInvitationDetail(detail({
+      expires_at: "2026-09-02T08:00:00.123456Z",
+      disclosure: disclosure({ expires_at: signed }),
+    })), TypeError);
+  }
+});
+
+test("Matching proxy accepts unchanged list and detail with equivalent UTC precision", async () => {
+  const value = detail({ disclosure: disclosure({ expires_at: "2026-09-02T08:00:00.000000Z" }) });
+  for (const isList of [true, false]) {
+    const body = isList ? { items: [value], next_cursor: null } : value;
+    const response = await proxyIamRequest(new Request(
+      `http://web.local/v1/me/matching-invitations${isList ? "" : `/${ID.invitation}`}`,
+      { headers: { "x-workspace-id": "personal:10000000-0000-4000-8000-000000000001" } },
+    ), {
+      baseUrl: "http://127.0.0.1:8000",
+      fetchImpl: async () => new Response(JSON.stringify(body), {
+        status: 200,
+        headers: { "cache-control": "no-store", "content-type": "application/json", ...(isList ? {} : { etag: '"v2"' }) },
+      }),
+    });
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), body);
+  }
+});
+
+test("Matching create proxy binds exact expiry despite equivalent fractional precision", async () => {
+  const expiry = "2026-09-02T08:00:00.123Z";
+  for (const [returnedExpiry, expectedStatus] of [
+    ["2026-09-02T08:00:00.123000Z", 201],
+    ["2026-09-02T08:00:00.123001Z", 503],
+  ]) {
+    const body = reviewerInvitation({ expires_at: returnedExpiry });
+    const response = await proxyIamRequest(new Request(
+      `http://web.local/v1/operations/match-runs/${ID.run}/invitations`,
+      {
+        method: "POST",
+        headers: matchingHeaders({ "if-match": '"v4"', "x-workspace-id": "platform:10000000-0000-4000-8000-000000000001" }),
+        body: JSON.stringify({ match_run_id: ID.run, creator_user_id: ID.creator, expires_at: expiry }),
+      },
+    ), {
+      baseUrl: "http://127.0.0.1:8000",
+      fetchImpl: async () => new Response(JSON.stringify(body), {
+        status: 201,
+        headers: { "cache-control": "no-store", "content-type": "application/json", etag: '"v1"' },
+      }),
+    });
+    assert.equal(response.status, expectedStatus);
+    if (expectedStatus === 201) assert.deepEqual(await response.json(), body);
+  }
+});
+
 test("Matching owner projection contains only accepted safe cards and no rank, score, evidence, or user id", () => {
   assert.deepEqual(parseMatchingSelection(selection()), selection());
   assert.deepEqual(parseMatchingSelection(selection({
@@ -646,6 +715,54 @@ test("Matching proxy closes methods, query, headers, body size and selector assi
     "http://web.local/v1/me/matching-invitations",
     { method: "POST", headers: matchingHeaders(), body: "{}" },
   ), "http://127.0.0.1:8000"), /IAM_ROUTE_NOT_ALLOWED/);
+});
+
+test("Matching exact-ID read retains completed selection access and binds its response", async () => {
+  const path = `http://web.local/v1/organizations/${ID.organization}/selections/${ID.selection}`;
+  const headers = { "x-workspace-id": `org:${ID.organization}` };
+  const terminal = selection({ status: "SELECTED", chosen_invitation_id: ID.invitation });
+  const forwarded = await createIamProxyRequest(new Request(path, { headers }), "http://127.0.0.1:8000");
+  assert.equal(forwarded.method, "GET");
+  assert.equal(forwarded.headers.get("x-workspace-id"), headers["x-workspace-id"]);
+  const response = await proxyIamRequest(new Request(path, { headers }), {
+    baseUrl: "http://127.0.0.1:8000",
+    fetchImpl: async () => new Response(JSON.stringify(terminal), {
+      status: 200, headers: { "cache-control": "no-store", "content-type": "application/json", etag: '"v3"' },
+    }),
+  });
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), terminal);
+  for (const malformed of [path + "?limit=1", path + "/unexpected"]) {
+    await assert.rejects(() => createIamProxyRequest(new Request(malformed, { headers }), "http://127.0.0.1:8000"));
+  }
+  await assert.rejects(() => createIamProxyRequest(new Request(path, {
+    headers: { "x-workspace-id": "org:10000000-0000-4000-8000-000000000099" },
+  }), "http://127.0.0.1:8000"));
+  const mismatch = await proxyIamRequest(new Request(path, { headers }), {
+    baseUrl: "http://127.0.0.1:8000",
+    fetchImpl: async () => new Response(JSON.stringify(selection({ selection_id: "other_selection_0000001" })), {
+      status: 200, headers: { "cache-control": "no-store", "content-type": "application/json", etag: '"v3"' },
+    }),
+  });
+  assert.equal(mismatch.status, 503);
+});
+
+test("Matching choose replay accepts only the coordinator's completed assignment transitions", async () => {
+  for (const [assignmentVersion, expectedStatus] of [[4, 503], [5, 200], [6, 200], [7, 503]]) {
+    const response = await proxyIamRequest(new Request(
+      `http://web.local/v1/organizations/${ID.organization}/selections/${ID.selection}/choose`,
+      { method: "POST", headers: matchingHeaders(), body: JSON.stringify(chooseBody()) },
+    ), {
+      baseUrl: "http://127.0.0.1:8000",
+      fetchImpl: async () => new Response(JSON.stringify(selection({
+        status: "SELECTED", chosen_invitation_id: ID.invitation,
+        candidate_selector_assignment_version: assignmentVersion,
+      })), {
+        status: 200, headers: { "cache-control": "no-store", "content-type": "application/json", etag: '"v3"' },
+      }),
+    });
+    assert.equal(response.status, expectedStatus);
+  }
 });
 
 test("Matching operational proxy gates workspace kind and never accepts client authority facts", async () => {

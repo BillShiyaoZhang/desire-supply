@@ -635,8 +635,8 @@ class PsycopgDemandMatchingRuntime:
             row = connection.execute(
                 "WITH expected(signature) AS (SELECT unnest(%s::text[])),"
                 "resolved AS (SELECT signature,to_regprocedure(signature) oid "
-                "FROM expected) SELECT count(*)=%s AND bool_and(oid IS NOT NULL "
-                "AND has_function_privilege(session_user,oid,'EXECUTE')=%s "
+                "FROM expected) SELECT count(*)=%s AND bool_and(resolved.oid IS NOT NULL "
+                "AND has_function_privilege(session_user,resolved.oid,'EXECUTE')=%s "
                 "AND procedure.prosecdef AND owner.rolname='demand_schema_owner' "
                 "AND procedure.proconfig=ARRAY['search_path=pg_catalog, demand']::text[] "
                 "AND NOT EXISTS (SELECT 1 FROM pg_catalog.aclexplode(COALESCE("
@@ -706,7 +706,14 @@ def _configure(
         row = connection.execute(
             "SELECT pg_catalog.set_config(%s,%s,true)", (name, value)
         ).fetchone()
-        if row != (value,):
+        expected_value = value
+        if name in {
+            "lock_timeout", "statement_timeout", "idle_in_transaction_session_timeout"
+        }:
+            milliseconds = int(value[:-2])
+            if milliseconds % 1000 == 0:
+                expected_value = f"{milliseconds // 1000}s"
+        if row != (expected_value,):
             raise DemandMatchingPostgresConfigurationError()
 
 

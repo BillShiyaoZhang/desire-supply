@@ -4,11 +4,14 @@
 复验日期：2026-08-29
 适用范围：制度 Demo、本地七角色合成 API、真实 Docker API composition 与 Dev Container。
 
-当前 IAM46/Profile5/Demand15/Trust22/Matching3/Taxonomy2 的静态模式合同见
-[Current-head v27 静态模式头](/operations/current-head-v27.md)。它把独立 Matching worker、
-coordinator、selector/reviewer 工作台与匹配请求/完成边界正式纳入当前 schema、runtime 和恢复合同，
-状态仍仅为 `STATIC VERIFIED / NOT PRODUCTION EXECUTED`；没有 v27 fresh-volume、production
-migration、backup/restore 或生产部署动态证据。历史
+当前 IAM46/Profile5/Demand15/Trust22/Matching9/Taxonomy2 的静态模式合同见
+[Current-head v28 静态模式头](/operations/current-head-v28.md)。current-head v28 前向修复 Matching
+ingest 名称歧义、coordinator 领取 scope/审计、reviewer claim 可见性/行锁、精确 CREATE 回执恢复与未来
+披露 UTC-Z 时间生成，以及完成程序对原选择意图回执的精确读取；当前只读 gate 为
+`scripts/verify_current_head_v28.py`，版本化备份/恢复入口为
+`deploy/postgres-operations-v28.compose.yaml`。静态检查不代表生产迁移、backup/restore 演练或生产授权。
+本页其余标注具体版本的验收段落保留该版本的历史记录。历史
+[Current-head v27 静态模式头](/operations/current-head-v27.md)、
 [Current-head v26 静态模式头](/operations/current-head-v26.md)、
 [Current-head v25 静态模式头](/operations/current-head-v25.md)、
 [Current-head v24 静态模式头](/operations/current-head-v24.md)、
@@ -356,7 +359,7 @@ SQLite 文件权限应仅限当前用户。它只包含合成进度，不要备�
 docker --version
 docker compose version
 python3 -B scripts/verify_container_stack.py
-python3 -B scripts/verify_current_head_v27.py
+python3 -B scripts/verify_current_head_v28.py
 python3 -B -m unittest \
   tests.deployment.test_container_stack \
   tests.deployment.test_internal_sandbox_tls -v

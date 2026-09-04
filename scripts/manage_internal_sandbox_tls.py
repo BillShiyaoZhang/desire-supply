@@ -332,7 +332,7 @@ def _expect_success(openssl: str, arguments: Sequence[str]) -> None:
 def _text_certificate(openssl: str, path: Path) -> str:
     raw = _run(
         openssl,
-        ("x509", "-in", str(path), "-noout", "-text"),
+        ("x509", "-in", str(path), "-noout", "-text", "-nameopt", "RFC2253"),
         maximum=_MAX_OPENSSL_OUTPUT,
     )
     try:

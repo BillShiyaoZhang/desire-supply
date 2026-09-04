@@ -1041,6 +1041,43 @@ class RealPostgres18DemandSemanticRedTest(unittest.TestCase):
             (("SUCCEEDED", False), ("SUCCEEDED", True), ("FUNDING_FACT_CHANGED", False)),
         )
 
+    def test_matching_capture_normalizes_locale_languages_for_profile_engine_contract(self) -> None:
+        from desire_platform.matching.engine_v1 import (
+            demand_postgres_snapshot_to_input_v1,
+            evaluate_candidate_hard_filters_v1,
+            load_default_rule_release_v1,
+            normalize_match_run_input_v1,
+        )
+
+        self._prepare(DemandPostgresOperation.CAPTURE_MATCH_INPUTS)
+        captured = PsycopgDemandMatchingRepository(
+            connections=self._source(role="demand_matching")
+        ).capture_match_inputs(match_capture_request())
+        snapshot = captured.snapshots[0]
+        original = json.loads(snapshot.canonical_demand_version_bytes)["content"]
+        self.assertEqual(original["collaboration"]["languages"], ["zh-CN", "en"])
+        self.assertEqual(snapshot.required_language_codes, ("LANGUAGE.EN", "LANGUAGE.ZH"))
+        # Use the actual PostgreSQL capture in the unchanged deterministic
+        # engine. Profile5 publishes root-language codes, including LANGUAGE.ZH.
+        resource = PLATFORM_ROOT / "src/desire_platform/matching/resources/deterministic-matcher-v1.golden.json"
+        document = json.loads(resource.read_text())["vectors"][0]["run_input"]
+        document["demand"] = demand_postgres_snapshot_to_input_v1(snapshot)
+        document["profiles"][0]["language_codes"] = ["LANGUAGE.ZH"]
+        run_input = normalize_match_run_input_v1(document)
+        rule = load_default_rule_release_v1()
+        matching = evaluate_candidate_hard_filters_v1(
+            demand=run_input.demand, profile=run_input.profiles[0], rule=rule,
+        )
+        mismatch = evaluate_candidate_hard_filters_v1(
+            demand=run_input.demand,
+            profile=replace(run_input.profiles[0], language_codes=("LANGUAGE.DE",)),
+            rule=rule,
+        )
+        self.assertNotIn("LANGUAGE_MISMATCH", matching)
+        self.assertIn("LANGUAGE_MISMATCH", mismatch)
+        with self.assertRaises(ValueError):
+            replace(snapshot, required_language_codes=("LANGUAGE.DE",))
+
     def test_matching_request_and_match_input_are_exact_closed_and_no_partial(self) -> None:
         self._prepare(DemandPostgresOperation.REQUEST_MATCHING)
         write = self._observe(
@@ -1247,6 +1284,103 @@ class RealPostgres18DemandSemanticRedTest(unittest.TestCase):
                     expected,
                 )
 
+    def _matching_system_workflow(self, *, blocked: bool = False):
+        from unittest.mock import Mock
+        from desire_platform.demand.adapters.postgres import PsycopgDemandRuleCatalog
+        from desire_platform.demand.ports.commands import DemandHoldDecision, DemandSafetyHoldResult
+        from desire_platform.internal_pilot.contract_validation import DemandPostgresContractValidator
+        from desire_platform.internal_pilot.matching_workflow import (
+            MatchingSystemWorkflow, PsycopgMatchingWorkflowTargetReader,
+        )
+
+        # Trust's fixed reader has its own PostgreSQL integration suite. Here
+        # inject its bounded result while exercising the real scoped reader,
+        # rule catalog, contract validator, Demand14 writer and commit boundary.
+        def hold(**fields):
+            now = datetime.now(timezone.utc)
+            return DemandSafetyHoldResult(**fields,
+                decision=DemandHoldDecision.BLOCK if blocked else DemandHoldDecision.ALLOW,
+                evaluated_at=now, valid_until=now + timedelta(seconds=15))
+
+        source = self._source(role="demand_system")
+        validator = DemandPostgresContractValidator()
+        return MatchingSystemWorkflow(
+            targets=PsycopgMatchingWorkflowTargetReader(connections=source),
+            rules=PsycopgDemandRuleCatalog(connections=self._source(role="demand_self")),
+            holds=Mock(evaluate=hold),
+            writer=PsycopgDemandUnitOfWorkFactory(connections=source,
+                event_validator=validator, response_validator=validator),
+            idempotency_key=b"workflow-identity-key-v1-1234567890",
+            payload_key=b"workflow-payload-key-v1-12345678901",
+        )
+
+    def test_explicit_system_workflow_creates_one_causally_bound_request_and_replays(self) -> None:
+        from uuid import UUID
+        from desire_platform.demand.adapters.postgres import DemandMatchingDeliveryContext, PsycopgDemandMatchingRuntime
+        from desire_platform.internal_pilot.matching_workflow import MatchingWorkflowTarget, SYSTEM_WORKLOAD_ID
+        self._prepare(DemandPostgresOperation.REQUEST_MATCHING_SYSTEM)
+        target = MatchingWorkflowTarget(ORGANIZATION_ID, DEMAND_ID, 1, UUID(int=7855))
+        workflow = self._matching_system_workflow()
+        first = workflow.request(target)
+        replay = workflow.request(target)
+        self.assertEqual((first.status, first.aggregate_version, first.replayed), ("MATCHING", 2, False))
+        self.assertEqual((replay.status, replay.aggregate_version, replay.replayed), ("MATCHING", 2, True))
+        # A new hold may stop new work but cannot hide the committed receipt.
+        held_replay = self._matching_system_workflow(blocked=True).request(target)
+        self.assertTrue(held_replay.replayed)
+        with self._admin_class() as connection:
+            self.assertEqual(connection.execute("SELECT count(*) FROM demand.matching_requests").fetchone(), (1,))
+            self.assertEqual(connection.execute("SELECT count(*) FROM demand.command_receipts").fetchone(), (1,))
+            self.assertEqual(connection.execute(
+                "SELECT e.actor_kind,e.actor_id,e.causation_id=f.source_event_id,e.original_actor_id "
+                "FROM infra.outbox_events e JOIN demand.demand_funding_markers f "
+                "ON f.demand_id=e.aggregate_id WHERE e.event_type='MatchingRequested'"
+            ).fetchall(), [("SYSTEM", SYSTEM_WORKLOAD_ID, True, ACTOR_USER_ID)])
+        delivery = PsycopgDemandMatchingRuntime(
+            delivery_connections=self._source(role="demand_matching"),
+            coordinator_connections=self._source(role="matching_coordinator"),
+        ).claim_matching_requested_delivery(
+            context=DemandMatchingDeliveryContext(workload_id=SYSTEM_WORKLOAD_ID,
+                authority_marker_sha256=hashlib.sha256(b"exact-demand-match-request-allowlist").digest()),
+            lease_digest_key_id="demand-matching-delivery-lease-v1",
+            lease_digest=hashlib.sha256(b"explicit-workflow-delivery-lease").digest(), lease_seconds=30,
+        )
+        self.assertIsNotNone(delivery)
+        self.assertEqual(delivery.original_actor_user_id, ACTOR_USER_ID)
+        self.assertEqual(delivery.demand_id, DEMAND_ID)
+
+    def test_explicit_system_workflow_wrong_org_blocked_hold_and_stale_version_write_nothing(self) -> None:
+        from uuid import UUID
+        from desire_platform.internal_pilot.matching_workflow import MatchingWorkflowError, MatchingWorkflowTarget
+        self._prepare(DemandPostgresOperation.REQUEST_MATCHING_SYSTEM)
+        target = MatchingWorkflowTarget(ORGANIZATION_ID, DEMAND_ID, 1, UUID(int=7856))
+        with self.assertRaises(MatchingWorkflowError) as wrong_org:
+            self._matching_system_workflow().request(replace(target, organization_id=OTHER_ORGANIZATION_ID))
+        self.assertEqual(wrong_org.exception.code, "FUNDED_TARGET_NOT_FOUND")
+        with self.assertRaises(MatchingWorkflowError) as blocked:
+            self._matching_system_workflow(blocked=True).request(target)
+        self.assertEqual(blocked.exception.code, "SAFETY_HOLD_BLOCKED")
+        with self.assertRaises(DemandPostgresDatabaseError) as stale:
+            self._matching_system_workflow().request(replace(target, expected_version=999))
+        self.assertEqual(stale.exception.code, "PRECONDITION_FAILED")
+        with self._admin_class() as connection:
+            self.assertEqual(connection.execute(
+                "SELECT (SELECT count(*) FROM demand.matching_requests),"
+                "(SELECT count(*) FROM demand.command_receipts),"
+                "(SELECT count(*) FROM infra.outbox_events)"
+            ).fetchone(), (0, 0, 0))
+
+    def test_explicit_system_workflow_same_key_changed_version_conflicts(self) -> None:
+        from uuid import UUID
+        from desire_platform.internal_pilot.matching_workflow import MatchingWorkflowTarget, MatchingWorkflowError
+        self._prepare(DemandPostgresOperation.REQUEST_MATCHING_SYSTEM)
+        workflow = self._matching_system_workflow()
+        target = MatchingWorkflowTarget(ORGANIZATION_ID, DEMAND_ID, 1, UUID(int=7857))
+        workflow.request(target)
+        with self.assertRaises(MatchingWorkflowError) as conflict:
+            workflow.request(replace(target, expected_version=2))
+        self.assertEqual(conflict.exception.code, "IDEMPOTENCY_KEY_REUSED")
+
     def test_online_roles_force_rls_public_and_forged_guc_cannot_cross_paths(self) -> None:
         cases = (
             ("demand_self", DemandPostgresOperation.CREATE, "SUCCEEDED"),
@@ -1274,7 +1408,9 @@ class RealPostgres18DemandSemanticRedTest(unittest.TestCase):
                     (expected, 1, 1),
                 )
         expected_relations = (
+            "close_matching_without_selection_receipts",
             "command_receipts",
+            "complete_selection_receipts",
             "demand_funding_markers",
             "demand_review_assignment_releases",
             "demand_review_assignments",
@@ -1288,7 +1424,10 @@ class RealPostgres18DemandSemanticRedTest(unittest.TestCase):
             "manual_funding_receipts",
             "manual_funding_review_assignments",
             "manual_funding_review_cases",
+            "matching_delivery_claim_receipts",
+            "matching_requested_deliveries",
             "matching_requests",
+            "matching_runtime_policy",
             "receipt_key_policy",
             "review_claim_receipts",
             "source_inbox",

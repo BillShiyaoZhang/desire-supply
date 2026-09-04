@@ -121,7 +121,7 @@ class CurrentHeadV17ContractTest(unittest.TestCase):
         self.assertIn('"overall_status":"BLOCKED"', self.runbook)
         self.assertIn('"production_authorized":false', self.runbook)
 
-    def test_current_pointer_preserves_history_and_ci_runs_only_v27(self) -> None:
+    def test_current_pointer_preserves_history_and_ci_runs_only_v28(self) -> None:
         sidebar = (ROOT / "docs/_sidebar.md").read_text(encoding="utf-8")
         ci = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
         self.assertIn(
@@ -138,7 +138,8 @@ class CurrentHeadV17ContractTest(unittest.TestCase):
         self.assertEqual(ci.count("python -B scripts/verify_current_head_v24.py"), 0)
         self.assertEqual(ci.count("python -B scripts/verify_current_head_v25.py"), 0)
         self.assertEqual(ci.count("python -B scripts/verify_current_head_v26.py"), 0)
-        self.assertEqual(ci.count("python -B scripts/verify_current_head_v27.py"), 1)
+        self.assertEqual(ci.count("python -B scripts/verify_current_head_v27.py"), 0)
+        self.assertEqual(ci.count("python -B scripts/verify_current_head_v28.py"), 1)
 
 
 if __name__ == "__main__":

@@ -594,7 +594,7 @@ class RuntimeReleaseTest(unittest.TestCase):
                 "profile": 5,
                 "demand": 15,
                 "trust": 22,
-                "matching": 3,
+                "matching": 9,
                 "taxonomy": 2,
             },
         )

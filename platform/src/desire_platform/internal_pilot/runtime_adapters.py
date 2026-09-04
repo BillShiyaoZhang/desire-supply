@@ -95,8 +95,16 @@ _ID_PURPOSES = frozenset(
         "matching_fact",
         "matching_audit_event",
         "matching_outbox_event",
+        "matching_review_assignment",
+        "matching_candidate_selector_assignment",
+        "matching_trust_hold_evidence",
+        "matching_invitation",
+        "matching_invitation_disclosure_snapshot",
+        "matching_operational_command",
+        "matching_operational_command_receipt",
+        "matching_operational_audit_event",
     )
-)
+) | frozenset(f"matching_operational_outbox_event_{ordinal}" for ordinal in range(102))
 
 
 @dataclass(frozen=True)

@@ -182,8 +182,10 @@ export const MATCHING_SELECTION_CLOSE_REASON_CODES: readonly ["OWNER_CLOSED"];
 
 export function parseMatchingInvitationList(value: unknown): MatchingInvitationList;
 export function parseMatchingInvitationDetail(value: unknown): MatchingInvitationDetail;
+export function matchingUtcTimestampsEqual(left: string, right: string): boolean;
 export function parseMatchingAttemptList(value: unknown, expectedDemandId: string): MatchingAttemptList;
 export function parseMatchingSelection(value: unknown): MatchingSelection;
+export function matchesMatchingSelectionAssignmentVersion(selection: MatchingSelection, submittedVersion: number): boolean;
 export function parseMatchingCandidateSelectorAssignment(value: unknown, expectedDemandId: string): MatchingCandidateSelectorAssignment;
 export function parseMatchingReviewAssignment(value: unknown): MatchingReviewAssignment;
 export function parseMatchingReviewWorkspace(value: unknown): MatchingReviewWorkspace;

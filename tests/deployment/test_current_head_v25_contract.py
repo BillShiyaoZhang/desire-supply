@@ -294,7 +294,7 @@ class CurrentHeadV25ContractTest(unittest.TestCase):
             self.runbook.index(link_marker),
         )
 
-    def test_current_pointer_workflows_and_source_readiness_advance_to_v27(self) -> None:
+    def test_current_pointer_workflows_and_source_readiness_advance_to_v28(self) -> None:
         sidebar = (ROOT / "docs/_sidebar.md").read_text(encoding="utf-8")
         ci = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
         release = (
@@ -323,14 +323,17 @@ class CurrentHeadV25ContractTest(unittest.TestCase):
         v25 = "python -B scripts/verify_current_head_v25.py"
         v26 = "python -B scripts/verify_current_head_v26.py"
         v27 = "python -B scripts/verify_current_head_v27.py"
+        v28 = "python -B scripts/verify_current_head_v28.py"
         self.assertEqual(ci.count(v24), 0)
         self.assertEqual(ci.count(v25), 0)
         self.assertEqual(ci.count(v26), 0)
-        self.assertEqual(ci.count(v27), 1)
+        self.assertEqual(ci.count(v27), 0)
+        self.assertEqual(ci.count(v28), 1)
         self.assertEqual(release.count(v24), 0)
         self.assertEqual(release.count(v25), 0)
         self.assertEqual(release.count(v26), 0)
-        self.assertEqual(release.count(v27), 1)
+        self.assertEqual(release.count(v27), 0)
+        self.assertEqual(release.count(v28), 1)
         for relative in (
             "docs/operations/current-head-v27.md",
             "deploy/postgres-backup-restore-v27.sh",

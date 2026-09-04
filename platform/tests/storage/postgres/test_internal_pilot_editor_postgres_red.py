@@ -597,6 +597,34 @@ class RealPostgres18EditorProfileRepositoryTest(unittest.TestCase):
             content=content,
             idempotency_key="profile-service-draft-0001",
         )
+        self.assertEqual(
+            service.save_profile_draft(
+                principal=principal,
+                profile_id=created.object_id,
+                if_match=created.etag,
+                base_version_id=None,
+                taxonomy_bundle_id=str(TAXONOMY_ID),
+                content=content,
+                idempotency_key="profile-service-draft-0001",
+            ),
+            drafted,
+        )
+        changed_content = _editor_profile_content()
+        changed_content["skills"][0]["skill_code"] = "SKILL.RESEARCH"
+        with self.assertRaises(EditorServiceError) as changed_replay:
+            service.save_profile_draft(
+                principal=principal,
+                profile_id=created.object_id,
+                if_match=created.etag,
+                base_version_id=None,
+                taxonomy_bundle_id=str(TAXONOMY_ID),
+                content=changed_content,
+                idempotency_key="profile-service-draft-0001",
+            )
+        self.assertEqual(
+            (changed_replay.exception.status, changed_replay.exception.code),
+            (409, "IDEMPOTENCY_KEY_REUSED"),
+        )
         published = service.publish_profile(
             principal=principal,
             profile_id=created.object_id,
@@ -604,10 +632,38 @@ class RealPostgres18EditorProfileRepositoryTest(unittest.TestCase):
             if_match=drafted.etag,
             idempotency_key="profile-service-publish-0001",
         )
+        self.assertEqual(
+            service.publish_profile(
+                principal=principal,
+                profile_id=created.object_id,
+                draft_version_id=drafted.current_version.version_id,
+                if_match=drafted.etag,
+                idempotency_key="profile-service-publish-0001",
+            ),
+            published,
+        )
 
         self.assertEqual((published.status, published.revision), ("ACTIVE", 3))
         self.assertEqual(published.current_version.status, "PUBLISHED")
         self.assertEqual(published.current_version.content, content)
+        with self.assertRaises(EditorServiceError) as second_publish:
+            service.publish_profile(
+                principal=principal,
+                profile_id=created.object_id,
+                draft_version_id=drafted.current_version.version_id,
+                if_match=published.etag,
+                idempotency_key="profile-service-second-publish-0001",
+            )
+        self.assertEqual(second_publish.exception.status, 404)
+        with self.assertRaises(EditorServiceError) as unauthenticated_replay:
+            service.publish_profile(
+                principal=replace(principal, session_id=str(uuid4())),
+                profile_id=created.object_id,
+                draft_version_id=drafted.current_version.version_id,
+                if_match=drafted.etag,
+                idempotency_key="profile-service-publish-0001",
+            )
+        self.assertEqual(unauthenticated_replay.exception.status, 404)
         restarted = PostgresEditorService(
             repository=PsycopgEditorRepository(
                 profile_uow=None,
@@ -1465,13 +1521,98 @@ class RealPostgres18EditorDemandRepositoryTest(unittest.TestCase):
             content=edited_content,
             idempotency_key="demand-service-draft-0001",
         )
+        self.assertEqual(
+            service.save_demand_draft(
+                principal=owner,
+                demand_id=created.object_id,
+                if_match=created.etag,
+                base_version_id=created.current_version.version_id,
+                taxonomy_bundle_id=str(TAXONOMY_ID),
+                content=edited_content,
+                idempotency_key="demand-service-draft-0001",
+            ),
+            drafted,
+        )
+        changed_content = _editor_demand_content()
+        changed_content["problem"]["background"] = "A competing editor change."
+        with self.assertRaises(EditorServiceError) as changed_replay:
+            service.save_demand_draft(
+                principal=owner,
+                demand_id=created.object_id,
+                if_match=created.etag,
+                base_version_id=created.current_version.version_id,
+                taxonomy_bundle_id=str(TAXONOMY_ID),
+                content=changed_content,
+                idempotency_key="demand-service-draft-0001",
+            )
+        self.assertEqual(
+            (changed_replay.exception.status, changed_replay.exception.code),
+            (409, "IDEMPOTENCY_KEY_REUSED"),
+        )
+        with self.assertRaises(EditorServiceError) as stale_write:
+            service.save_demand_draft(
+                principal=owner,
+                demand_id=created.object_id,
+                if_match=created.etag,
+                base_version_id=created.current_version.version_id,
+                taxonomy_bundle_id=str(TAXONOMY_ID),
+                content=changed_content,
+                idempotency_key="demand-service-stale-draft-0001",
+            )
+        self.assertEqual(
+            (stale_write.exception.status, stale_write.exception.code),
+            (412, "PRECONDITION_FAILED"),
+        )
+        self.assertEqual(stale_write.exception.etag, drafted.etag)
+        self.assertEqual(stale_write.exception.details, {
+            "current": {
+                "version_id": drafted.current_version.version_id,
+                "content": edited_content,
+            },
+            "base": {
+                "version_id": created.current_version.version_id,
+                "content": content,
+            },
+            "yours": {
+                "version_id": created.current_version.version_id,
+                "content": changed_content,
+            },
+        })
         submitted = service.submit_demand(
             principal=owner,
             demand_id=created.object_id,
             if_match=drafted.etag,
             idempotency_key="demand-service-submit-0001",
         )
+        self.assertEqual(
+            service.submit_demand(
+                principal=owner,
+                demand_id=created.object_id,
+                if_match=drafted.etag,
+                idempotency_key="demand-service-submit-0001",
+            ),
+            submitted,
+        )
         self.assertEqual((submitted.status, submitted.revision), ("SUBMITTED", 3))
+        with self.assertRaises(EditorServiceError) as second_submission:
+            service.submit_demand(
+                principal=owner,
+                demand_id=created.object_id,
+                if_match=submitted.etag,
+                idempotency_key="demand-service-second-submit-0001",
+            )
+        self.assertEqual(
+            (second_submission.exception.status, second_submission.exception.code),
+            (409, "INVALID_STATE_TRANSITION"),
+        )
+        with self.assertRaises(EditorServiceError) as unauthenticated_replay:
+            service.submit_demand(
+                principal=replace(owner, session_id=str(uuid4())),
+                demand_id=created.object_id,
+                if_match=drafted.etag,
+                idempotency_key="demand-service-submit-0001",
+            )
+        self.assertEqual(unauthenticated_replay.exception.status, 404)
 
         assignment_id = uuid4()
         target_id = UUID(created.object_id)

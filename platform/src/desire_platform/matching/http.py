@@ -149,6 +149,7 @@ MATCHING_HTTP_ROUTES: Tuple[MatchingHttpRoute, ...] = (
     MatchingHttpRoute("POST", "/v1/me/matching-invitations/{invitation_id}/withdraw", "withdrawMatchingInvitationAcceptance", MatchingHttpFamily.CREATOR, 200, "RECIPIENT_INVITATION", "withdraw_invitation", re.compile(rf"^/v1/me/matching-invitations/{_identifier('invitation_id')}/withdraw$")),
     MatchingHttpRoute("GET", "/v1/organizations/{organization_id}/demands/{demand_id}/matching-attempts", "listDemandMatchingAttempts", MatchingHttpFamily.CANDIDATE_SELECTOR, 200, "ATTEMPT_LIST", None, re.compile(rf"^/v1/organizations/{_identifier('organization_id')}/demands/{_identifier('demand_id')}/matching-attempts$")),
     MatchingHttpRoute("GET", "/v1/organizations/{organization_id}/matching-attempts/{attempt_id}/selection", "getMatchingSelection", MatchingHttpFamily.CANDIDATE_SELECTOR, 200, "SELECTION", None, re.compile(rf"^/v1/organizations/{_identifier('organization_id')}/matching-attempts/{_identifier('attempt_id')}/selection$")),
+    MatchingHttpRoute("GET", "/v1/organizations/{organization_id}/selections/{selection_id}", "getMatchingSelectionById", MatchingHttpFamily.CANDIDATE_SELECTOR, 200, "SELECTION", None, re.compile(rf"^/v1/organizations/{_identifier('organization_id')}/selections/{_identifier('selection_id')}$")),
     MatchingHttpRoute("POST", "/v1/organizations/{organization_id}/selections/{selection_id}/choose", "chooseMatchingCreator", MatchingHttpFamily.CANDIDATE_SELECTOR, 200, "SELECTION", "choose_creator", re.compile(rf"^/v1/organizations/{_identifier('organization_id')}/selections/{_identifier('selection_id')}/choose$")),
     MatchingHttpRoute("POST", "/v1/organizations/{organization_id}/selections/{selection_id}/close", "closeMatchingSelection", MatchingHttpFamily.CANDIDATE_SELECTOR, 200, "SELECTION", "close_selection", re.compile(rf"^/v1/organizations/{_identifier('organization_id')}/selections/{_identifier('selection_id')}/close$")),
     MatchingHttpRoute("POST", "/v1/operations/match-runs/{match_run_id}/invitations", "createMatchingInvitation", MatchingHttpFamily.OPERATIONS, 201, "REVIEWER_INVITATION", "create_invitation", re.compile(rf"^/v1/operations/match-runs/{_identifier('match_run_id')}/invitations$")),
@@ -547,6 +548,16 @@ class MatchingHttpApplicationDispatcher:
                     actor=actor,
                     organization_id=path_parameters["organization_id"],
                     attempt_id=path_parameters["attempt_id"],
+                ),
+                route.projection_kind,
+            )
+        if route.operation_id == "getMatchingSelectionById":
+            _exact_query(query, ())
+            return _expect_projection(
+                port.read_selection(
+                    actor=actor,
+                    organization_id=path_parameters["organization_id"],
+                    selection_id=path_parameters["selection_id"],
                 ),
                 route.projection_kind,
             )

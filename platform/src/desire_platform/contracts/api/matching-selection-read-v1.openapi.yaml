@@ -1,0 +1,35 @@
+openapi: 3.1.0
+info:
+  title: Desire Supply Matching Selection Completion Read API
+  version: 1.0.0
+  description: >-
+    Additive read contract for the existing exact-selection-id PostgreSQL
+    projection. The current actor must own the exact ACTIVE or COMPLETED
+    Candidate Selector assignment in this organization and the same original
+    authenticated session. A new login does not inherit that assignment. This does not authorize
+    a Demand Owner without an assignment, or change any Matching v27 schema,
+    migration, or frozen matching-v1 contract bytes.
+jsonSchemaDialect: https://json-schema.org/draft/2020-12/schema
+servers:
+  - url: /
+paths:
+  /v1/organizations/{organization_id}/selections/{selection_id}:
+    get:
+      operationId: getMatchingSelectionById
+      summary: Read an assigned selection during or after completion
+      security: [{cookieAuth: []}]
+      parameters:
+        - $ref: 'matching-v1.openapi.yaml#/components/parameters/OrganizationId'
+        - $ref: 'matching-v1.openapi.yaml#/components/parameters/SelectionId'
+      responses:
+        '200':
+          $ref: 'matching-v1.openapi.yaml#/components/responses/SelectionRead'
+          description: Exact current or completed Candidate Selector projection
+        '400': {$ref: 'matching-v1.openapi.yaml#/components/responses/ErrorResponse'}
+        '401': {$ref: 'matching-v1.openapi.yaml#/components/responses/ErrorResponse'}
+        '404': {$ref: 'matching-v1.openapi.yaml#/components/responses/ErrorResponse'}
+        '503': {$ref: 'matching-v1.openapi.yaml#/components/responses/ErrorResponse'}
+components:
+  securitySchemes:
+    cookieAuth:
+      $ref: 'matching-v1.openapi.yaml#/components/securitySchemes/cookieAuth'
