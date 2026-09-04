@@ -150,7 +150,7 @@ class CurrentHeadV15RunbookTest(unittest.TestCase):
             (),
         )
 
-    def test_ci_keeps_history_out_of_the_live_gate_and_runs_v29(self) -> None:
+    def test_ci_keeps_history_out_of_the_live_gate_and_runs_v30(self) -> None:
         ci = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
         self.assertIn("python -B scripts/verify_container_stack.py", ci)
         self.assertEqual(ci.count("python -B scripts/verify_current_head_v14.py"), 0)
@@ -160,7 +160,7 @@ class CurrentHeadV15RunbookTest(unittest.TestCase):
         self.assertEqual(ci.count("python -B scripts/verify_current_head_v25.py"), 0)
         self.assertEqual(ci.count("python -B scripts/verify_current_head_v26.py"), 0)
         self.assertEqual(ci.count("python -B scripts/verify_current_head_v27.py"), 0)
-        self.assertEqual(ci.count("python -B scripts/verify_current_head_v29.py"), 1)
+        self.assertEqual(ci.count("python -B scripts/verify_current_head_v30.py"), 1)
 
     def test_current_pointers_advance_without_rewriting_v14(self) -> None:
         operations = (ROOT / "docs/operations/run-and-check.md").read_text(

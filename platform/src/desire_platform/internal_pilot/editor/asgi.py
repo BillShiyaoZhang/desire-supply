@@ -140,9 +140,9 @@ class EditorAsgiApplication:
                 "/v1/app/finance/funding-review-history",
             }
             return _error(
-                400 if path in history_paths else 404,
+                400 if path in history_paths or path.startswith("/v1/app/admin/demands") else 404,
                 "INVALID_REQUEST"
-                if path in history_paths
+                if path in history_paths or path.startswith("/v1/app/admin/demands")
                 else "RESOURCE_NOT_FOUND",
             )
 
@@ -358,10 +358,11 @@ def _headers(value: Any) -> Any:
 def _query_values(*, method: Any, path: str, raw: bytes) -> Optional[Dict[str, str]]:
     if not raw:
         return {}
-    if method != "GET" or path not in {
+    admin_path = path == "/v1/app/admin/demands" or re.fullmatch(r"/v1/app/admin/demands/[0-9a-f-]{36}/timeline", path) is not None
+    if method != "GET" or (not admin_path and path not in {
         "/v1/app/review-history",
         "/v1/app/finance/funding-review-history",
-    }:
+    }):
         return None
     try:
         text = raw.decode("ascii")

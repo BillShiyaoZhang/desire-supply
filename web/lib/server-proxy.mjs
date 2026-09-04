@@ -25,6 +25,7 @@ import {
   parseTrustReportEnvelope,
 } from "./app-contract.mjs";
 import { parseSessionPage } from "./session-contract.mjs";
+import { parseAdminDemandCollection, parseAdminDemandTimeline } from "./admin-demand-contract.mjs";
 import {
   assertMatchingEntityTag,
   parseMatchingCandidateSelectorAssignment,
@@ -49,6 +50,8 @@ const LOCAL_ALLOWED_ROUTES = new Map([
 ]);
 
 const APP_ALLOWED_ROUTES = [
+  [/^\/v1\/app\/admin\/demands$/, new Set(["GET"])],
+  [/^\/v1\/app\/admin\/demands\/(?!0{8}-0{4}-0{4}-0{4}-0{12})[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/timeline$/, new Set(["GET"])],
   [/^\/v1\/app\/workspaces$/, new Set(["GET"])],
   [/^\/v1\/app\/tasks$/, new Set(["GET"])],
   [/^\/v1\/app\/configuration$/, new Set(["GET"])],
@@ -186,6 +189,8 @@ const POLICY_BUNDLE_ROUTE = /^\/v1\/policy-bundles\/[A-Za-z0-9][A-Za-z0-9_-]{15,
 const REVIEW_QUEUE_ROUTE = "/v1/app/review-queue";
 const REVIEW_HISTORY_ROUTE = "/v1/app/review-history";
 const REVIEW_HISTORY_CURSOR = /^[A-Za-z0-9_-]{64,1024}\.[A-Za-z0-9_-]{43}$/;
+const ADMIN_DEMAND_COLLECTION_ROUTE = "/v1/app/admin/demands";
+const ADMIN_DEMAND_TIMELINE_ROUTE = new RegExp(`^/v1/app/admin/demands/(${UUID_SEGMENT})/timeline$`);
 const TASK_DISCOVERY_ROUTE = "/v1/app/tasks";
 const REVIEW_CLAIM_ROUTE = /^\/v1\/app\/review-queue\/(?!0{8}-0{4}-0{4}-0{4}-0{12})[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/claim$/;
 const REVIEW_RELEASE_ROUTE = /^\/v1\/app\/demands\/((?!0{8}-0{4}-0{4}-0{4}-0{12})[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\/review-assignments\/((?!0{8}-0{4}-0{4}-0{4}-0{12})[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\/release$/;
@@ -407,6 +412,17 @@ function assertAllowedAppRoute(pathname, method) {
 
 function validateAppUrl(url, method) {
   const normalizedMethod = method.toUpperCase();
+  if (normalizedMethod === "GET" && (url.pathname === ADMIN_DEMAND_COLLECTION_ROUTE || ADMIN_DEMAND_TIMELINE_ROUTE.test(url.pathname))) {
+    const keys = [...url.searchParams.keys()];
+    const cursor = url.searchParams.get("cursor");
+    const limit = url.searchParams.get("limit");
+    if (/[+%;]/.test(url.search)
+      || keys.some((key) => !["cursor", "limit"].includes(key))
+      || new Set(keys).size !== keys.length
+      || (cursor !== null && !REVIEW_HISTORY_CURSOR.test(cursor))
+      || (limit !== null && !/^(?:[1-9]|[1-9][0-9]|100)$/.test(limit))) throw new TypeError("INVALID_ADMIN_DEMAND_QUERY");
+    return;
+  }
   const isReviewHistory = normalizedMethod === "GET" && url.pathname === REVIEW_HISTORY_ROUTE;
   const isFinanceFundingHistory = normalizedMethod === "GET"
     && url.pathname === FINANCE_FUNDING_HISTORY_ROUTE;
@@ -1377,6 +1393,13 @@ function validateAppealRequest({ source, pathname, method, headers, body }) {
 }
 
 function validateClosedAppRequest(facts) {
+  if (facts.pathname === ADMIN_DEMAND_COLLECTION_ROUTE || ADMIN_DEMAND_TIMELINE_ROUTE.test(facts.pathname)) {
+    assertNoClientAuthorityHeaders(facts.source.headers, true);
+    if (facts.method !== "GET" || facts.body !== undefined
+      || ["content-type", "if-match", "idempotency-key", "x-csrf-token"].some((name) => facts.headers.has(name))) {
+      throw new TypeError("INVALID_ADMIN_DEMAND_REQUEST");
+    }
+  }
   validateProfileLifecycleRequest(facts);
   validateDemandCancelRequest(facts);
   validateReviewAppRequest(facts);
@@ -1662,6 +1685,40 @@ async function validateSessionListProxyResponse(source, response) {
     statusText: response.statusText,
     headers: safeResponseHeaders(response.headers),
   });
+}
+
+async function validateAdminDemandProxyResponse(source, response) {
+  const sourceUrl = new URL(source.url);
+  const detail = ADMIN_DEMAND_TIMELINE_ROUTE.exec(sourceUrl.pathname);
+  if (source.method.toUpperCase() !== "GET" || (sourceUrl.pathname !== ADMIN_DEMAND_COLLECTION_ROUTE && !detail)) return null;
+  const traceId = response.headers.get("x-trace-id");
+  if (response.headers.get("cache-control") !== "no-store"
+    || ["set-cookie", "etag", "allow", "location", "retry-after"].some((name) => response.headers.has(name))
+    || (traceId !== null && !TRACE_ID.test(traceId))
+    || !/^application\/json(?:\s*;|$)/i.test(response.headers.get("content-type") ?? "")) throw new TypeError("INVALID_ADMIN_DEMAND_BACKEND_RESPONSE");
+  const value = await response.json();
+  if (response.status === 200) {
+    if (detail) parseAdminDemandTimeline(value, detail[1], source.headers.get("x-workspace-id") ?? undefined);
+    else parseAdminDemandCollection(value, source.headers.get("x-workspace-id") ?? undefined);
+  } else {
+    const allowed = new Map([
+      [400, ["INVALID_JSON", "INVALID_REQUEST", "INVALID_CURSOR"]],
+      [401, ["AUTHENTICATION_REQUIRED", "SESSION_EXPIRED"]],
+      [403, ["ACCESS_DENIED", "CSRF_INVALID", "CSRF_REQUIRED", "ORIGIN_NOT_ALLOWED"]],
+      [404, ["RESOURCE_NOT_FOUND"]],
+      [409, ["WORKSPACE_REQUIRED", "TIMELINE_CHANGED"]],
+      [422, ["INVALID_CURSOR", "INVALID_PAGE_LIMIT", "INVALID_REQUEST"]],
+      [503, ["SERVICE_UNAVAILABLE"]],
+    ]);
+    const hasPath = value?.error && Object.hasOwn(value.error, "path");
+    if (!exactObject(value, new Set(["error"]))
+      || !exactObject(value.error, new Set(hasPath ? ["code", "path"] : ["code"]))
+      || !allowed.get(response.status)?.includes(value.error.code)
+      || (hasPath && (typeof value.error.path !== "string" || !/^\/query(?:\/(?:cursor|limit))?$/.test(value.error.path)))) {
+      throw new TypeError("INVALID_ADMIN_DEMAND_BACKEND_RESPONSE");
+    }
+  }
+  return new Response(JSON.stringify(value), { status: response.status, headers: safeResponseHeaders(response.headers) });
 }
 
 async function validateTaskDiscoveryProxyResponse(source, response) {
@@ -2423,6 +2480,8 @@ export async function proxyAppRequest(source, options = {}) {
     const request = await createAppProxyRequest(source, baseUrl);
     const response = await (options.fetchImpl ?? fetch)(request, { redirect: "manual", signal: AbortSignal.timeout(6000) });
     if (response.status >= 300 && response.status < 400) throw new TypeError("LOOPBACK_REDIRECT_REJECTED");
+    const adminDemandResponse = await validateAdminDemandProxyResponse(source, response);
+    if (adminDemandResponse) return adminDemandResponse;
     const taskResponse = await validateTaskDiscoveryProxyResponse(source, response);
     if (taskResponse) return taskResponse;
     const reviewHistoryResponse = await validateReviewHistoryProxyResponse(source, response);
@@ -2443,6 +2502,9 @@ export async function proxyAppRequest(source, options = {}) {
       headers: safeResponseHeaders(response.headers),
     });
   } catch (error) {
+    if (error instanceof TypeError && ["INVALID_ADMIN_DEMAND_QUERY", "INVALID_ADMIN_DEMAND_REQUEST"].includes(error.message)) {
+      return Response.json({ error: { code: "INVALID_REQUEST" } }, { status: 400, headers: { "cache-control": "no-store" } });
+    }
     if (error instanceof TypeError && error.message === "INVALID_TRUST_ASSIGNED_HOLD_QUERY") {
       return Response.json(
         { error: { code: "RESOURCE_NOT_FOUND" } },

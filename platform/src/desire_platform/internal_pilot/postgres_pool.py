@@ -48,6 +48,8 @@ _REVIEWED_API_ROLES = frozenset(
 )
 _TRANSPORT_SECURITY = frozenset(("TLS_REQUIRED", "TRUSTED_CONTAINER_NETWORK"))
 _REQUEST_CONTEXT_SETTINGS = (
+    "app.admin_workspace_id",
+    "app.admin_participant_ids",
     "app.actor_user_id",
     "app.session_id",
     "app.organization_id",

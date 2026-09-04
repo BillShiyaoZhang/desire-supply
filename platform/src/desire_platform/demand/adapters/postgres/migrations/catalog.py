@@ -134,11 +134,12 @@ DEMAND_MIGRATION_LAYOUT: Tuple[
         "matching_completion_and_delivery",
         "0015_expand__matching_completion_and_delivery.sql",
     ),
+    (16, DemandMigrationPhase.EXPAND, "admin_demand_timeline", "0016_expand__admin_demand_timeline.sql"),
 )
 
 # Updated atomically with the restricted-canonical manifest.
 DEMAND_REVIEWED_MANIFEST_SHA256 = bytes.fromhex(
-    "32d8587651d05e725a4277e2d253b8e195192f1dabc702dd5208b53fe8143f73"
+    "4802d0ba44c05a059f3dfdbe0911e7be05cfd5d8508c8ced48a0a3f22bc1290f"
 )
 
 _PATH = re.compile(r"[0-9]{4}_(?:expand|migrate|contract)__[a-z0-9_]+\.sql\Z")

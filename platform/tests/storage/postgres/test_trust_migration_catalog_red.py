@@ -168,6 +168,10 @@ def test_catalog_is_independent_contiguous_and_immutable() -> None:
             "demand14_dependency_repin",
             "0020_expand__demand14_dependency_repin.sql",
         ),
+        (21, TrustMigrationPhase.EXPAND, "iam45_demand15_dependency_repin", "0021_expand__iam45_demand15_dependency_repin.sql"),
+        (22, TrustMigrationPhase.EXPAND, "iam46_dependency_repin", "0022_expand__iam46_dependency_repin.sql"),
+        (23, TrustMigrationPhase.EXPAND, "iam47_dependency_repin", "0023_expand__iam47_dependency_repin.sql"),
+        (24, TrustMigrationPhase.EXPAND, "admin_demand_timeline", "0024_expand__admin_demand_timeline.sql"),
     )
     descriptor = TrustMigrationDescriptor(
         component="trust",

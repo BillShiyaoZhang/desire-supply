@@ -259,11 +259,11 @@ class PrivateServerSourceReadinessTest(unittest.TestCase):
         self.assertIn("private-server-source-readiness-v1.schema.json", runbook)
         workflow = WORKFLOW.read_text(encoding="utf-8")
         self.assertIn(
-            "- name: Verify the current-head v29 static contract",
+            "- name: Verify the current-head v30 static contract",
             workflow,
         )
         self.assertIn(
-            "python -B scripts/verify_current_head_v29.py",
+            "python -B scripts/verify_current_head_v30.py",
             workflow,
         )
         ci = CI.read_text(encoding="utf-8")
@@ -278,7 +278,7 @@ class PrivateServerSourceReadinessTest(unittest.TestCase):
         v25 = "python -B scripts/verify_current_head_v25.py"
         v26 = "python -B scripts/verify_current_head_v26.py"
         v27 = "python -B scripts/verify_current_head_v27.py"
-        v29 = "python -B scripts/verify_current_head_v29.py"
+        v30 = "python -B scripts/verify_current_head_v30.py"
         self.assertEqual(ci.count(v17), 0)
         self.assertEqual(ci.count(v18), 0)
         self.assertEqual(ci.count(v19), 0)
@@ -290,7 +290,7 @@ class PrivateServerSourceReadinessTest(unittest.TestCase):
         self.assertEqual(ci.count(v25), 0)
         self.assertEqual(ci.count(v26), 0)
         self.assertEqual(ci.count(v27), 0)
-        self.assertEqual(ci.count(v29), 1)
+        self.assertEqual(ci.count(v30), 1)
         for relative in (
             "docs/operations/current-head-v16.md",
             "docs/operations/current-head-v17.md",

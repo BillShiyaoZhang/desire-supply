@@ -1,0 +1,176 @@
+{
+  "schema_version": "pet-feed-admin-readonly-verification-v1",
+  "status": "PET_FEED_ADMIN_READONLY_GREEN",
+  "checks": [
+    {
+      "account": "access_admin_01",
+      "collection_pages": 4,
+      "original_event_count": 1,
+      "software_event_count": 29,
+      "software_pages_at_limit_2": 15,
+      "participants": [
+        {
+          "user_id": "0acb3b08-456a-5e42-896d-a30a0e129e0d",
+          "display_name": "sandbox_creator_01",
+          "roles": [
+            "CREATOR"
+          ]
+        },
+        {
+          "user_id": "3cf3f5db-84ce-5a87-bc5f-d3ca80b610a2",
+          "display_name": "sandbox_operations_reviewer_01",
+          "roles": [
+            "OPERATIONS_REVIEWER"
+          ]
+        },
+        {
+          "user_id": "464a606a-fdde-5cce-9c02-6263dd194cea",
+          "display_name": "sandbox_finance_operator_02",
+          "roles": [
+            "FINANCE_OPERATOR"
+          ]
+        },
+        {
+          "user_id": "913f5458-8a20-5747-b7b5-3455e12b930b",
+          "display_name": "sandbox_demand_owner_01",
+          "roles": [
+            "CANDIDATE_SELECTOR",
+            "DEMAND_OWNER"
+          ]
+        },
+        {
+          "user_id": "f5864c38-fe39-568d-8b47-0b53e707daf4",
+          "display_name": "sandbox_finance_operator_01",
+          "roles": [
+            "FINANCE_OPERATOR"
+          ]
+        }
+      ],
+      "actions": [
+        "ACCEPT_INVITATION",
+        "CHOOSE_CREATOR",
+        "CLAIM_DEMAND_REVIEW",
+        "CLAIM_MATCHING_REVIEW",
+        "COMPLETE_MATCH_RUN",
+        "COMPLETE_SELECTION",
+        "CONFIRM_MANUAL_FUNDING_EVIDENCE",
+        "CREATE_INVITATION",
+        "CreateDemand",
+        "CreateDemandVersion",
+        "INGEST_MATCHING_REQUESTED",
+        "JOIN_MANUAL_FUNDING_REVIEW",
+        "OPT_IN_CANDIDATE_SELECTOR",
+        "PUBLISH_INVITATION",
+        "RELEASE_MATCHING_REVIEW",
+        "RequestDemandChanges",
+        "RequestMatchingSystem",
+        "START_MANUAL_FUNDING_REVIEW",
+        "START_MATCH_RUN",
+        "SubmitDemand",
+        "VerifyDemand"
+      ]
+    },
+    {
+      "account": "org_admin_01",
+      "collection_pages": 4,
+      "original_event_count": 1,
+      "software_event_count": 29,
+      "software_pages_at_limit_2": 15,
+      "participants": [
+        {
+          "user_id": "0acb3b08-456a-5e42-896d-a30a0e129e0d",
+          "display_name": "sandbox_creator_01",
+          "roles": [
+            "CREATOR"
+          ]
+        },
+        {
+          "user_id": "3cf3f5db-84ce-5a87-bc5f-d3ca80b610a2",
+          "display_name": "sandbox_operations_reviewer_01",
+          "roles": [
+            "OPERATIONS_REVIEWER"
+          ]
+        },
+        {
+          "user_id": "464a606a-fdde-5cce-9c02-6263dd194cea",
+          "display_name": "sandbox_finance_operator_02",
+          "roles": [
+            "FINANCE_OPERATOR"
+          ]
+        },
+        {
+          "user_id": "913f5458-8a20-5747-b7b5-3455e12b930b",
+          "display_name": "sandbox_demand_owner_01",
+          "roles": [
+            "CANDIDATE_SELECTOR",
+            "DEMAND_OWNER"
+          ]
+        },
+        {
+          "user_id": "f5864c38-fe39-568d-8b47-0b53e707daf4",
+          "display_name": "sandbox_finance_operator_01",
+          "roles": [
+            "FINANCE_OPERATOR"
+          ]
+        }
+      ],
+      "actions": [
+        "ACCEPT_INVITATION",
+        "CHOOSE_CREATOR",
+        "CLAIM_DEMAND_REVIEW",
+        "CLAIM_MATCHING_REVIEW",
+        "COMPLETE_MATCH_RUN",
+        "COMPLETE_SELECTION",
+        "CONFIRM_MANUAL_FUNDING_EVIDENCE",
+        "CREATE_INVITATION",
+        "CreateDemand",
+        "CreateDemandVersion",
+        "INGEST_MATCHING_REQUESTED",
+        "JOIN_MANUAL_FUNDING_REVIEW",
+        "OPT_IN_CANDIDATE_SELECTOR",
+        "PUBLISH_INVITATION",
+        "RELEASE_MATCHING_REVIEW",
+        "RequestDemandChanges",
+        "RequestMatchingSystem",
+        "START_MANUAL_FUNDING_REVIEW",
+        "START_MATCH_RUN",
+        "SubmitDemand",
+        "VerifyDemand"
+      ]
+    }
+  ],
+  "denied_reads": [
+    {
+      "account": "demand_owner_01",
+      "path": "/v1/app/admin/demands",
+      "http_status": 404
+    },
+    {
+      "account": "demand_owner_01",
+      "path": "/v1/app/admin/demands/85210ced-f3bc-4a37-b07a-ae98918f0755/timeline",
+      "http_status": 404
+    },
+    {
+      "account": "demand_owner_01",
+      "path": "/v1/app/admin/demands/5488cead-7b10-4e78-8e23-9dd1b5318d6f/timeline",
+      "http_status": 404
+    },
+    {
+      "account": "creator_01",
+      "path": "/v1/app/admin/demands",
+      "http_status": 404
+    },
+    {
+      "account": "creator_01",
+      "path": "/v1/app/admin/demands/85210ced-f3bc-4a37-b07a-ae98918f0755/timeline",
+      "http_status": 404
+    },
+    {
+      "account": "creator_01",
+      "path": "/v1/app/admin/demands/5488cead-7b10-4e78-8e23-9dd1b5318d6f/timeline",
+      "http_status": 404
+    }
+  ],
+  "frontend_validated_pages": 42,
+  "business_writes": 0
+}

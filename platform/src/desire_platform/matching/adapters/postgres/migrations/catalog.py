@@ -104,11 +104,12 @@ MATCHING_MIGRATION_LAYOUT: Tuple[
         "iam47_trust23_dependency_repin",
         "0010_expand__iam47_trust23_dependency_repin.sql",
     ),
+    (11, MatchingMigrationPhase.EXPAND, "admin_demand_timeline", "0011_expand__admin_demand_timeline.sql"),
 )
 
 # Updated atomically with the restricted-canonical manifest.
 MATCHING_REVIEWED_MANIFEST_SHA256 = bytes.fromhex(
-    "83547a319fb2d1e5cc88131570fc889ac795b0dd30643e9bca565058226f2cb6"
+    "c7cc2c975f85723a5f4f3c7aa45fe6ebdf6f0fc0df140a06d111aad33eceffbb"
 )
 
 _PATH = re.compile(r"[0-9]{4}_(?:expand|migrate|contract)__[a-z0-9_]+\.sql\Z")

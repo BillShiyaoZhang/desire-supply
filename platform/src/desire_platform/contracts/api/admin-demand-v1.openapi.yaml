@@ -1,0 +1,504 @@
+openapi: 3.1.0
+info:
+  title: Administrator demand workflow oversight
+  version: 1.0.0
+  description: ACCESS_ADMIN in a platform workspace may read all demands; ORG_ADMIN
+    may read only its active organization. Read-only durable audit and fact projection.
+    No raw content, restricted evidence, audit attributes, contact data, secrets,
+    or financial provider payloads are exposed. Finance describes sandbox zero-funds
+    evidence only. Agreement, delivery and settlement remain explicitly NOT_IMPLEMENTED.
+    System actor is separate from original_actor_user_id. COMPLETE coverage means
+    available persisted records, not unsaved attempts or future work.
+security:
+- sessionCookie: []
+paths:
+  /v1/app/admin/demands:
+    get:
+      operationId: listAdminDemands
+      parameters:
+      - &id001
+        name: X-Workspace-Id
+        in: header
+        required: true
+        schema:
+          type: string
+          pattern: ^(org|platform):[0-9a-f-]{36}$
+        description: Server-issued workspace identifier. Roles, membership and active
+          session are revalidated server-side; callers cannot supply authority.
+      - &id002
+        name: limit
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+      - &id003
+        name: cursor
+        in: query
+        schema:
+          type: string
+          pattern: ^[A-Za-z0-9_-]{64,1024}\.[A-Za-z0-9_-]{43}$
+        description: Opaque signed continuation bound to user, session, workspace
+          and route.
+      responses:
+        '200':
+          description: Authorized read-only projection. Timeline events are ordered
+            by UTC timestamp and event ID; fact-derived historical fallback IDs are
+            stable UUIDs.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required:
+                - data
+                properties:
+                  data:
+                    $ref: '#/components/schemas/DemandList'
+        '400':
+          description: Invalid query or signed cursor
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: No admin authority, wrong workspace, or demand outside scope
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: 'Unavailable source: fail closed, never substitute incomplete
+            success'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /v1/app/admin/demands/{demand_id}/timeline:
+    get:
+      operationId: getAdminDemandTimeline
+      parameters:
+      - *id001
+      - *id002
+      - *id003
+      - name: demand_id
+        in: path
+        required: true
+        schema: &id004
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Authorized read-only projection. Timeline events are ordered
+            by UTC timestamp and event ID; fact-derived historical fallback IDs are
+            stable UUIDs.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required:
+                - data
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Timeline'
+        '400':
+          description: Invalid query or signed cursor
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: No admin authority, wrong workspace, or demand outside scope
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: 'Unavailable source: fail closed, never substitute incomplete
+            success'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: 'TIMELINE_CHANGED: a displayed cross-domain fact changed between
+            pages. Restart from the first page; do not merge snapshots.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+components:
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: __Host-ds_session
+  schemas:
+    DemandSummary:
+      type: object
+      additionalProperties: false
+      required:
+      - demand_id
+      - organization_id
+      - title
+      - status
+      - aggregate_version
+      - created_at
+      - updated_at
+      - expires_at
+      - current_stage
+      - blocker_codes
+      properties:
+        demand_id: *id004
+        organization_id: *id004
+        title:
+          type: string
+          maxLength: 160
+        status:
+          type: string
+          enum:
+          - DRAFT
+          - SUBMITTED
+          - NEEDS_CHANGES
+          - VERIFIED
+          - FUNDING_PENDING
+          - FUNDED
+          - MATCHING
+          - MATCHED
+          - NO_MATCH
+          - CANCELLED
+          - EXPIRED
+        aggregate_version:
+          type: integer
+          minimum: 1
+        created_at: &id005
+          type: string
+          format: date-time
+        updated_at: *id005
+        expires_at: *id005
+        current_stage:
+          type: string
+          enum:
+          - INTAKE
+          - REVIEW
+          - FUNDING
+          - MATCHING
+          - SELECTION
+          - AGREEMENT
+          - DELIVERY
+          - SETTLEMENT
+        blocker_codes:
+          type: array
+          items:
+            type: string
+            enum:
+            - WAITING_FOR_SUBMISSION
+            - WAITING_FOR_REVIEWER
+            - REVIEW_CHANGES_REQUIRED
+            - WAITING_FOR_FINANCE_REVIEW
+            - WAITING_FOR_SECOND_FINANCE_CONFIRMATION
+            - FUNDING_DISCREPANCY
+            - FUNDING_REJECTED
+            - WAITING_FOR_SYSTEM_MATCHING_REQUEST
+            - WAITING_FOR_MATCHING_WORKER
+            - MATCHING_JOB_FAILED
+            - NO_ELIGIBLE_CREATORS
+            - NO_SELECTION_AVAILABLE
+            - WAITING_FOR_INVITATION_RESPONSE
+            - WAITING_FOR_SELECTOR
+            - SAFETY_HOLD_ACTIVE
+            - AGREEMENT_NOT_IMPLEMENTED
+            - DELIVERY_NOT_IMPLEMENTED
+            - SETTLEMENT_NOT_IMPLEMENTED
+            - DEMAND_CANCELLED
+            - DEMAND_EXPIRED
+    Stage:
+      type: object
+      additionalProperties: false
+      required:
+      - code
+      - label
+      - status
+      - participant_ids
+      - event_count
+      - blocker_codes
+      properties:
+        code:
+          type: string
+          enum:
+          - INTAKE
+          - REVIEW
+          - FUNDING
+          - MATCHING
+          - SELECTION
+          - AGREEMENT
+          - DELIVERY
+          - SETTLEMENT
+        label: &id006
+          type: string
+        status:
+          type: string
+          enum:
+          - PENDING
+          - IN_PROGRESS
+          - COMPLETED
+          - BLOCKED
+          - NOT_IMPLEMENTED
+          - CANCELLED
+        participant_ids:
+          type: array
+          items: *id004
+        event_count:
+          type: integer
+          minimum: 0
+        blocker_codes:
+          type: array
+          items:
+            type: string
+            enum:
+            - WAITING_FOR_SUBMISSION
+            - WAITING_FOR_REVIEWER
+            - REVIEW_CHANGES_REQUIRED
+            - WAITING_FOR_FINANCE_REVIEW
+            - WAITING_FOR_SECOND_FINANCE_CONFIRMATION
+            - FUNDING_DISCREPANCY
+            - FUNDING_REJECTED
+            - WAITING_FOR_SYSTEM_MATCHING_REQUEST
+            - WAITING_FOR_MATCHING_WORKER
+            - MATCHING_JOB_FAILED
+            - NO_ELIGIBLE_CREATORS
+            - NO_SELECTION_AVAILABLE
+            - WAITING_FOR_INVITATION_RESPONSE
+            - WAITING_FOR_SELECTOR
+            - SAFETY_HOLD_ACTIVE
+            - AGREEMENT_NOT_IMPLEMENTED
+            - DELIVERY_NOT_IMPLEMENTED
+            - SETTLEMENT_NOT_IMPLEMENTED
+            - DEMAND_CANCELLED
+            - DEMAND_EXPIRED
+    Participant:
+      type: object
+      additionalProperties: false
+      required:
+      - user_id
+      - display_name
+      - roles
+      properties:
+        user_id: *id004
+        display_name:
+          anyOf:
+          - type: string
+            maxLength: 80
+          - type: 'null'
+        roles:
+          type: array
+          items:
+            type: string
+            enum:
+            - DEMAND_OWNER
+            - OPERATIONS_REVIEWER
+            - FINANCE_OPERATOR
+            - CREATOR
+            - CANDIDATE_SELECTOR
+            - TRUST_OFFICER
+            - APPEAL_REVIEWER
+            - ACCESS_ADMIN
+            - ORG_ADMIN
+            - SYSTEM
+            - UNKNOWN
+    Event:
+      type: object
+      additionalProperties: false
+      required:
+      - event_id
+      - stage
+      - source
+      - action
+      - actor_user_id
+      - actor_role
+      - occurred_at
+      - summary
+      - details
+      properties:
+        event_id: *id004
+        stage:
+          type: string
+          enum:
+          - INTAKE
+          - REVIEW
+          - FUNDING
+          - MATCHING
+          - SELECTION
+          - AGREEMENT
+          - DELIVERY
+          - SETTLEMENT
+        source:
+          type: string
+          enum:
+          - DEMAND
+          - FINANCE
+          - MATCHING
+          - TRUST
+        action:
+          type: string
+          pattern: ^[A-Za-z][A-Za-z0-9_]{0,95}$
+        actor_user_id:
+          anyOf:
+          - *id004
+          - type: 'null'
+        actor_role: *id006
+        occurred_at: *id005
+        summary:
+          type: string
+          maxLength: 2000
+        details:
+          type: object
+          additionalProperties: false
+          required: []
+          properties:
+            before_status:
+              anyOf:
+              - *id006
+              - type: 'null'
+            after_status:
+              anyOf:
+              - *id006
+              - type: 'null'
+            reason_code:
+              anyOf:
+              - *id006
+              - type: 'null'
+            before_version:
+              anyOf:
+              - type: integer
+                minimum: 1
+              - type: 'null'
+            after_version:
+              anyOf:
+              - type: integer
+                minimum: 1
+              - type: 'null'
+            target_kind: *id006
+            target_id: *id004
+            result_code: *id006
+            original_actor_user_id:
+              anyOf:
+              - *id004
+              - type: 'null'
+    Coverage:
+      type: object
+      additionalProperties: false
+      required:
+      - source
+      - status
+      - description
+      properties:
+        source:
+          type: string
+          enum:
+          - DEMAND
+          - FINANCE
+          - MATCHING
+          - TRUST
+          - AGREEMENT
+          - DELIVERY
+          - SETTLEMENT
+        status:
+          type: string
+          enum:
+          - COMPLETE
+          - PARTIAL
+          - NOT_IMPLEMENTED
+        description: *id006
+    DemandList:
+      type: object
+      additionalProperties: false
+      required:
+      - items
+      - next_cursor
+      - has_more
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/DemandSummary'
+        next_cursor:
+          anyOf:
+          - *id006
+          - type: 'null'
+        has_more:
+          type: boolean
+    Timeline:
+      type: object
+      additionalProperties: false
+      required:
+      - demand
+      - generated_at
+      - stages
+      - participants
+      - events
+      - coverage
+      - next_cursor
+      - has_more
+      properties:
+        demand:
+          $ref: '#/components/schemas/DemandSummary'
+        generated_at: *id005
+        stages:
+          type: array
+          items:
+            $ref: '#/components/schemas/Stage'
+        participants:
+          type: array
+          items:
+            $ref: '#/components/schemas/Participant'
+        events:
+          type: array
+          items:
+            $ref: '#/components/schemas/Event'
+        coverage:
+          type: array
+          items:
+            $ref: '#/components/schemas/Coverage'
+        next_cursor:
+          anyOf:
+          - *id006
+          - type: 'null'
+        has_more:
+          type: boolean
+    Error:
+      type: object
+      additionalProperties: false
+      required:
+      - error
+      properties:
+        error:
+          type: object
+          additionalProperties: false
+          required:
+          - code
+          properties:
+            code: *id006

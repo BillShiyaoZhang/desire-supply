@@ -458,26 +458,26 @@ def test_builds_exact_role_bound_pool_plan_and_zeroizes_every_secret_on_close():
             if item._requirement.component == "trust"
         )
         matching_requirement = schema_readiness[-1]._requirement
-        assert iam_requirement.expected_schema_head == 47
+        assert iam_requirement.expected_schema_head == 48
         assert iam_requirement.expected_contract_sha256.hex() == (
-            "abc9924571cecb3027ec29ee7fdf34596bf8682d8b41c62d033964ec3094400f"
+            "616cda6eac1e9f853be019f5790584e16826c295be08d10201f947e923a5ba3f"
         )
-        assert demand_requirement.expected_schema_head == 15
-        assert demand_requirement.required_iam_schema_version == 45
-        assert trust_requirement.expected_schema_head == 23
-        assert trust_requirement.required_iam_schema_version == 47
-        assert trust_requirement.required_demand_schema_version == 15
+        assert demand_requirement.expected_schema_head == 16
+        assert demand_requirement.required_iam_schema_version == 48
+        assert trust_requirement.expected_schema_head == 24
+        assert trust_requirement.required_iam_schema_version == 48
+        assert trust_requirement.required_demand_schema_version == 16
         assert trust_requirement.expected_iam_contract_sha256.hex() == (
-            "abc9924571cecb3027ec29ee7fdf34596bf8682d8b41c62d033964ec3094400f"
+            "616cda6eac1e9f853be019f5790584e16826c295be08d10201f947e923a5ba3f"
         )
         assert trust_requirement.expected_contract_sha256.hex() == (
-            "0576a8872e2c9783e345d521f151b3d6f9bd7e1d9ee125ee1ef3810e01a05e47"
+            "9574f3df40b95a3b1a0fdfd778a11edc969c27dc7879efca78aa75515cbdef24"
         )
         assert trust_requirement.expected_combined_contract_sha256.hex() == (
-            "96ff2fd0b3e32143b4570fff008948d13fbe5f537a746712878bd2cca77255fa"
+            "119f603be0862e7f35bc533005e7fef82f7bd6384eb2ab7966b04e75a5dfa199"
         )
-        assert matching_requirement.expected_schema_head == 10
-        assert matching_requirement.required_iam_schema_version == 47
+        assert matching_requirement.expected_schema_head == 11
+        assert matching_requirement.required_iam_schema_version == 48
         trust_application = (
             plan.runtime._delegate._application.application._trust_application
         )

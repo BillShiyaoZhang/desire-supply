@@ -47,8 +47,8 @@ jobs:
       - name: Bind the clean checkout to the exact release commit
         run: python -B scripts/check_private_server_source_readiness.py
 
-      - name: Verify the current-head v29 static contract
-        run: python -B scripts/verify_current_head_v29.py
+      - name: Verify the current-head v30 static contract
+        run: python -B scripts/verify_current_head_v30.py
 
       - name: Close the native release workspace
         env:

@@ -4,12 +4,11 @@
 复验日期：2026-08-29
 适用范围：制度 Demo、本地七角色合成 API、真实 Docker API composition 与 Dev Container。
 
-当前 IAM47/Profile5/Demand15/Trust23/Matching10/Taxonomy2 的静态模式合同见
-[Current-head v29 静态模式头](/operations/current-head-v29.md)。current-head v29 前向修复 Matching
-ingest 名称歧义、coordinator 领取 scope/审计、reviewer claim 可见性/行锁、精确 CREATE 回执恢复与未来
-披露 UTC-Z 时间生成，以及完成程序对原选择意图回执的精确读取；当前只读 gate 为
-`scripts/verify_current_head_v29.py`，版本化备份/恢复入口为
-`deploy/postgres-operations-v29.compose.yaml`。静态检查不代表生产迁移、backup/restore 演练或生产授权。
+当前 IAM48/Profile5/Demand16/Trust24/Matching11/Taxonomy2 的静态模式合同见
+[Current-head v30 静态模式头](/operations/current-head-v30.md)。current-head v30 增加
+[管理员需求全流程查询](/operations/admin-demand-timeline.md)，汇总既有参与者、操作记录及当前阻塞。
+当前只读 gate 为 `scripts/verify_current_head_v30.py`，版本化备份/恢复入口为
+`deploy/postgres-operations-v30.compose.yaml`。静态检查不代表生产迁移、backup/restore 演练或生产授权。
 本页其余标注具体版本的验收段落保留该版本的历史记录。历史
 [Current-head v27 静态模式头](/operations/current-head-v27.md)、
 [Current-head v26 静态模式头](/operations/current-head-v26.md)、
@@ -359,17 +358,17 @@ SQLite 文件权限应仅限当前用户。它只包含合成进度，不要备�
 docker --version
 docker compose version
 python3 -B scripts/verify_container_stack.py
-python3 -B scripts/verify_current_head_v29.py
+python3 -B scripts/verify_current_head_v30.py
 python3 -B -m unittest \
   tests.deployment.test_container_stack \
   tests.deployment.test_internal_sandbox_tls -v
-python3 -B -m unittest tests.deployment.test_postgres_operations_v27 -v
+python3 -B -m unittest tests.deployment.test_postgres_operations_v30 -v
 ```
 
 静态验证必须输出 `{"status":"OK"}`；Compose/Caddy 与离线 TLS 契约应共 13 个测试
 全部通过；current-head verifier 必须只输出
-`{"status":"CURRENT_HEAD_V27_STATIC_VERIFIED"}`，当前 PostgreSQL backup/restore 资产的 v27 静态测试也必须全部通过。
-当前 v27 operations 文件共有五项静态合同，因此预期为 5/5 GREEN；这些检查不调用 Docker，
+`{"status":"CURRENT_HEAD_V30_STATIC_VERIFIED"}`，当前 PostgreSQL backup/restore 资产的 v30 静态测试也必须全部通过。
+当前 v30 operations 静态合同必须全部通过；这些检查不调用 Docker，
 不执行 migration 或 backup/restore。
 
 静态门禁还会读取 base、development 与 PostgreSQL operations 的 resolved Compose，要求每个

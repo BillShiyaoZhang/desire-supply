@@ -285,6 +285,14 @@ REQUIRED_SQL_MARKERS = {
         b"schema_head_version = 47",
         b"ck_iam47_profile_match_creator_readiness",
     ),
+    48: (
+        b"create function iam_api.admin_demand_scope_v1",
+        b"create function iam_api.read_admin_demand_audit_v1",
+        b"principal.workspace_id",
+        b"principal.principal_marker_sha256",
+        b"principal.organization_id = exact_organization_id",
+        b"revoke all on function iam_api.admin_demand_participant_names_v1",
+    ),
 }
 
 

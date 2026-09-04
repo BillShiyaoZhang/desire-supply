@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 from pathlib import Path
 
 import pytest
@@ -73,17 +74,14 @@ def _actual_sources() -> TrustContractSources:
     )
 
 
-def test_runner_pins_exact_direct_iam47_and_demand15_dependency_contracts() -> None:
-    assert TRUST_SCHEMA_HEAD_VERSION == 23
-    assert TRUST_REQUIRED_IAM_SCHEMA_VERSION == 47
-    assert TRUST_REQUIRED_DEMAND_SCHEMA_VERSION == 15
-    assert _EXPECTED_DEMAND_REQUIRED_IAM_SCHEMA_VERSION == 45
-    assert TRUST_REQUIRED_IAM_CONTRACT_SHA256.hex() == (
-        "abc9924571cecb3027ec29ee7fdf34596bf8682d8b41c62d033964ec3094400f"
-    )
-    assert TRUST_REQUIRED_DEMAND_CONTRACT_SHA256.hex() == (
-        "ea6887891134ffa2f451fed35d469ae1c5195c54649e228f587622d95696dddf"
-    )
+def test_runner_pins_exact_direct_iam48_and_demand16_dependency_contracts() -> None:
+    pins = json.loads((Path(__file__).resolve().parents[4] / "tests/deployment/fixtures/current-head-v30/schema-pins.json").read_text())["components"]
+    assert TRUST_SCHEMA_HEAD_VERSION == 24
+    assert TRUST_REQUIRED_IAM_SCHEMA_VERSION == 48
+    assert TRUST_REQUIRED_DEMAND_SCHEMA_VERSION == 16
+    assert _EXPECTED_DEMAND_REQUIRED_IAM_SCHEMA_VERSION == 48
+    assert TRUST_REQUIRED_IAM_CONTRACT_SHA256.hex() == pins["iam"]["combined_sha256"]
+    assert TRUST_REQUIRED_DEMAND_CONTRACT_SHA256.hex() == pins["demand"]["dependency_sha256"]
     assert TRUST_API_CONTRACT_SHA256.hex() == (
         "6647e16e9f8f0ab321ed9985eb2da4e591e2217fdaa43ba663355a4f152f44b2"
     )
@@ -108,9 +106,7 @@ def test_runner_pins_exact_direct_iam47_and_demand15_dependency_contracts() -> N
     assert TRUST_APPEAL_REVIEW_CONTRACT_SHA256.hex() == (
         "08982687c6654d606040c52faedc15a14b7b50e1c5c80db560587bbf3e16f72b"
     )
-    assert TRUST_REVIEWED_COMBINED_CONTRACT_SHA256.hex() == (
-        "96ff2fd0b3e32143b4570fff008948d13fbe5f537a746712878bd2cca77255fa"
-    )
+    assert TRUST_REVIEWED_COMBINED_CONTRACT_SHA256.hex() == pins["trust"]["combined_sha256"]
 
 
 def test_contract_digest_is_domain_separated_and_manifest_bound() -> None:

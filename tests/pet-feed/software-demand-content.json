@@ -1,0 +1,139 @@
+{
+  "ai": {
+    "allowed": false,
+    "required": false,
+    "data_model_policy": null,
+    "human_review_code": "RISK_BASED"
+  },
+  "risk": {
+    "urgency_code": "LOW",
+    "data_sensitivity": "INTERNAL",
+    "dependency_codes": [],
+    "uncertainty_code": "HIGH",
+    "data_handling_plan": "仅合成事件；照片留本地不上传联系人。预算、期限、体型、高度、进食结束检测和安全指标都是待确认项。本次不产生实体设备。"
+  },
+  "scope": {
+    "deliverables": [
+      {
+        "item_id": "software_state_machine",
+        "description": "软件状态机与交互说明：取盆、下降、进食、结束确认、回升、急停/故障；交付状态转移表和 5 条带输入/预期输出的仿真用例，所有高度仅为可配置参数，不控制真实设备。"
+      }
+    ],
+    "out_of_scope": [
+      "真实用户与真实交易",
+      "机械结构、电路、电机选型、实体制造、真实动物试验、医疗或适宜喂食高度建议、真实资金和合同。",
+      "原图附件未上传，保存在 tests/pet-feed/。"
+    ]
+  },
+  "budget": {
+    "currency": "CNY",
+    "maximum_amount_minor": 0,
+    "minimum_amount_minor": 0,
+    "direct_cost_amount_minor": 0
+  },
+  "skills": {
+    "must_have": [
+      {
+        "skill_code": "SKILL.SYSTEMS_ANALYSIS",
+        "minimum_level_code": "WORKING"
+      }
+    ],
+    "nice_to_have": []
+  },
+  "problem": {
+    "background": "INTERNAL_SANDBOX 宠物升降喂食机的软件分析子需求【合成演练】，来源需求 85210ced-f3bc-4a37-b07a-ae98918f0755。想做一个可以升降的宠物喂食机，可以让人不用弯腰，放便拿起喂食盆的，如果有感兴趣的朋友欢迎滴滴我 像是个类似桌子高度的容器，在喂食的时候可以降低到地面 会根据狗狗的体型大小，降落到合适的高度 然后狗狗进食完后，盆子会自动复位到人不用弯腰就可以拿起来的高度 本子需求仅针对软件交互和控制仿真；原始硬件需求仍待分类、工程和预算确认。",
+    "domain_code": "DOMAIN.SOFTWARE",
+    "desired_outcomes": [
+      "模拟人站立取放盆、按配置的犬体型档位下降，以及模拟进食结束后回升。",
+      "输出可审阅的软件状态机、交互说明和异常场景表，供后续硬件可行性评审。"
+    ],
+    "problem_type_codes": [
+      "PROBLEM.OPERATIONS"
+    ],
+    "target_user_category_codes": [
+      "SYNTHETIC_USER"
+    ]
+  },
+  "location": {
+    "demand_region_code": "CN",
+    "allowed_creator_region_codes": [
+      "CN"
+    ]
+  },
+  "matching": {
+    "task_codes": [
+      "TASK.ANALYSIS"
+    ],
+    "domain_codes": [
+      "DOMAIN.SOFTWARE"
+    ],
+    "problem_codes": [
+      "PROBLEM.OPERATIONS"
+    ]
+  },
+  "schedule": {
+    "due_date": "2026-10-05",
+    "start_date": "2026-09-05",
+    "weekly_hours": 20,
+    "duration_weeks": 4,
+    "estimated_days": 20
+  },
+  "acceptance": {
+    "criteria": [
+      {
+        "description": "给定取盆状态和用户开始信号，模拟转入下降；取盆高度为参数，不宣称真实人机尺寸已确定。",
+        "criterion_id": "manual_bowl"
+      },
+      {
+        "description": "为 3 个合成体型档位配置不同目标高度，仿真分别到达对应参数值；实物高度由需求方和专家另行确认。",
+        "criterion_id": "dog_height"
+      },
+      {
+        "description": "模拟进食中不回升；收到模拟结束事件并经确认后回升到取盆参数值。真实检测方案待确认。",
+        "criterion_id": "meal_finish"
+      },
+      {
+        "description": "在下降或回升时注入障碍事件，软件仿真停止运动并显示人工处理提示。",
+        "criterion_id": "obstruction"
+      },
+      {
+        "description": "注入断电/传感故障事件后进入故障状态；恢复需显式人工确认。实物安全能力未验证。",
+        "criterion_id": "power_loss"
+      }
+    ],
+    "response_days": 5,
+    "owner_role_code": "DEMAND_OWNER"
+  },
+  "declarations": {
+    "data_rights": true,
+    "decision_authority": true,
+    "procurement_intent": true
+  },
+  "collaboration": {
+    "languages": [
+      "zh-CN"
+    ],
+    "work_mode": "REMOTE",
+    "team_preference": "ANY",
+    "feedback_cadence": "ASYNC"
+  },
+  "milestone_plan": {
+    "items": [
+      {
+        "label": "假设清单与状态机评审",
+        "item_id": "requirements",
+        "percent": 30
+      },
+      {
+        "label": "软件仿真用例与交互说明",
+        "item_id": "simulation",
+        "percent": 50
+      },
+      {
+        "label": "需求方审阅与问题回收",
+        "item_id": "review",
+        "percent": 20
+      }
+    ]
+  }
+}

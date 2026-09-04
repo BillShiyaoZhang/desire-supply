@@ -12,6 +12,8 @@
 ## 从这里开始
 
 - [本机全部使用 Docker](./docs/operations/docker-local.md)：一条命令启动工作台，初始化、开发工具链和文档预览都在容器中完成
+- [管理员查看需求全流程](./docs/operations/admin-demand-timeline.md)：按需求查看各阶段进度、参与人员、操作时间线及尚未接入的环节
+- [Current-head v30 静态模式头](./docs/operations/current-head-v30.md)：IAM48 / Profile5 / Demand16 / Trust24 / Matching11 / Taxonomy2 的数据库合同与恢复边界
 - [Current-head v27 静态模式头](./docs/operations/current-head-v27.md)：IAM46 / Profile5 / Demand15 / Trust22 / Matching3 / Taxonomy2 的只读静态发布与恢复边界；`STATIC VERIFIED / NOT PRODUCTION EXECUTED`
 - [Current-head v26 静态模式头](./docs/operations/current-head-v26.md)：冻结历史，只保留 IAM43 / Profile3 / Demand13 / Trust19 / Taxonomy2 的原始静态事实
 - [Current-head v25 历史静态模式头](./docs/operations/current-head-v25.md)：冻结的 IAM42 / Profile3 / Demand12 / Trust18 / Taxonomy2 隐私安全 HTTP telemetry 与有界容器日志发布边界

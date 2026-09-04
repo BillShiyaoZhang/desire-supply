@@ -3,11 +3,11 @@
 状态：仅限合成内部沙箱，`G1 NO-GO / G2 NO-GO`。本编排运行真实 PostgreSQL API
 composition；它不批准真人研究、公开注册、真实合同、真实资金、真实权益决定或公网发布。
 
-> 当前静态模式头为 IAM `0046`、Profile `0005`、Demand `0015`、Trust `0022`、Matching
-> `0009`、Taxonomy `0002`，对应
-> [Current-head v29 静态模式头](/operations/current-head-v29.md)。v29 前向修复 Matching ingest 名称歧义、coordinator 领取 scope/审计、reviewer claim 可见性/行锁、精确 CREATE 回执恢复与未来披露 UTC-Z 时间生成；
-> 并为完成程序增加原选择意图回执的精确只读 policy。其余组件和合同保持原值。当前只读 gate 与版本化恢复入口分别为 `verify_current_head_v29.py` 和
-> `postgres-operations-v29.compose.yaml`；静态校验不代表生产迁移、恢复演练或生产授权。
+> 当前静态模式头为 IAM `0048`、Profile `0005`、Demand `0016`、Trust `0024`、Matching
+> `0011`、Taxonomy `0002`，对应
+> [Current-head v30 静态模式头](/operations/current-head-v30.md)。v30 加入管理员需求全流程只读查询，
+> 保留原有业务状态与历史记录。当前只读 gate 与版本化恢复入口分别为 `verify_current_head_v30.py` 和
+> `postgres-operations-v30.compose.yaml`；静态校验不代表生产迁移、恢复演练或生产授权。
 > 下文具体版本的动态记录保留原证据范围。冻结 v27/v26/v25 发布资产以及绑定当时 checkout
 > runtime/source 的第 2.6 节 fresh-volume 本地合成验收继续分开记账；它们不能冒充 v27 或生产执行。冻结的 v24 发布资产及其
 > 第 2.5 节本地合成动态验收彼此分开记账，不能冒充第 2.6 节或生产执行。冻结的 v23 发布资产与下列动态记录
@@ -101,24 +101,24 @@ docker --version
 docker compose version
 uv --version
 python3 -B scripts/verify_container_stack.py
-python3 -B scripts/verify_current_head_v29.py
+python3 -B scripts/verify_current_head_v30.py
 python3 -B -m unittest \
   tests.deployment.test_container_stack \
   tests.deployment.test_internal_sandbox_tls -v
-python3 -B -m unittest tests.deployment.test_postgres_operations_v27 -v
+python3 -B -m unittest tests.deployment.test_postgres_operations_v30 -v
 ```
 
-静态验证必须输出 `{"status":"OK"}`，Compose/Caddy/TLS 契约必须 13/13 GREEN；v27 verifier
-必须只输出 `{"status":"CURRENT_HEAD_V27_STATIC_VERIFIED"}`，且 v27 PostgreSQL operations 静态合同
-必须 5/5 GREEN。该 verifier 与这些测试本身都不执行 migration 或 backup/restore；
+静态验证必须输出 `{"status":"OK"}`，Compose/Caddy/TLS 契约必须 13/13 GREEN；v30 verifier
+必须只输出 `{"status":"CURRENT_HEAD_V30_STATIC_VERIFIED"}`，且 v30 PostgreSQL operations 静态合同
+必须全部通过。该 verifier 与这些测试本身都不执行 migration 或 backup/restore；
 第 2.2 节另行记录此前 v21 对应的 IAM42/Demand11/Trust15 本地动态结果，第 2.3 节冻结 v22
 runtime/source 的本地合成结果，第 2.4 节记录历史 v23/Trust17 的 fresh-volume 本地合成结果，
 第 2.5 节记录冻结 v24/Trust18 的独立 fresh-volume 本地合成结果；第 2.6 节另记历史 v25 checkout
-runtime/source 的 fresh-volume 本地合成结果，但这些记录均不构成 v27 动态或生产执行。
+runtime/source 的 fresh-volume 本地合成结果，但这些记录均不构成 v30 动态或生产执行。
 2026-08-26 IAM41/Trust14
-仍只作历史，且本地合成验收不能替代 current-head v27 生产发布执行、浏览器视觉 QA、
-backup/restore 动态演练、PITR 或告警门禁。当前 v27 的版本绑定 backup/restore 静态入口已经通过
-`deploy/postgres-operations-v29.compose.yaml` 签入并由当前 verifier 检查，但本节没有调用 Docker
+仍只作历史，且本地合成验收不能替代 current-head v30 生产发布执行、浏览器视觉 QA、
+backup/restore 动态演练、PITR 或告警门禁。当前 v30 的版本绑定 backup/restore 静态入口已经通过
+`deploy/postgres-operations-v30.compose.yaml` 签入并由当前 verifier 检查，但本节没有调用 Docker
 或创建 artifact/恢复资源。
 
 合成 OIDC 固定为 issuer `https://identity.example.test`、client ID

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import hashlib
+from pathlib import Path
 import unittest
 
 from desire_platform.identity_access.adapters.postgres.migrations import (
@@ -12,6 +13,7 @@ from desire_platform.identity_access.adapters.postgres.migrations import (
     IAM_SCHEMA_HEAD_VERSION,
     IamContractParameters,
     MigrationArtifact,
+    MigrationCatalog,
     MigrationCommitOutcomeUnknown,
     MigrationDescriptor,
     MigrationLedgerRecord,
@@ -348,6 +350,19 @@ class PsycopgMigrationAdapterSemanticRedTest(unittest.TestCase):
             "0007 must be read back through the final compatibility view",
         )
         self.assertEqual(connection.info.transaction_status, "IDLE")
+
+    def test_every_reviewed_descriptor_is_accepted_by_real_assertion_registry(self) -> None:
+        # Use the byte-checked catalog, including newly appended migrations;
+        # hand-made descriptors or fake runner drivers missed IAM48 originally.
+        root = Path(__file__).resolve().parents[3] / "src/desire_platform/identity_access/adapters/postgres/migrations"
+        catalog = MigrationCatalog.load(root)
+        session, _connection = self._connected_session()
+        for artifact in catalog.artifacts:
+            with self.subTest(version=artifact.descriptor.version):
+                session.begin_migration(artifact.descriptor)
+                session.assert_artifact(artifact.descriptor)
+                session.rollback_migration()
+        self.assertEqual(catalog.artifacts[-1].descriptor.version, IAM_SCHEMA_HEAD_VERSION)
 
     def test_current_iam_head_has_a_closed_artifact_assertion_mapping(self) -> None:
         session, connection = self._connected_session()

@@ -89,6 +89,8 @@ import {
 } from "../lib/invitation-flow.mjs";
 import { InvitationAcceptance } from "./invitation-acceptance";
 import { OrganizationAdminWorkbench } from "./organization-admin-workbench";
+import { AdminDemandTimelinePanel } from "./admin-demand-timeline";
+import { canInspectDemandTimeline } from "../lib/admin-demand-contract.mjs";
 import { SessionManager } from "./session-manager";
 import {
   LEGACY_SESSION_REVOKE_PENDING_KEY,
@@ -2911,6 +2913,7 @@ export function ProductClient() {
     selectedWorkspace?.workspace_kind === "ORGANIZATION"
     && selectedWorkspace?.role_codes.includes("ORG_ADMIN"),
   );
+  const canInspectDemands = canInspectDemandTimeline(selectedWorkspace);
   const canUseTrust = Boolean(
     selectedWorkspace?.role_codes.includes("DEMAND_OWNER")
     || (selectedWorkspace?.workspace_kind === "PLATFORM" && selectedWorkspace?.role_codes.includes("TRUST_OFFICER")),
@@ -3240,6 +3243,12 @@ export function ProductClient() {
             locked={busy || pendingOwner !== null || logoutIntent !== null}
             onOpen={openCurrentAccountTask}
             onRefresh={refreshTasksSafely}
+          />}
+
+          {canInspectDemands && selectedWorkspace && session && me && !logoutIntent && <AdminDemandTimelinePanel
+            workspace={selectedWorkspace}
+            sessionId={session.session.session_id}
+            accountId={me.user_id}
           />}
 
           {canReviewDemands && selectedWorkspace && <ReviewHistoryPanel

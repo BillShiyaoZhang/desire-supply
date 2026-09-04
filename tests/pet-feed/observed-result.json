@@ -1,0 +1,119 @@
+{
+  "schema_version": "pet-feed-simulation-v1",
+  "started_at": "2026-09-04T12:48:22.739935+00:00",
+  "deployment_mode": "INTERNAL_SANDBOX",
+  "assumptions": [
+    "原始需求是实体升降喂食机；另建的软件分析子需求只演练交互/控制仿真，不能代表机械研发或制造完成。",
+    "所有参与者为已有合成账号；预算、直接成本、报价均为 0 CNY，仅为沙盒资金确认，不代表真实预算或实际收付款。",
+    "软件子需求暂按明日起 4 周、每周 20 小时、远程中文协作、中国地区和 5 天验收响应演练；均未获原需求方确认。",
+    "狗的体型、合适进食高度、取盆高度、载荷、行程、速度、噪音、尺寸和真实完成进食检测方法均待确认；不从升降桌宣传图推导产品规格。",
+    "演练只用合成传感事件和可配置高度参数；防夹、误触发、断电、清洁、食品接触材料和稳定性由后续机械/电气专家及需求方定义验收。",
+    "原图仅作本地参考：目录中的电话、地址和手写信息不输入工作台，也不联系图片中的供应商。"
+  ],
+  "source_sha256": {
+    "idea.md": "e39e35fe93b891d17b0093cae37bd6a6d944afea0aac77e4732633434186d513",
+    "Weixin Image_20260903112219_17_1172.jpg": "8a6a961abdf1299a1cbdb1dc6c81f0735265cb51265287498cb338948dc2e121"
+  },
+  "original_hardware": {
+    "demand_id": "85210ced-f3bc-4a37-b07a-ae98918f0755",
+    "status": "DRAFT",
+    "revision": 1,
+    "taxonomy_probe_http_status": 422,
+    "taxonomy_probe_error": "EDITOR_CHOICE_UNAVAILABLE",
+    "original_content_preserved": true,
+    "available_choices": [
+      {
+        "resource_type": "DEMAND",
+        "path_template": "/matching/domain_codes/*",
+        "value_contract": "TAXONOMY_CODE",
+        "intended_node_kind": "DOMAIN",
+        "status": "AVAILABLE",
+        "reason_code": null,
+        "options": [
+          {
+            "value": "DOMAIN.SOFTWARE",
+            "label": "软件",
+            "source": "TAXONOMY_BUNDLE_NODE"
+          }
+        ]
+      },
+      {
+        "resource_type": "DEMAND",
+        "path_template": "/matching/task_codes/*",
+        "value_contract": "TAXONOMY_CODE",
+        "intended_node_kind": "TASK",
+        "status": "AVAILABLE",
+        "reason_code": null,
+        "options": [
+          {
+            "value": "TASK.ANALYSIS",
+            "label": "分析",
+            "source": "TAXONOMY_BUNDLE_NODE"
+          }
+        ]
+      },
+      {
+        "resource_type": "DEMAND",
+        "path_template": "/problem/domain_code",
+        "value_contract": "TAXONOMY_CODE",
+        "intended_node_kind": "DOMAIN",
+        "status": "AVAILABLE",
+        "reason_code": null,
+        "options": [
+          {
+            "value": "DOMAIN.SOFTWARE",
+            "label": "软件",
+            "source": "TAXONOMY_BUNDLE_NODE"
+          }
+        ]
+      },
+      {
+        "resource_type": "DEMAND",
+        "path_template": "/skills/must_have/*/skill_code",
+        "value_contract": "TAXONOMY_CODE",
+        "intended_node_kind": "SKILL",
+        "status": "AVAILABLE",
+        "reason_code": null,
+        "options": [
+          {
+            "value": "SKILL.SYSTEMS_ANALYSIS",
+            "label": "系统分析",
+            "source": "TAXONOMY_BUNDLE_NODE"
+          }
+        ]
+      },
+      {
+        "resource_type": "DEMAND",
+        "path_template": "/skills/nice_to_have/*/skill_code",
+        "value_contract": "TAXONOMY_CODE",
+        "intended_node_kind": "SKILL",
+        "status": "AVAILABLE",
+        "reason_code": null,
+        "options": [
+          {
+            "value": "SKILL.SYSTEMS_ANALYSIS",
+            "label": "系统分析",
+            "source": "TAXONOMY_BUNDLE_NODE"
+          }
+        ]
+      }
+    ]
+  },
+  "software_subdemand": {
+    "branch": "SELECTED",
+    "demand_id": "5488cead-7b10-4e78-8e23-9dd1b5318d6f",
+    "demand_version_id": "86512ce1-e6d4-4d88-aff5-53185c0ae07f",
+    "attempt_id": "5d8c15b0-a64e-5071-897d-1fe6e4c84480",
+    "selection_id": "f1738ad4-447c-52a5-972a-39ef141447ad",
+    "invitation_id": "c0fb38d7-11cb-4c0d-8afd-ebd82e024ecf",
+    "invitation_status": "ACCEPTED",
+    "selection_status": "SELECTED",
+    "demand_status": "MATCHED",
+    "create_exact_replay_verified": true
+  },
+  "status": "HARDWARE_BLOCKED_SOFTWARE_MATCHED",
+  "stop_reason": "原始硬件需求分类不可用；软件分析子需求已 MATCHED。当前 PostgreSQL 工作台未实现合同、项目、里程碑交付与验收，未宣称产品已交付。",
+  "software_revision": 14,
+  "completed_at": "2026-09-04T12:48:38.080653+00:00",
+  "http_write_attempts": 39
+}

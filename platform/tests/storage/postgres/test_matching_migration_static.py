@@ -31,15 +31,15 @@ MIGRATION_ROOT = (
 class MatchingMigrationStaticTest(unittest.TestCase):
     def test_catalog_is_reviewed_byte_exact_and_immutable(self) -> None:
         catalog = MatchingMigrationCatalog.load(MIGRATION_ROOT)
-        self.assertEqual(MATCHING_SCHEMA_HEAD_VERSION, 10)
-        self.assertEqual(MATCHING_REQUIRED_IAM_SCHEMA_VERSION, 47)
+        self.assertEqual(MATCHING_SCHEMA_HEAD_VERSION, 11)
+        self.assertEqual(MATCHING_REQUIRED_IAM_SCHEMA_VERSION, 48)
         self.assertEqual(
             catalog.manifest_sha256,
             MATCHING_REVIEWED_MANIFEST_SHA256,
         )
         self.assertEqual(
             tuple(item.descriptor.version for item in catalog.artifacts),
-            (1, 2, 3, 4, 5, 6, 7, 8, 9, 10),
+            (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11),
         )
         self.assertEqual(
             tuple(item.descriptor.checksum_sha256.hex() for item in catalog.artifacts),
@@ -54,6 +54,7 @@ class MatchingMigrationStaticTest(unittest.TestCase):
                 "4059c3b2f13bbd5a5a1b51b20becc3fc385a8509dc20f5cd886f6c56585bf8c2",
                 "726907b4d5f7f0473bc0b826a59134bb59007d34344bb6ddd4ff70a07a477de9",
                 "54f807a3d210095a79164ad8dc2724686c61decde510e47fc3f7d6f606d45ec6",
+                json.loads((PLATFORM_ROOT.parent / "tests/deployment/fixtures/current-head-v30/schema-pins.json").read_text())["components"]["matching"]["head_sql_sha256"],
             ),
         )
         descriptor = MatchingMigrationDescriptor(

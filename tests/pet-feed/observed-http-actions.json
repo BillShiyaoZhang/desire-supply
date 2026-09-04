@@ -1,0 +1,887 @@
+[
+  {
+    "run_id": "20260904T124621Z",
+    "sequence": 1,
+    "recorded_at": "2026-09-04T12:46:23.959357+00:00",
+    "stage": "ORIGINAL_HARDWARE_DRAFT",
+    "actor": "demand_owner_01",
+    "roles": [
+      "DEMAND_OWNER"
+    ],
+    "method": "POST",
+    "path": "/v1/app/demands",
+    "http_status": 201,
+    "result": {
+      "resource_type": "DEMAND",
+      "object_id": "85210ced-f3bc-4a37-b07a-ae98918f0755",
+      "status": "DRAFT",
+      "revision": 1
+    }
+  },
+  {
+    "run_id": "20260904T124621Z",
+    "sequence": 2,
+    "recorded_at": "2026-09-04T12:46:24.396774+00:00",
+    "stage": "ORIGINAL_HARDWARE_DRAFT",
+    "actor": "demand_owner_01",
+    "roles": [
+      "DEMAND_OWNER"
+    ],
+    "method": "PUT",
+    "path": "/v1/app/demands/85210ced-f3bc-4a37-b07a-ae98918f0755/draft",
+    "http_status": 422,
+    "result": {}
+  },
+  {
+    "run_id": "20260904T124706Z",
+    "sequence": 1,
+    "recorded_at": "2026-09-04T12:47:08.912270+00:00",
+    "stage": "ORIGINAL_HARDWARE_DRAFT",
+    "actor": "demand_owner_01",
+    "roles": [
+      "DEMAND_OWNER"
+    ],
+    "method": "PUT",
+    "path": "/v1/app/demands/85210ced-f3bc-4a37-b07a-ae98918f0755/draft",
+    "http_status": 422,
+    "result": {
+      "code": "EDITOR_CHOICE_UNAVAILABLE",
+      "path": "/content/problem/domain_code"
+    }
+  },
+  {
+    "run_id": "20260904T124706Z",
+    "sequence": 2,
+    "recorded_at": "2026-09-04T12:47:09.693944+00:00",
+    "stage": "ZERO_FEE_SYNTHETIC_PROFILE",
+    "actor": "creator_01",
+    "roles": [
+      "CREATOR"
+    ],
+    "method": "PUT",
+    "path": "/v1/app/profiles/8f744a54-3f9b-46b0-a08d-7c70cdb5143b/draft",
+    "http_status": 200,
+    "result": {
+      "resource_type": "CREATOR_PROFILE",
+      "object_id": "8f744a54-3f9b-46b0-a08d-7c70cdb5143b",
+      "status": "ACTIVE",
+      "revision": 8
+    }
+  },
+  {
+    "run_id": "20260904T124706Z",
+    "sequence": 3,
+    "recorded_at": "2026-09-04T12:47:09.913166+00:00",
+    "stage": "ZERO_FEE_SYNTHETIC_PROFILE",
+    "actor": "creator_01",
+    "roles": [
+      "CREATOR"
+    ],
+    "method": "POST",
+    "path": "/v1/app/profiles/8f744a54-3f9b-46b0-a08d-7c70cdb5143b/publish",
+    "http_status": 200,
+    "result": {
+      "resource_type": "CREATOR_PROFILE",
+      "object_id": "8f744a54-3f9b-46b0-a08d-7c70cdb5143b",
+      "status": "ACTIVE",
+      "revision": 9
+    }
+  },
+  {
+    "run_id": "20260904T124706Z",
+    "sequence": 4,
+    "recorded_at": "2026-09-04T12:47:10.368779+00:00",
+    "stage": "SOFTWARE_SUBDEMAND_DRAFT_SUBMIT",
+    "actor": "demand_owner_01",
+    "roles": [
+      "DEMAND_OWNER"
+    ],
+    "method": "POST",
+    "path": "/v1/app/demands",
+    "http_status": 201,
+    "result": {
+      "resource_type": "DEMAND",
+      "object_id": "5488cead-7b10-4e78-8e23-9dd1b5318d6f",
+      "status": "DRAFT",
+      "revision": 1
+    }
+  },
+  {
+    "run_id": "20260904T124706Z",
+    "sequence": 5,
+    "recorded_at": "2026-09-04T12:47:11.065855+00:00",
+    "stage": "SOFTWARE_SUBDEMAND_DRAFT_SUBMIT",
+    "actor": "demand_owner_01",
+    "roles": [
+      "DEMAND_OWNER"
+    ],
+    "method": "PUT",
+    "path": "/v1/app/demands/5488cead-7b10-4e78-8e23-9dd1b5318d6f/draft",
+    "http_status": 200,
+    "result": {
+      "resource_type": "DEMAND",
+      "object_id": "5488cead-7b10-4e78-8e23-9dd1b5318d6f",
+      "status": "DRAFT",
+      "revision": 2
+    }
+  },
+  {
+    "run_id": "20260904T124706Z",
+    "sequence": 6,
+    "recorded_at": "2026-09-04T12:47:11.345169+00:00",
+    "stage": "SOFTWARE_SUBDEMAND_DRAFT_SUBMIT",
+    "actor": "demand_owner_01",
+    "roles": [
+      "DEMAND_OWNER"
+    ],
+    "method": "POST",
+    "path": "/v1/app/demands/5488cead-7b10-4e78-8e23-9dd1b5318d6f/submit",
+    "http_status": 422,
+    "result": {
+      "code": "SYNTHETIC_DATA_REQUIRED",
+      "path": "/content"
+    }
+  },
+  {
+    "run_id": "20260904T124822Z",
+    "sequence": 1,
+    "recorded_at": "2026-09-04T12:48:24.610724+00:00",
+    "stage": "ORIGINAL_HARDWARE_DRAFT",
+    "actor": "demand_owner_01",
+    "roles": [
+      "DEMAND_OWNER"
+    ],
+    "method": "PUT",
+    "path": "/v1/app/demands/85210ced-f3bc-4a37-b07a-ae98918f0755/draft",
+    "http_status": 422,
+    "result": {
+      "code": "EDITOR_CHOICE_UNAVAILABLE",
+      "path": "/content/problem/domain_code"
+    }
+  },
+  {
+    "run_id": "20260904T124822Z",
+    "sequence": 2,
+    "recorded_at": "2026-09-04T12:48:25.906853+00:00",
+    "stage": "ZERO_FEE_SYNTHETIC_PROFILE",
+    "actor": "creator_01",
+    "roles": [
+      "CREATOR"
+    ],
+    "method": "PUT",
+    "path": "/v1/app/profiles/8f744a54-3f9b-46b0-a08d-7c70cdb5143b/draft",
+    "http_status": 200,
+    "result": {
+      "resource_type": "CREATOR_PROFILE",
+      "object_id": "8f744a54-3f9b-46b0-a08d-7c70cdb5143b",
+      "status": "ACTIVE",
+      "revision": 10
+    }
+  },
+  {
+    "run_id": "20260904T124822Z",
+    "sequence": 3,
+    "recorded_at": "2026-09-04T12:48:26.123541+00:00",
+    "stage": "ZERO_FEE_SYNTHETIC_PROFILE",
+    "actor": "creator_01",
+    "roles": [
+      "CREATOR"
+    ],
+    "method": "POST",
+    "path": "/v1/app/profiles/8f744a54-3f9b-46b0-a08d-7c70cdb5143b/publish",
+    "http_status": 200,
+    "result": {
+      "resource_type": "CREATOR_PROFILE",
+      "object_id": "8f744a54-3f9b-46b0-a08d-7c70cdb5143b",
+      "status": "ACTIVE",
+      "revision": 11
+    }
+  },
+  {
+    "run_id": "20260904T124822Z",
+    "sequence": 4,
+    "recorded_at": "2026-09-04T12:48:27.113050+00:00",
+    "stage": "SOFTWARE_SUBDEMAND_DRAFT_SUBMIT",
+    "actor": "demand_owner_01",
+    "roles": [
+      "DEMAND_OWNER"
+    ],
+    "method": "PUT",
+    "path": "/v1/app/demands/5488cead-7b10-4e78-8e23-9dd1b5318d6f/draft",
+    "http_status": 200,
+    "result": {
+      "resource_type": "DEMAND",
+      "object_id": "5488cead-7b10-4e78-8e23-9dd1b5318d6f",
+      "status": "DRAFT",
+      "revision": 3
+    }
+  },
+  {
+    "run_id": "20260904T124822Z",
+    "sequence": 5,
+    "recorded_at": "2026-09-04T12:48:27.781294+00:00",
+    "stage": "SOFTWARE_SUBDEMAND_DRAFT_SUBMIT",
+    "actor": "demand_owner_01",
+    "roles": [
+      "DEMAND_OWNER"
+    ],
+    "method": "POST",
+    "path": "/v1/app/demands/5488cead-7b10-4e78-8e23-9dd1b5318d6f/submit",
+    "http_status": 200,
+    "result": {
+      "resource_type": "DEMAND",
+      "object_id": "5488cead-7b10-4e78-8e23-9dd1b5318d6f",
+      "status": "SUBMITTED",
+      "revision": 4
+    }
+  },
+  {
+    "run_id": "20260904T124822Z",
+    "sequence": 6,
+    "recorded_at": "2026-09-04T12:48:27.861448+00:00",
+    "stage": "OPERATIONS_REQUEST_SCOPE_CLARIFICATION",
+    "actor": "operations_reviewer_01",
+    "roles": [
+      "OPERATIONS_REVIEWER"
+    ],
+    "method": "POST",
+    "path": "/v1/app/review-queue/5488cead-7b10-4e78-8e23-9dd1b5318d6f/claim",
+    "http_status": 200,
+    "result": {
+      "assignment_id": "f788798a-d625-4625-987c-2205a41a24f4",
+      "status": "ACTIVE"
+    }
+  },
+  {
+    "run_id": "20260904T124822Z",
+    "sequence": 7,
+    "recorded_at": "2026-09-04T12:48:27.983932+00:00",
+    "stage": "OPERATIONS_REQUEST_SCOPE_CLARIFICATION",
+    "actor": "operations_reviewer_01",
+    "roles": [
+      "OPERATIONS_REVIEWER"
+    ],
+    "method": "POST",
+    "path": "/v1/app/demands/5488cead-7b10-4e78-8e23-9dd1b5318d6f/review-assignments/f788798a-d625-4625-987c-2205a41a24f4/findings",
+    "http_status": 200,
+    "result": {
+      "resource_type": "DEMAND",
+      "object_id": "5488cead-7b10-4e78-8e23-9dd1b5318d6f",
+      "status": "NEEDS_CHANGES",
+      "revision": 5
+    }
+  },
+  {
+    "run_id": "20260904T124822Z",
+    "sequence": 8,
+    "recorded_at": "2026-09-04T12:48:28.933201+00:00",
+    "stage": "OWNER_REFINE_RESUBMIT",
+    "actor": "demand_owner_01",
+    "roles": [
+      "DEMAND_OWNER"
+    ],
+    "method": "PUT",
+    "path": "/v1/app/demands/5488cead-7b10-4e78-8e23-9dd1b5318d6f/draft",
+    "http_status": 200,
+    "result": {
+      "resource_type": "DEMAND",
+      "object_id": "5488cead-7b10-4e78-8e23-9dd1b5318d6f",
+      "status": "NEEDS_CHANGES",
+      "revision": 6
+    }
+  },
+  {
+    "run_id": "20260904T124822Z",
+    "sequence": 9,
+    "recorded_at": "2026-09-04T12:48:29.617324+00:00",
+    "stage": "OWNER_REFINE_RESUBMIT",
+    "actor": "demand_owner_01",
+    "roles": [
+      "DEMAND_OWNER"
+    ],
+    "method": "POST",
+    "path": "/v1/app/demands/5488cead-7b10-4e78-8e23-9dd1b5318d6f/submit",
+    "http_status": 200,
+    "result": {
+      "resource_type": "DEMAND",
+      "object_id": "5488cead-7b10-4e78-8e23-9dd1b5318d6f",
+      "status": "SUBMITTED",
+      "revision": 7
+    }
+  },
+  {
+    "run_id": "20260904T124822Z",
+    "sequence": 10,
+    "recorded_at": "2026-09-04T12:48:29.668640+00:00",
+    "stage": "OWNER_REFINE_RESUBMIT",
+    "actor": "operations_reviewer_01",
+    "roles": [
+      "OPERATIONS_REVIEWER"
+    ],
+    "method": "POST",
+    "path": "/v1/app/review-queue/5488cead-7b10-4e78-8e23-9dd1b5318d6f/claim",
+    "http_status": 200,
+    "result": {
+      "assignment_id": "6d7e6173-6a0c-4020-be08-1f6d31098404",
+      "status": "ACTIVE"
+    }
+  },
+  {
+    "run_id": "20260904T124822Z",
+    "sequence": 11,
+    "recorded_at": "2026-09-04T12:48:29.763198+00:00",
+    "stage": "OPERATIONS_VERIFY_SOFTWARE_SCOPE",
+    "actor": "operations_reviewer_01",
+    "roles": [
+      "OPERATIONS_REVIEWER"
+    ],
+    "method": "POST",
+    "path": "/v1/app/demands/5488cead-7b10-4e78-8e23-9dd1b5318d6f/review-assignments/6d7e6173-6a0c-4020-be08-1f6d31098404/verify",
+    "http_status": 200,
+    "result": {
+      "resource_type": "DEMAND",
+      "object_id": "5488cead-7b10-4e78-8e23-9dd1b5318d6f",
+      "status": "VERIFIED",
+      "revision": 8
+    }
+  },
+  {
+    "run_id": "20260904T124822Z",
+    "sequence": 12,
+    "recorded_at": "2026-09-04T12:48:29.794729+00:00",
+    "stage": "OPERATIONS_VERIFY_SOFTWARE_SCOPE",
+    "actor": "operations_reviewer_01",
+    "roles": [
+      "OPERATIONS_REVIEWER"
+    ],
+    "method": "POST",
+    "path": "/v1/app/demands/5488cead-7b10-4e78-8e23-9dd1b5318d6f/review-assignments/6d7e6173-6a0c-4020-be08-1f6d31098404/verify",
+    "http_status": 200,
+    "result": {
+      "resource_type": "DEMAND",
+      "object_id": "5488cead-7b10-4e78-8e23-9dd1b5318d6f",
+      "status": "VERIFIED",
+      "revision": 8
+    }
+  },
+  {
+    "run_id": "20260904T124822Z",
+    "sequence": 13,
+    "recorded_at": "2026-09-04T12:48:29.870185+00:00",
+    "stage": "DUAL_ZERO_VALUE_FINANCE_CONFIRMATION",
+    "actor": "finance_operator_01",
+    "roles": [
+      "FINANCE_OPERATOR"
+    ],
+    "method": "POST",
+    "path": "/v1/app/finance/funding-reviews/5488cead-7b10-4e78-8e23-9dd1b5318d6f/claim",
+    "http_status": 200,
+    "result": {
+      "funding_review_id": "c488c670-7876-485a-b56f-f67497075889",
+      "status": "PENDING",
+      "revision": 1,
+      "assignment_id": "31b5460a-afa6-46ac-bfed-eda18a13388c",
+      "confirmation_count": 0
+    }
+  },
+  {
+    "run_id": "20260904T124822Z",
+    "sequence": 14,
+    "recorded_at": "2026-09-04T12:48:29.910421+00:00",
+    "stage": "DUAL_ZERO_VALUE_FINANCE_CONFIRMATION",
+    "actor": "finance_operator_01",
+    "roles": [
+      "FINANCE_OPERATOR"
+    ],
+    "method": "POST",
+    "path": "/v1/app/finance/funding-reviews/5488cead-7b10-4e78-8e23-9dd1b5318d6f/claim",
+    "http_status": 200,
+    "result": {
+      "funding_review_id": "c488c670-7876-485a-b56f-f67497075889",
+      "status": "PENDING",
+      "revision": 1,
+      "assignment_id": "31b5460a-afa6-46ac-bfed-eda18a13388c",
+      "confirmation_count": 0
+    }
+  },
+  {
+    "run_id": "20260904T124822Z",
+    "sequence": 15,
+    "recorded_at": "2026-09-04T12:48:29.953945+00:00",
+    "stage": "DUAL_ZERO_VALUE_FINANCE_CONFIRMATION",
+    "actor": "finance_operator_01",
+    "roles": [
+      "FINANCE_OPERATOR"
+    ],
+    "method": "POST",
+    "path": "/v1/app/finance/funding-reviews/c488c670-7876-485a-b56f-f67497075889/confirm",
+    "http_status": 200,
+    "result": {
+      "funding_review_id": "c488c670-7876-485a-b56f-f67497075889",
+      "status": "PENDING",
+      "revision": 2,
+      "assignment_id": "31b5460a-afa6-46ac-bfed-eda18a13388c",
+      "confirmation_count": 1
+    }
+  },
+  {
+    "run_id": "20260904T124822Z",
+    "sequence": 16,
+    "recorded_at": "2026-09-04T12:48:29.979784+00:00",
+    "stage": "DUAL_ZERO_VALUE_FINANCE_CONFIRMATION",
+    "actor": "finance_operator_01",
+    "roles": [
+      "FINANCE_OPERATOR"
+    ],
+    "method": "POST",
+    "path": "/v1/app/finance/funding-reviews/c488c670-7876-485a-b56f-f67497075889/confirm",
+    "http_status": 200,
+    "result": {
+      "funding_review_id": "c488c670-7876-485a-b56f-f67497075889",
+      "status": "PENDING",
+      "revision": 2,
+      "assignment_id": "31b5460a-afa6-46ac-bfed-eda18a13388c",
+      "confirmation_count": 1
+    }
+  },
+  {
+    "run_id": "20260904T124822Z",
+    "sequence": 17,
+    "recorded_at": "2026-09-04T12:48:30.022873+00:00",
+    "stage": "DUAL_ZERO_VALUE_FINANCE_CONFIRMATION",
+    "actor": "finance_operator_02",
+    "roles": [
+      "FINANCE_OPERATOR"
+    ],
+    "method": "POST",
+    "path": "/v1/app/finance/funding-reviews/5488cead-7b10-4e78-8e23-9dd1b5318d6f/claim",
+    "http_status": 200,
+    "result": {
+      "funding_review_id": "c488c670-7876-485a-b56f-f67497075889",
+      "status": "PENDING",
+      "revision": 3,
+      "assignment_id": "024e36a6-54b0-4728-9e2a-7872532aec83",
+      "confirmation_count": 1
+    }
+  },
+  {
+    "run_id": "20260904T124822Z",
+    "sequence": 18,
+    "recorded_at": "2026-09-04T12:48:30.045496+00:00",
+    "stage": "DUAL_ZERO_VALUE_FINANCE_CONFIRMATION",
+    "actor": "finance_operator_02",
+    "roles": [
+      "FINANCE_OPERATOR"
+    ],
+    "method": "POST",
+    "path": "/v1/app/finance/funding-reviews/5488cead-7b10-4e78-8e23-9dd1b5318d6f/claim",
+    "http_status": 200,
+    "result": {
+      "funding_review_id": "c488c670-7876-485a-b56f-f67497075889",
+      "status": "PENDING",
+      "revision": 3,
+      "assignment_id": "024e36a6-54b0-4728-9e2a-7872532aec83",
+      "confirmation_count": 1
+    }
+  },
+  {
+    "run_id": "20260904T124822Z",
+    "sequence": 19,
+    "recorded_at": "2026-09-04T12:48:30.070478+00:00",
+    "stage": "DUAL_ZERO_VALUE_FINANCE_CONFIRMATION",
+    "actor": "finance_operator_02",
+    "roles": [
+      "FINANCE_OPERATOR"
+    ],
+    "method": "POST",
+    "path": "/v1/app/finance/funding-reviews/c488c670-7876-485a-b56f-f67497075889/confirm",
+    "http_status": 200,
+    "result": {
+      "funding_review_id": "c488c670-7876-485a-b56f-f67497075889",
+      "status": "SECURED",
+      "revision": 4,
+      "assignment_id": "024e36a6-54b0-4728-9e2a-7872532aec83",
+      "confirmation_count": 2
+    }
+  },
+  {
+    "run_id": "20260904T124822Z",
+    "sequence": 20,
+    "recorded_at": "2026-09-04T12:48:30.093000+00:00",
+    "stage": "DUAL_ZERO_VALUE_FINANCE_CONFIRMATION",
+    "actor": "finance_operator_02",
+    "roles": [
+      "FINANCE_OPERATOR"
+    ],
+    "method": "POST",
+    "path": "/v1/app/finance/funding-reviews/c488c670-7876-485a-b56f-f67497075889/confirm",
+    "http_status": 200,
+    "result": {
+      "funding_review_id": "c488c670-7876-485a-b56f-f67497075889",
+      "status": "SECURED",
+      "revision": 4,
+      "assignment_id": "024e36a6-54b0-4728-9e2a-7872532aec83",
+      "confirmation_count": 2
+    }
+  },
+  {
+    "run_id": "20260904T124822Z",
+    "sequence": 21,
+    "recorded_at": "2026-09-04T12:48:33.319451+00:00",
+    "stage": "SELECTED_MATCHING_REVIEW_ASSIGNMENT",
+    "actor": "operations_reviewer_01",
+    "roles": [
+      "OPERATIONS_REVIEWER"
+    ],
+    "method": "POST",
+    "path": "/v1/app/matching-review/queue/claim",
+    "http_status": 404,
+    "result": {
+      "code": "RESOURCE_NOT_FOUND"
+    }
+  },
+  {
+    "run_id": "20260904T124822Z",
+    "sequence": 22,
+    "recorded_at": "2026-09-04T12:48:34.378937+00:00",
+    "stage": "SELECTED_MATCHING_REVIEW_ASSIGNMENT",
+    "actor": "operations_reviewer_01",
+    "roles": [
+      "OPERATIONS_REVIEWER"
+    ],
+    "method": "POST",
+    "path": "/v1/app/matching-review/queue/claim",
+    "http_status": 201,
+    "result": {
+      "assignment_id": "37d65e93-a40a-4c64-9297-62e79ffc935f",
+      "attempt_id": "5d8c15b0-a64e-5071-897d-1fe6e4c84480",
+      "status": "ACTIVE",
+      "aggregate_version": 1
+    }
+  },
+  {
+    "run_id": "20260904T124822Z",
+    "sequence": 23,
+    "recorded_at": "2026-09-04T12:48:34.397188+00:00",
+    "stage": "SELECTED_MATCHING_REVIEW_ASSIGNMENT",
+    "actor": "operations_reviewer_01",
+    "roles": [
+      "OPERATIONS_REVIEWER"
+    ],
+    "method": "POST",
+    "path": "/v1/app/matching-review/queue/claim",
+    "http_status": 201,
+    "result": {
+      "assignment_id": "37d65e93-a40a-4c64-9297-62e79ffc935f",
+      "attempt_id": "5d8c15b0-a64e-5071-897d-1fe6e4c84480",
+      "status": "ACTIVE",
+      "aggregate_version": 1
+    }
+  },
+  {
+    "run_id": "20260904T124822Z",
+    "sequence": 24,
+    "recorded_at": "2026-09-04T12:48:34.497763+00:00",
+    "stage": "SELECTED_MATCHING_REVIEW_ASSIGNMENT",
+    "actor": "demand_owner_01",
+    "roles": [
+      "DEMAND_OWNER"
+    ],
+    "method": "POST",
+    "path": "/v1/matching/candidate-selector-assignments/claim",
+    "http_status": 201,
+    "result": {
+      "candidate_selector_assignment_id": "1e04f4ae-068e-4400-bb47-c660d09de4f8",
+      "selection_id": "f1738ad4-447c-52a5-972a-39ef141447ad",
+      "attempt_id": "5d8c15b0-a64e-5071-897d-1fe6e4c84480",
+      "status": "ACTIVE"
+    }
+  },
+  {
+    "run_id": "20260904T124822Z",
+    "sequence": 25,
+    "recorded_at": "2026-09-04T12:48:34.516307+00:00",
+    "stage": "SELECTED_MATCHING_REVIEW_ASSIGNMENT",
+    "actor": "demand_owner_01",
+    "roles": [
+      "DEMAND_OWNER"
+    ],
+    "method": "POST",
+    "path": "/v1/matching/candidate-selector-assignments/claim",
+    "http_status": 201,
+    "result": {
+      "candidate_selector_assignment_id": "1e04f4ae-068e-4400-bb47-c660d09de4f8",
+      "selection_id": "f1738ad4-447c-52a5-972a-39ef141447ad",
+      "attempt_id": "5d8c15b0-a64e-5071-897d-1fe6e4c84480",
+      "status": "ACTIVE"
+    }
+  },
+  {
+    "run_id": "20260904T124822Z",
+    "sequence": 26,
+    "recorded_at": "2026-09-04T12:48:34.609230+00:00",
+    "stage": "SELECTED_CREATE_PUBLISH_INVITATION",
+    "actor": "operations_reviewer_01",
+    "roles": [
+      "OPERATIONS_REVIEWER"
+    ],
+    "method": "POST",
+    "path": "/v1/operations/match-runs/8382ef0f-941d-52ea-9d61-4d10bd183ef1/invitations",
+    "http_status": 201,
+    "result": {
+      "aggregate_version": 1,
+      "attempt_id": "5d8c15b0-a64e-5071-897d-1fe6e4c84480",
+      "invitation_id": "c0fb38d7-11cb-4c0d-8afd-ebd82e024ecf",
+      "status": "CREATED"
+    }
+  },
+  {
+    "run_id": "20260904T124822Z",
+    "sequence": 27,
+    "recorded_at": "2026-09-04T12:48:34.655127+00:00",
+    "stage": "SELECTED_CREATE_PUBLISH_INVITATION",
+    "actor": "operations_reviewer_01",
+    "roles": [
+      "OPERATIONS_REVIEWER"
+    ],
+    "method": "POST",
+    "path": "/v1/operations/match-runs/8382ef0f-941d-52ea-9d61-4d10bd183ef1/invitations",
+    "http_status": 201,
+    "result": {
+      "aggregate_version": 1,
+      "attempt_id": "5d8c15b0-a64e-5071-897d-1fe6e4c84480",
+      "invitation_id": "c0fb38d7-11cb-4c0d-8afd-ebd82e024ecf",
+      "status": "CREATED"
+    }
+  },
+  {
+    "run_id": "20260904T124822Z",
+    "sequence": 28,
+    "recorded_at": "2026-09-04T12:48:34.703195+00:00",
+    "stage": "SELECTED_CREATE_PUBLISH_INVITATION",
+    "actor": "operations_reviewer_01",
+    "roles": [
+      "OPERATIONS_REVIEWER"
+    ],
+    "method": "POST",
+    "path": "/v1/operations/matching-invitations/c0fb38d7-11cb-4c0d-8afd-ebd82e024ecf/publish",
+    "http_status": 200,
+    "result": {
+      "aggregate_version": 2,
+      "attempt_id": "5d8c15b0-a64e-5071-897d-1fe6e4c84480",
+      "invitation_id": "c0fb38d7-11cb-4c0d-8afd-ebd82e024ecf",
+      "status": "SENT"
+    }
+  },
+  {
+    "run_id": "20260904T124822Z",
+    "sequence": 29,
+    "recorded_at": "2026-09-04T12:48:34.736045+00:00",
+    "stage": "SELECTED_CREATE_PUBLISH_INVITATION",
+    "actor": "operations_reviewer_01",
+    "roles": [
+      "OPERATIONS_REVIEWER"
+    ],
+    "method": "POST",
+    "path": "/v1/operations/matching-invitations/c0fb38d7-11cb-4c0d-8afd-ebd82e024ecf/publish",
+    "http_status": 200,
+    "result": {
+      "aggregate_version": 2,
+      "attempt_id": "5d8c15b0-a64e-5071-897d-1fe6e4c84480",
+      "invitation_id": "c0fb38d7-11cb-4c0d-8afd-ebd82e024ecf",
+      "status": "SENT"
+    }
+  },
+  {
+    "run_id": "20260904T124822Z",
+    "sequence": 30,
+    "recorded_at": "2026-09-04T12:48:35.536299+00:00",
+    "stage": "SELECTED_CREATE_PUBLISH_INVITATION",
+    "actor": "operations_reviewer_01",
+    "roles": [
+      "OPERATIONS_REVIEWER"
+    ],
+    "method": "POST",
+    "path": "/v1/app/matching-review/assignment/release",
+    "http_status": 200,
+    "result": {
+      "assignment_id": "37d65e93-a40a-4c64-9297-62e79ffc935f",
+      "attempt_id": "5d8c15b0-a64e-5071-897d-1fe6e4c84480",
+      "status": "REVOKED",
+      "aggregate_version": 2
+    }
+  },
+  {
+    "run_id": "20260904T124822Z",
+    "sequence": 31,
+    "recorded_at": "2026-09-04T12:48:35.556543+00:00",
+    "stage": "SELECTED_CREATE_PUBLISH_INVITATION",
+    "actor": "operations_reviewer_01",
+    "roles": [
+      "OPERATIONS_REVIEWER"
+    ],
+    "method": "POST",
+    "path": "/v1/app/matching-review/assignment/release",
+    "http_status": 200,
+    "result": {
+      "assignment_id": "37d65e93-a40a-4c64-9297-62e79ffc935f",
+      "attempt_id": "5d8c15b0-a64e-5071-897d-1fe6e4c84480",
+      "status": "REVOKED",
+      "aggregate_version": 2
+    }
+  },
+  {
+    "run_id": "20260904T124822Z",
+    "sequence": 32,
+    "recorded_at": "2026-09-04T12:48:35.609000+00:00",
+    "stage": "SELECTED_CREATE_PUBLISH_INVITATION",
+    "actor": "operations_reviewer_01",
+    "roles": [
+      "OPERATIONS_REVIEWER"
+    ],
+    "method": "POST",
+    "path": "/v1/app/matching-review/queue/claim",
+    "http_status": 201,
+    "result": {
+      "assignment_id": "68fc8546-d638-456e-99da-a8f820ba0773",
+      "attempt_id": "5d8c15b0-a64e-5071-897d-1fe6e4c84480",
+      "status": "ACTIVE",
+      "aggregate_version": 1
+    }
+  },
+  {
+    "run_id": "20260904T124822Z",
+    "sequence": 33,
+    "recorded_at": "2026-09-04T12:48:35.629112+00:00",
+    "stage": "SELECTED_CREATE_PUBLISH_INVITATION",
+    "actor": "operations_reviewer_01",
+    "roles": [
+      "OPERATIONS_REVIEWER"
+    ],
+    "method": "POST",
+    "path": "/v1/app/matching-review/queue/claim",
+    "http_status": 201,
+    "result": {
+      "assignment_id": "68fc8546-d638-456e-99da-a8f820ba0773",
+      "attempt_id": "5d8c15b0-a64e-5071-897d-1fe6e4c84480",
+      "status": "ACTIVE",
+      "aggregate_version": 1
+    }
+  },
+  {
+    "run_id": "20260904T124822Z",
+    "sequence": 34,
+    "recorded_at": "2026-09-04T12:48:35.665448+00:00",
+    "stage": "SELECTED_CREATE_PUBLISH_INVITATION",
+    "actor": "operations_reviewer_01",
+    "roles": [
+      "OPERATIONS_REVIEWER"
+    ],
+    "method": "POST",
+    "path": "/v1/app/matching-review/assignment/release",
+    "http_status": 200,
+    "result": {
+      "assignment_id": "68fc8546-d638-456e-99da-a8f820ba0773",
+      "attempt_id": "5d8c15b0-a64e-5071-897d-1fe6e4c84480",
+      "status": "REVOKED",
+      "aggregate_version": 2
+    }
+  },
+  {
+    "run_id": "20260904T124822Z",
+    "sequence": 35,
+    "recorded_at": "2026-09-04T12:48:35.682543+00:00",
+    "stage": "SELECTED_CREATE_PUBLISH_INVITATION",
+    "actor": "operations_reviewer_01",
+    "roles": [
+      "OPERATIONS_REVIEWER"
+    ],
+    "method": "POST",
+    "path": "/v1/app/matching-review/assignment/release",
+    "http_status": 200,
+    "result": {
+      "assignment_id": "68fc8546-d638-456e-99da-a8f820ba0773",
+      "attempt_id": "5d8c15b0-a64e-5071-897d-1fe6e4c84480",
+      "status": "REVOKED",
+      "aggregate_version": 2
+    }
+  },
+  {
+    "run_id": "20260904T124822Z",
+    "sequence": 36,
+    "recorded_at": "2026-09-04T12:48:36.074058+00:00",
+    "stage": "SELECTED_CREATOR_RESPONSE",
+    "actor": "creator_01",
+    "roles": [
+      "CREATOR"
+    ],
+    "method": "POST",
+    "path": "/v1/me/matching-invitations/c0fb38d7-11cb-4c0d-8afd-ebd82e024ecf/accept",
+    "http_status": 200,
+    "result": {
+      "aggregate_version": 3,
+      "invitation_id": "c0fb38d7-11cb-4c0d-8afd-ebd82e024ecf",
+      "response_status": "ACCEPTED",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "run_id": "20260904T124822Z",
+    "sequence": 37,
+    "recorded_at": "2026-09-04T12:48:36.343336+00:00",
+    "stage": "SELECTED_CREATOR_RESPONSE",
+    "actor": "creator_01",
+    "roles": [
+      "CREATOR"
+    ],
+    "method": "POST",
+    "path": "/v1/me/matching-invitations/c0fb38d7-11cb-4c0d-8afd-ebd82e024ecf/accept",
+    "http_status": 200,
+    "result": {
+      "aggregate_version": 3,
+      "invitation_id": "c0fb38d7-11cb-4c0d-8afd-ebd82e024ecf",
+      "response_status": "ACCEPTED",
+      "status": "ACCEPTED"
+    }
+  },
+  {
+    "run_id": "20260904T124822Z",
+    "sequence": 38,
+    "recorded_at": "2026-09-04T12:48:36.409130+00:00",
+    "stage": "SELECTED_OWNER_SELECTION",
+    "actor": "demand_owner_01",
+    "roles": [
+      "DEMAND_OWNER"
+    ],
+    "method": "POST",
+    "path": "/v1/organizations/4316fcdd-e7fb-5c41-9736-3aaf876aa08e/selections/f1738ad4-447c-52a5-972a-39ef141447ad/choose",
+    "http_status": 200,
+    "result": {
+      "aggregate_version": 4,
+      "attempt_id": "5d8c15b0-a64e-5071-897d-1fe6e4c84480",
+      "candidate_selector_assignment_id": "1e04f4ae-068e-4400-bb47-c660d09de4f8",
+      "selection_id": "f1738ad4-447c-52a5-972a-39ef141447ad",
+      "status": "PENDING_CHOICE"
+    }
+  },
+  {
+    "run_id": "20260904T124822Z",
+    "sequence": 39,
+    "recorded_at": "2026-09-04T12:48:36.433833+00:00",
+    "stage": "SELECTED_OWNER_SELECTION",
+    "actor": "demand_owner_01",
+    "roles": [
+      "DEMAND_OWNER"
+    ],
+    "method": "POST",
+    "path": "/v1/organizations/4316fcdd-e7fb-5c41-9736-3aaf876aa08e/selections/f1738ad4-447c-52a5-972a-39ef141447ad/choose",
+    "http_status": 200,
+    "result": {
+      "aggregate_version": 4,
+      "attempt_id": "5d8c15b0-a64e-5071-897d-1fe6e4c84480",
+      "candidate_selector_assignment_id": "1e04f4ae-068e-4400-bb47-c660d09de4f8",
+      "selection_id": "f1738ad4-447c-52a5-972a-39ef141447ad",
+      "status": "PENDING_CHOICE"
+    }
+  }
+]

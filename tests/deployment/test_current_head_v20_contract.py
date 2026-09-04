@@ -145,7 +145,7 @@ class CurrentHeadV20ContractTest(unittest.TestCase):
         self.assertIn('"overall_status":"BLOCKED"', self.runbook)
         self.assertIn('"production_authorized":false', self.runbook)
 
-    def test_runtime_release_schema_and_docs_advance_to_v29(self) -> None:
+    def test_runtime_release_schema_and_docs_advance_to_v30(self) -> None:
         runtime = (ROOT / "scripts/private_server_runtime_release.py").read_text(
             encoding="utf-8"
         )
@@ -156,24 +156,24 @@ class CurrentHeadV20ContractTest(unittest.TestCase):
             ROOT / "docs/operations/private-server-runtime-release.md"
         ).read_text(encoding="utf-8")
         for marker in (
-            '"iam": 47',
+            '"iam": 48',
             '"profile": 5',
-            '"demand": 15',
-            '"trust": 23',
-            '"matching": 10',
+            '"demand": 16',
+            '"trust": 24',
+            '"matching": 11',
         ):
             self.assertIn(marker, runtime)
         for marker in (
-            '"iam": {"const": 47}',
+            '"iam": {"const": 48}',
             '"profile": {"const": 5}',
-            '"demand": {"const": 15}',
-            '"trust": {"const": 23}',
-            '"matching": {"const": 10}',
+            '"demand": {"const": 16}',
+            '"trust": {"const": 24}',
+            '"matching": {"const": 11}',
         ):
             self.assertIn(marker, schema)
         for marker in (
-            "IAM47/Profile5/Demand15/Trust23/Matching10/Taxonomy2",
-            "current-head v29",
+            "IAM48/Profile5/Demand16/Trust24/Matching11/Taxonomy2",
+            "current-head v30",
         ):
             self.assertIn(marker, runbook)
 
@@ -202,7 +202,7 @@ class CurrentHeadV20ContractTest(unittest.TestCase):
         v25 = "python -B scripts/verify_current_head_v25.py"
         v26 = "python -B scripts/verify_current_head_v26.py"
         v27 = "python -B scripts/verify_current_head_v27.py"
-        v29 = "python -B scripts/verify_current_head_v29.py"
+        v30 = "python -B scripts/verify_current_head_v30.py"
         self.assertEqual(ci.count(v20), 0)
         self.assertEqual(ci.count(v21), 0)
         self.assertEqual(ci.count(v22), 0)
@@ -211,13 +211,13 @@ class CurrentHeadV20ContractTest(unittest.TestCase):
         self.assertEqual(ci.count(v25), 0)
         self.assertEqual(ci.count(v26), 0)
         self.assertEqual(ci.count(v27), 0)
-        self.assertEqual(ci.count(v29), 1)
+        self.assertEqual(ci.count(v30), 1)
         for version in range(14, 28):
             self.assertNotIn(
                 f"python -B scripts/verify_current_head_v{version}.py",
                 release,
             )
-        self.assertEqual(release.count(v29), 1)
+        self.assertEqual(release.count(v30), 1)
 
 
 if __name__ == "__main__":

@@ -142,6 +142,7 @@ from .editor import (
     PsycopgEditorRepository,
     PsycopgProfileCompletedLifecycleReceiptProbe,
 )
+from .admin_demand_timeline import AdminDemandCursorCodec, PsycopgAdminDemandTimelineService
 from .account_admin import (
     PlatformUserAdminKeys,
     PostgresInternalSandboxAccountAdminService,
@@ -533,6 +534,10 @@ def build_internal_sandbox_api(
     editor_application = EditorAsgiApplication(
         api=EditorHttpApi(
             service=dependencies.editor_service,
+            admin_demand_service=PsycopgAdminDemandTimelineService(
+                connections=dependencies.pools.iam_app,
+                cursor_codec=AdminDemandCursorCodec(dependencies.matching_operational_service._keys.read_cursor_key),
+            ),
             account_admin_service=dependencies.account_admin_service,
             finance_service=dependencies.finance_funding_service,
             task_service=CurrentAccountTaskDiscoveryService(

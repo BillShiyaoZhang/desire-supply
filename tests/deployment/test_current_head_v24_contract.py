@@ -97,19 +97,19 @@ class CurrentHeadV24ContractTest(unittest.TestCase):
             ROOT / "deploy/private-server-runtime-release-v1.schema.json"
         ).read_text(encoding="utf-8")
         for marker in (
-            '"iam": 47',
+            '"iam": 48',
             '"profile": 5',
-            '"demand": 15',
-            '"trust": 23',
-            '"matching": 10',
+            '"demand": 16',
+            '"trust": 24',
+            '"matching": 11',
         ):
             self.assertIn(marker, runtime)
         for marker in (
-            '"iam": {"const": 47}',
+            '"iam": {"const": 48}',
             '"profile": {"const": 5}',
-            '"demand": {"const": 15}',
-            '"trust": {"const": 23}',
-            '"matching": {"const": 10}',
+            '"demand": {"const": 16}',
+            '"trust": {"const": 24}',
+            '"matching": {"const": 11}',
         ):
             self.assertIn(marker, schema)
 
@@ -130,17 +130,17 @@ class CurrentHeadV24ContractTest(unittest.TestCase):
         v25 = "python -B scripts/verify_current_head_v25.py"
         v26 = "python -B scripts/verify_current_head_v26.py"
         v27 = "python -B scripts/verify_current_head_v27.py"
-        v29 = "python -B scripts/verify_current_head_v29.py"
+        v30 = "python -B scripts/verify_current_head_v30.py"
         self.assertEqual(ci.count(v24), 0)
         self.assertEqual(ci.count(v25), 0)
         self.assertEqual(ci.count(v26), 0)
         self.assertEqual(ci.count(v27), 0)
-        self.assertEqual(ci.count(v29), 1)
+        self.assertEqual(ci.count(v30), 1)
         self.assertEqual(release.count(v24), 0)
         self.assertEqual(release.count(v25), 0)
         self.assertEqual(release.count(v26), 0)
         self.assertEqual(release.count(v27), 0)
-        self.assertEqual(release.count(v29), 1)
+        self.assertEqual(release.count(v30), 1)
 
     def test_operational_summaries_keep_v24_dynamic_evidence_historical(self) -> None:
         operations = "\n".join(

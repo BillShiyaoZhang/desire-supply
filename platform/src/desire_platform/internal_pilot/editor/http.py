@@ -90,11 +90,13 @@ class EditorHttpApi:
         account_admin_service: Any = None,
         finance_service: Any = None,
         task_service: Any = None,
+        admin_demand_service: Any = None,
     ) -> None:
         self._service = service
         self._account_admin_service = account_admin_service
         self._finance_service = finance_service
         self._task_service = task_service
+        self._admin_demand_service = admin_demand_service
 
     def handle(
         self, *, request: HttpRequest, principal: EditorPrincipal
@@ -125,6 +127,16 @@ class EditorHttpApi:
     ) -> HttpResponse:
         method = request.method.upper()
         path = request.path.rstrip("/") or "/"
+        admin_match = re.fullmatch(r"/v1/app/admin/demands/([^/]+)/timeline", path)
+        if method == "GET" and (path == "/v1/app/admin/demands" or admin_match):
+            _closed_body(request.json, ())
+            query = _review_history_query(request.query)
+            if self._admin_demand_service is None:
+                raise EditorServiceError(status=404, code="RESOURCE_NOT_FOUND")
+            arguments = dict(principal=principal, limit=int(query.get("limit", "100" if admin_match else "25")), cursor=query.get("cursor"))
+            if admin_match:
+                return _ok(self._admin_demand_service.get_timeline(demand_id=admin_match.group(1), **arguments))
+            return _ok(self._admin_demand_service.list_demands(**arguments))
         if method == "GET" and path == "/v1/app/tasks":
             _closed_body(request.json, ())
             return _ok(self._tasks().list_tasks(principal=principal))

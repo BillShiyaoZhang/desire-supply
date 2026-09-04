@@ -84,10 +84,12 @@
 
 - **运营与参考**
   - [本机全部使用 Docker](/operations/docker-local.md)
+  - [管理员查看需求全流程](/operations/admin-demand-timeline.md)
   - [本机 Docker 工作流程验收](/operations/docker-workflow-acceptance-2026-09-04.md)（已实现范围通过）
   - [本机 Docker 浏览器验收矩阵](/operations/local-workflow-ui-acceptance-2026-09-04.md)（部分实测）
   - [首批项目流程](/operations/pilot.md)
-  - [Current-head v29 静态模式头](/operations/current-head-v29.md)（Matching9，未发布候选）
+  - [Current-head v30 静态模式头](/operations/current-head-v30.md)（管理员需求全流程）
+  - [Current-head v29 静态模式头](/operations/current-head-v29.md)（冻结历史）
   - [Current-head v28 静态模式头](/operations/current-head-v28.md)（Matching9，未发布候选）
   - [Current-head v27 静态模式头](/operations/current-head-v27.md)（冻结历史）
   - [Current-head v26 静态模式头](/operations/current-head-v26.md)（冻结历史）

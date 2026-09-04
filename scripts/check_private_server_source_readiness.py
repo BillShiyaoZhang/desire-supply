@@ -47,6 +47,18 @@ _VCS_COMPONENTS = frozenset((".git", ".hg", ".svn"))
 # The binding below still covers every tracked file, not just this allowlist.
 REQUIRED_TRACKED_PATHS = frozenset(
     (
+        "deploy/postgres-backup-restore-v30.sh",
+        "deploy/postgres-core-facts-v30.sql",
+        "deploy/postgres-operations-v30.compose.yaml",
+        "docs/operations/current-head-v30.md",
+        "scripts/verify_current_head_v30.py",
+        "tests/deployment/fixtures/current-head-v30/schema-pins.json",
+        "tests/deployment/fixtures/current-head-v30/iam-manifest.json",
+        "tests/deployment/fixtures/current-head-v30/demand-manifest.json",
+        "tests/deployment/fixtures/current-head-v30/trust-manifest.json",
+        "tests/deployment/fixtures/current-head-v30/matching-manifest.json",
+        "tests/deployment/test_current_head_v30_contract.py",
+        "tests/deployment/test_postgres_operations_v30.py",
         ".devcontainer/devcontainer.json",
         ".dockerignore",
         ".github/workflows/ci.yml",

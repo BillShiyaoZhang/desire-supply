@@ -157,11 +157,11 @@ def test_finance_schema_guard_has_no_private_schema_version_copy() -> None:
 
     assert "FINANCE_FUNDING_DEMAND_SCHEMA_VERSION" not in source
     assert "FINANCE_FUNDING_REQUIRED_IAM_SCHEMA_VERSION" not in source
-    assert finance_funding.DEMAND_SCHEMA_HEAD_VERSION == DEMAND_SCHEMA_HEAD_VERSION == 15
+    assert finance_funding.DEMAND_SCHEMA_HEAD_VERSION == DEMAND_SCHEMA_HEAD_VERSION == 16
     assert (
         finance_funding.DEMAND_REQUIRED_IAM_SCHEMA_VERSION
         == DEMAND_REQUIRED_IAM_SCHEMA_VERSION
-        == 45
+        == 48
     )
 
 

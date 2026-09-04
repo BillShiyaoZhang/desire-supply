@@ -190,11 +190,12 @@ TRUST_MIGRATION_LAYOUT: Tuple[
         "iam47_dependency_repin",
         "0023_expand__iam47_dependency_repin.sql",
     ),
+    (24, TrustMigrationPhase.EXPAND, "admin_demand_timeline", "0024_expand__admin_demand_timeline.sql"),
 )
 
 # Reviewed full manifest pin; all earlier migration bytes remain immutable.
 TRUST_REVIEWED_MANIFEST_SHA256 = bytes.fromhex(
-    "0576a8872e2c9783e345d521f151b3d6f9bd7e1d9ee125ee1ef3810e01a05e47"
+    "9574f3df40b95a3b1a0fdfd778a11edc969c27dc7879efca78aa75515cbdef24"
 )
 
 _MANIFEST_KEYS = ("component", "version", "phase", "name", "path", "sha256")

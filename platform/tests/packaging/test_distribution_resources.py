@@ -44,6 +44,7 @@ MIGRATION_RESOURCE_PATHS = {
 }
 
 EXPECTED_CONTRACT_PATHS = (
+    "api/admin-demand-v1.openapi.yaml",
     "api/appeal-v1.openapi.yaml",
     "api/demand-v1.openapi.yaml",
     "api/iam-v1.openapi.yaml",
@@ -80,11 +81,11 @@ EXPECTED_CONTRACT_PATHS = (
 )
 
 EXPECTED_MIGRATION_SQL_COUNTS = {
-    "iam": 48,
+    "iam": 49,
     "profile": 5,
-    "demand": 15,
-    "matching": 10,
-    "trust": 23,
+    "demand": 16,
+    "matching": 11,
+    "trust": 24,
     "taxonomy": 2,
 }
 
