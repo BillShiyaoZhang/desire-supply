@@ -137,6 +137,9 @@ import {
   isAppealHandoffCurrent,
 } from "../lib/appeal-handoff.mjs";
 import { createAtomicRefreshCoordinator } from "../lib/workbench-refresh.mjs";
+import { buildEditorWorkflow } from "../lib/editor-workflow.mjs";
+import { buildWorkspaceNavigation, resolveWorkspaceView, workspaceViewForTarget, type WorkspaceView } from "../lib/workspace-navigation.mjs";
+import { WorkspaceIcon } from "./workspace-icon";
 import {
   resolveAppealTaskReadKind,
   resolveCurrentAccountTaskDestination,
@@ -225,6 +228,14 @@ const STATUS_LABELS: Record<string, string> = {
   UNDER_REVIEW: "审核中",
   NEEDS_CHANGES: "需要修改",
   VERIFIED: "已验证",
+  FUNDED: "资金已确认",
+  FUNDING_REVIEW: "资金确认中",
+  MATCHING_REQUESTED: "等待匹配",
+  MATCHING: "匹配中",
+  NO_MATCH: "暂无匹配",
+  MATCHED: "已匹配",
+  DECIDED: "已处理",
+  CLOSED: "已结束",
   CANCELLED: "已取消",
   PAUSED: "已暂停",
   ARCHIVED: "已归档",
@@ -471,6 +482,7 @@ function ErrorNotice({ error }: { error: { code: string; traceId: string | null 
 }
 
 export function ProductClient() {
+  const [workspaceView, setWorkspaceView] = useState<WorkspaceView>("tasks");
   const [phase, setPhase] = useState<"LOADING" | "SIGNED_OUT" | "INVITATION_ACCEPTANCE" | "POLICY_ACCEPTANCE" | "WORKSPACE_SELECTION" | "SIGNED_IN" | "UNAVAILABLE">("LOADING");
   const [session, setSession] = useState<SessionBootstrap | null>(null);
   const [me, setMe] = useState<MeProjection | null>(null);
@@ -566,7 +578,8 @@ export function ProductClient() {
     return false;
   }, [organizationPublicNameDirty]);
 
-  const adoptResource = useCallback((resource: EditorResource, recoverScratch: boolean) => {
+  const adoptResource = useCallback((resource: EditorResource, recoverScratch: boolean, navigate = true) => {
+    if (navigate) setWorkspaceView(resource.resource_type === "CREATOR_PROFILE" ? "profiles" : resource.capabilities.includes("RECORD_FINDINGS") ? "review" : "demands");
     setDemandCreationOpen(false);
     setSelectedAccount(null);
     setSelectedFinanceReview(null);
@@ -597,6 +610,7 @@ export function ProductClient() {
   }, []);
 
   const clearWorkspaceObjects = useCallback(() => {
+    setWorkspaceView("tasks");
     workspaceObjectGenerationRef.current += 1;
     resourceReadEpochRef.current += 1;
     taskRefreshCoordinator.invalidate();
@@ -829,7 +843,9 @@ export function ProductClient() {
     setFinanceFundingScope(financeItems !== null);
     setAccounts(accountCollection?.accounts ?? []);
     setAccountScope(accountCollection !== null);
-    if (firstDetail) adoptResource(firstDetail, recoverBrowserState);
+    // Restore drafts on explicit open, so an invisible dirty editor cannot
+    // block navigation from the task home when browser storage is full.
+    if (firstDetail) adoptResource(firstDetail, false, false);
     if (recoverBrowserState) {
       let recoveredPending = parsePendingIntent(sessionStorage.getItem(PENDING_KEY) ?? "", Date.now());
       if (
@@ -887,7 +903,7 @@ export function ProductClient() {
     }
     taskWorkspaceIdRef.current = workspace.workspace_id;
     setPhase("SIGNED_IN");
-    setNotice("所选工作区的对象、职责和版本号均已从服务端重新核对。");
+    setNotice("工作区已更新。请选择一项待办，或从左侧开始。");
     if (refreshTasksAfterLoad && pendingRef.current === null && logoutIntentRef.current === null) {
       void refreshCurrentAccountTasks(workspace.workspace_id, false);
     }
@@ -1349,6 +1365,7 @@ export function ProductClient() {
         session_id: sessionId,
         workspace_id: refreshedWorkspace.workspace_id,
       });
+      setWorkspaceView("trust");
       setTaskError(null);
       setNotice("当前会话、工作区和 exact Trust 历史任务已重新确认；工作台将定位本人只读终态记录，不会执行写入。");
     } catch (caught) {
@@ -1457,6 +1474,7 @@ export function ProductClient() {
         session_id: sessionId,
         workspace_id: refreshedWorkspace.workspace_id,
       });
+      setWorkspaceView("appeal");
       setTaskError(null);
       setNotice("当前会话、工作区、职责和 exact Appeal 任务已重新确认；工作台将执行 fresh 安全读取，不会使用任务路径，也不会自动保存、提交、领取或决定。");
     } catch (caught) {
@@ -1586,6 +1604,7 @@ export function ProductClient() {
       setSelected(null);
       setSelectedAccount(null);
       setSelectedFinanceReview(exactReview);
+      setWorkspaceView("funding");
       setFinanceAttestationCodes([]);
       setFinanceReleaseReasonCode("WORKLOAD_RELEASE");
       setFinanceFindingDisposition("DISCREPANCY");
@@ -1698,6 +1717,7 @@ export function ProductClient() {
       || pendingRef.current !== null
       || logoutIntentRef.current !== null
     ) return;
+    if (!prepareToLeaveOrganizationAdmin() || !prepareToLeaveSelectedEditor()) return;
     if (isTrustCaseHistoryTask(task)) {
       void openRevalidatedTrustCaseHistoryTask(task);
       return;
@@ -1728,15 +1748,27 @@ export function ProductClient() {
       void recoverMissingCurrentAccountTaskResource(task);
       return;
     }
+    setSelected(null);
+    setSelectedAccount(null);
+    setSelectedFinanceReview(null);
+    setDemandCreationOpen(false);
+    setSections({});
+    setDirty(false);
+    setRecoveredScratchAt(null);
+    setWorkspaceView(workspaceViewForTarget(target.element_id));
+    requestAnimationFrame(() => {
     const destination = document.getElementById(target.element_id);
     if (!destination) {
       setTaskError({ code: "TASK_DESTINATION_NOT_LOADED", traceId: null });
       return;
     }
     setTaskError(null);
+    const disclosure = destination.closest("details");
+    if (disclosure) disclosure.open = true;
     destination.focus({ preventScroll: true });
     destination.scrollIntoView({ block: "start", behavior: "auto" });
     setNotice("已定位到当前角色的已验证工作区；请从该工作区继续处理，不需要粘贴资源编号。");
+    });
   }
 
   const replaceResource = useCallback((resource: EditorResource) => {
@@ -1786,7 +1818,7 @@ export function ProductClient() {
       ) return;
       replaceResource(resource);
       adoptResource(resource, true);
-      setNotice("已读取对象详情和最新版本；可编辑范围由服务端 capabilities 决定。");
+      setNotice("已打开最新内容。填写后请前往复核并保存。");
       if (focusAfterOpen) requestAnimationFrame(() => {
         if (resourceReadEpochRef.current !== readEpoch) return;
         const destination = resourceEditorTitleRef.current;
@@ -1827,6 +1859,7 @@ export function ProductClient() {
       setRecoveredScratchAt(null);
       setConflict(null);
       setSelectedAccount(account);
+      setWorkspaceView("accounts");
       setNotice("已从 IAM 读取账号详情、当前状态、版本和有效会话计数。");
     } catch (caught) {
       const failure = caught instanceof ApiError ? caught : new ApiError(503, "INVALID_PLATFORM_RESPONSE", null, null, null);
@@ -1895,6 +1928,7 @@ export function ProductClient() {
       setSelected(null);
       setSelectedAccount(null);
       setSelectedFinanceReview(review);
+        setWorkspaceView("funding");
       setFinanceAttestationCodes([]);
       setFinanceReleaseReasonCode("WORKLOAD_RELEASE");
       setFinanceFindingDisposition("DISCREPANCY");
@@ -1930,6 +1964,7 @@ export function ProductClient() {
       setSelected(null);
       setSelectedAccount(null);
       setSelectedFinanceReview(review);
+        setWorkspaceView("funding");
       setFinanceAttestationCodes([]);
       setFinanceReleaseReasonCode("WORKLOAD_RELEASE");
       setFinanceFindingDisposition("DISCREPANCY");
@@ -2139,6 +2174,7 @@ export function ProductClient() {
         setSelected(null);
         setSelectedAccount(null);
         setSelectedFinanceReview(review);
+        setWorkspaceView("funding");
         setFinanceAttestationCodes([]);
         setFinanceFindingReasonCodes([]);
         setFinanceFindingFieldCodes([]);
@@ -2177,6 +2213,7 @@ export function ProductClient() {
         replaceAccount(account);
         setSelected(null);
         setSelectedAccount(account);
+          setWorkspaceView("accounts");
         setNotice(`${record.label}已由服务端确认。账号版本为 v${account.aggregate_version}，当前有效会话 ${account.active_session_count} 个。`);
         return;
       }
@@ -2242,6 +2279,7 @@ export function ProductClient() {
           setSelected(null);
           setSelectedFinanceReview(null);
           setSelectedAccount(account);
+          setWorkspaceView("accounts");
           setError({ code: caught.code, traceId: caught.traceId });
           setNotice("账号版本已经变化；旧请求已清除，并已 fresh GET 当前账号与 ETag。请基于重新选中的服务端事实明确发起新操作。");
         } catch (refreshCaught) {
@@ -2309,6 +2347,7 @@ export function ProductClient() {
               || review.funding_review_id !== record.object_id
             ) throw new TypeError("INVALID_FINANCE_FUNDING_RESPONSE");
             setSelectedFinanceReview(review);
+        setWorkspaceView("funding");
           } else {
             setSelectedFinanceReview(null);
           }
@@ -2656,6 +2695,7 @@ export function ProductClient() {
     setRecoveredScratchAt(null);
     setConflict(null);
     setDemandCreationOpen(true);
+    setWorkspaceView("demands");
     setError(null);
     setNotice("已进入新需求创建页；刚才对象的未提交编辑仍保留在当前标签页草稿中。");
   }
@@ -2880,6 +2920,7 @@ export function ProductClient() {
     }
     setAppealTaskTarget(null);
     setAppealHandoff(candidate);
+    setWorkspaceView("appeal");
     setError(null);
     setNotice("已建立仅内存的同会话交接；Appeal 工作台将先 GET 查重与核对 eligibility，不会自动 POST。");
   }, [selectedWorkspace, session]);
@@ -2931,6 +2972,42 @@ export function ProductClient() {
     && selectedWorkspace?.role_codes.includes("OPERATIONS_REVIEWER"),
   );
 
+  const navigation = buildWorkspaceNavigation({
+    profileScope: profileScope && selectedWorkspace?.role_codes.includes("CREATOR") === true,
+    demandScope: demandScope && selectedWorkspace?.role_codes.includes("DEMAND_OWNER") === true,
+    canReviewDemands, canReviewFunding, canUseMatching,
+    canReviewMatching, canUseTrust, canUseAppeal, canAdminOrganization,
+    canAdminAccounts, canInspectDemands,
+    isCreator: selectedWorkspace?.role_codes.includes("CREATOR") ?? false,
+    isTrustOfficer: selectedWorkspace?.role_codes.includes("TRUST_OFFICER") ?? false,
+    isAppealReviewer: selectedWorkspace?.role_codes.includes("APPEAL_REVIEWER") ?? false,
+  });
+  const activeView = resolveWorkspaceView(workspaceView, navigation, pendingOwner);
+  const activeDestination = navigation.find((item) => item.id === activeView) ?? navigation[0];
+  const navigationLocked = busy || taskBusy || pendingOwner !== null || logoutIntent !== null;
+  const resourceVisible = selected !== null && (
+    (activeView === "profiles" && selected.resource_type === "CREATOR_PROFILE")
+    || ((activeView === "demands" || activeView === "review") && selected.resource_type === "DEMAND")
+  );
+
+  function navigateWorkspace(view: WorkspaceView) {
+    if (navigationLocked || !navigation.some((item) => item.id === view)) return;
+    if (!prepareToLeaveOrganizationAdmin() || !prepareToLeaveSelectedEditor()) return;
+    setSelected(null);
+    setSelectedAccount(null);
+    setSelectedFinanceReview(null);
+    setDemandCreationOpen(false);
+    setSections({});
+    setDirty(false);
+    setRecoveredScratchAt(null);
+    setWorkspaceView(view);
+    setError(null);
+    requestAnimationFrame(() => {
+      mainTitleRef.current?.focus({ preventScroll: true });
+      mainTitleRef.current?.scrollIntoView({ block: "start", behavior: "auto" });
+    });
+  }
+
   if (phase === "LOADING") return (
     <main className="centered-screen" aria-live="polite">
       <span className="loading-mark" aria-hidden="true">愿</span>
@@ -2947,18 +3024,19 @@ export function ProductClient() {
         <div className="brand brand--large"><span>愿</span><strong>愿作</strong></div>
         <p className="eyebrow">INTERNAL_SANDBOX · PRE-PROVISIONED OR INVITED</p>
         <h1 ref={mainTitleRef} tabIndex={-1}>受邀账号工作台</h1>
-        <p>当前仅用于 G1 内部试运行。请使用配置的 OIDC 身份提供方登录；这里不提供公开注册、密码账号、邀请令牌输入或浏览器自授角色。</p>
-        <ul>
+        <p>找到愿意投入的工作，让真实需求与合适的能力相遇。</p>
+        <details className="secondary-disclosure"><summary>内部试运行说明</summary><p>当前仅用于 G1 内部试运行。请使用配置的 OIDC 身份提供方登录。</p><ul>
           <li>只使用虚构、合成、可删除的研究资料。</li>
           <li>G1 NO-GO：未获准开展真人研究。</li>
           <li>G2 NO-GO：不得接入真实交易、合同或资金。</li>
-        </ul>
+        </ul></details>
       </section>
       <form className="persona-panel auth-panel" onSubmit={beginSignIn}>
         <div>
           <p className="eyebrow">受控登录</p>
-          <h2>继续到身份提供方</h2>
-          <p>直接登录只接受十个已预置账号；受邀的新需求方负责人请从原邀请链接进入。其他未知身份会被服务端拒绝且不会创建账号。登录后的业务资料仍必须是可删除的合成资料。</p>
+          <h2>登录你的工作区</h2>
+          <p>使用受邀账号继续。首次登录后，按指引确认政策即可进入工作台。</p>
+          <details className="secondary-disclosure"><summary>哪些账号可以登录？</summary><p>直接登录只接受十个已预置账号；受邀的新需求方负责人请从原邀请链接进入。其他未知身份会被服务端拒绝且不会创建账号。登录后的业务资料仍必须是可删除的合成资料。</p></details>
         </div>
         <button className="primary-button" disabled={busy} type="submit">{busy ? "正在建立登录…" : "通过 OIDC 登录"}</button>
         <ErrorNotice error={error} />
@@ -3148,17 +3226,16 @@ export function ProductClient() {
     </main>
   );
 
-  const resources = [...profiles, ...demands];
   return (
     <>
       <a className="skip-link" href="#pilot-main">跳到主要内容</a>
-      <div className="environment-banner">INTERNAL_SANDBOX · 仅限受邀内部账号与合成资料 · G1 NO-GO · G2 NO-GO · 禁止真人研究、真实合同、资金与支付</div>
+      <div className="environment-banner">内部试运行 · 仅使用合成资料</div>
       <header className="app-header">
         <a className="brand" href="#pilot-main"><span>愿</span><strong>愿作</strong></a>
         <div className="identity-summary">
-          <span>当前服务端会话</span>
+          <span>{selectedWorkspace ? workspaceLabel(selectedWorkspace) : "工作区"}</span>
           <strong>{me?.display_handle ?? session?.user_status ?? "UNKNOWN"}</strong>
-          <small><code>{session ? shortId(session.session.session_id) : "—"}</code></small>
+
         </div>
         <div className="header-actions">
           {workspaces.length > 1 && selectedWorkspace && <label className="workspace-switcher">
@@ -3170,11 +3247,11 @@ export function ProductClient() {
               onChange={(event) => void switchWorkspace(event.target.value)}
             >
               {workspaces.map((workspace) => <option key={workspace.workspace_id} value={workspace.workspace_id}>
-                {workspaceLabel(workspace)} · {workspace.role_codes.join(" + ")}
+                {workspaceLabel(workspace)}
               </option>)}
             </select>
           </label>}
-          <button className="quiet-button" disabled={busy || pendingOwner !== null || logoutIntent !== null || organizationPublicNameDirty} type="button" onClick={refreshWorkspaceSafely}>刷新权限与对象</button>
+          <button className="quiet-button" disabled={busy || pendingOwner !== null || logoutIntent !== null || organizationPublicNameDirty} type="button" aria-label="刷新权限与对象" title="刷新权限与对象" onClick={refreshWorkspaceSafely}>刷新</button>
           <button
             className="quiet-button"
             disabled={busy || pendingOwner !== null}
@@ -3186,82 +3263,90 @@ export function ProductClient() {
       </header>
 
       <div className="pilot-layout">
-        <aside className="workspace-rail" aria-label="对象工作区">
-          <p className="eyebrow">服务端可见对象</p>
-          <h2>{selectedWorkspace ? workspaceLabel(selectedWorkspace) : "工作区"}</h2>
-          {selectedWorkspace && <div className="workspace-authority">
-            <code>{shortId(selectedWorkspace.workspace_id)}</code>
-            <span>{selectedWorkspace.role_codes.join(" · ")}</span>
-          </div>}
-          {profileScope && <ResourceGroup disabled={busy || pendingOwner !== null || logoutIntent !== null} title="创作者画像" resources={profiles} selectedId={selected?.object_id} onOpen={openResource} />}
-          {demandScope && <ResourceGroup disabled={busy || pendingOwner !== null || logoutIntent !== null} title="需求与审核" resources={demands} selectedId={selected?.object_id} onOpen={openResource} />}
-          {canCreateDemand && <button
-            aria-pressed={demandCreationOpen}
-            className="rail-create-button"
-            disabled={busy || pendingOwner !== null || logoutIntent !== null}
-            title={pendingOwner !== null || logoutIntent !== null ? "请先处理结果未知的写入" : undefined}
-            type="button"
-            onClick={beginDemandCreation}
-          >＋ 新建需求</button>}
-          {canReviewDemands && <ReviewQueueGroup
-            busy={busy}
-            items={reviewQueue}
-            onClaim={claimReview}
-            onRefresh={reloadReviewQueue}
-          />}
-          {canReviewFunding && <FinanceFundingQueueGroup
-            busy={busy}
-            items={financeFundingQueue}
-            selectedId={selectedFinanceReview?.funding_review_id}
-            onOpen={claimFinanceFundingReview}
-            onRefresh={reloadFinanceFundingQueue}
-          />}
-          {canAdminAccounts && <AccountGroup accounts={accounts} selectedId={selectedAccount?.user_id} onOpen={openAccount} />}
-          {!profileScope && !demandScope && !canReviewDemands && !canReviewFunding && !canAdminAccounts && !canAdminOrganization && !canUseTrust && !canUseAppeal && !canUseMatching && !canReviewMatching && <p className="empty-state">当前账号没有编辑器角色。请联系 ACCESS_ADMIN 核对受邀职责。</p>}
+        <aside className="workspace-rail" aria-label="工作区导航">
+          <label className="workspace-mobile-nav"><span>前往</span><select
+            aria-label="前往功能" value={activeView} disabled={navigationLocked}
+            onChange={(event) => navigateWorkspace(event.target.value as WorkspaceView)}
+          >{["工作", "协作", "管理", "个人"].map((group) => {
+            const items = navigation.filter((item) => item.group === group);
+            return items.length > 0 ? <optgroup label={group} key={group}>{items.map((item) => <option value={item.id} key={item.id}>{item.label}</option>)}</optgroup> : null;
+          })}</select></label>
+          <nav className="workspace-nav" aria-label="主要功能">
+            {["工作", "协作", "管理", "个人"].map((group) => {
+              const items = navigation.filter((item) => item.group === group);
+              if (items.length === 0) return null;
+              return <div className="workspace-nav-group" key={group}>
+                <h2>{group}</h2>
+                {items.map((item) => <button
+                  className="workspace-nav-item"
+                  type="button"
+                  key={item.id}
+                  aria-current={activeView === item.id ? "page" : undefined}
+                  disabled={navigationLocked}
+                  onClick={() => navigateWorkspace(item.id)}
+                >
+                  <WorkspaceIcon name={item.icon} />
+                  <span>{item.label}</span>
+                </button>)}
+              </div>;
+            })}
+          </nav>
+          <div className="workspace-rail-footer">
+            <details className="workspace-context">
+              <summary>关于此工作区</summary>
+              <p>{selectedWorkspace ? workspaceLabel(selectedWorkspace) : "工作区"}</p>
+              <p>{selectedWorkspace?.role_codes.join(" · ")}</p>
+              <p>INTERNAL_SANDBOX · G1 NO-GO · G2 NO-GO</p>
+              <p>仅供受邀账号演练，禁止真人研究、真实合同、资金与支付。</p>
+            </details>
+          </div>
         </aside>
 
         <main className="pilot-main" id="pilot-main">
-          <section className="pilot-overview">
+          <section className="pilot-overview workspace-page-heading">
             <div>
-              <p className="eyebrow">独立角色账号 · 服务端权限 · 可版本化编辑</p>
-              <h1 ref={mainTitleRef} tabIndex={-1}>内部试运行工作台</h1>
-              <p>每次写入都绑定当前对象 ETag、Session CSRF 和独立幂等键；页面只执行服务端明确授予的 capability。</p>
+              <p className="eyebrow">{activeDestination.group}</p>
+              <h1 ref={mainTitleRef} tabIndex={-1}>{activeDestination.label}</h1>
+              <p>{activeDestination.description}</p>
             </div>
-            <div className="gate-card">
-              <strong>研究边界仍然关闭</strong>
-              <span>本平台可用于内部操作演练，但这不等于 G1 或 G2 已通过。</span>
-            </div>
+            {activeView === "demands" && canCreateDemand && !demandCreationOpen && !selected && <button
+              className="primary-button" disabled={navigationLocked} type="button" onClick={beginDemandCreation}
+            >新建需求</button>}
           </section>
+          {(resourceVisible || (activeView === "accounts" && selectedAccount) || (activeView === "funding" && selectedFinanceReview)) && <div className="workspace-breadcrumb">
+            <button className="quiet-button" disabled={navigationLocked} type="button" onClick={() => navigateWorkspace(activeView)}>← 返回{activeDestination.label}</button>
+          </div>}
 
-          <div className="live-notice" aria-live="polite"><strong>状态</strong><span>{notice}</span></div>
+          <div className={notice === "工作区已更新。请选择一项待办，或从左侧开始。" ? "sr-only" : "live-notice"} aria-live="polite"><strong>状态</strong><span>{notice}</span></div>
           <ErrorNotice error={error} />
 
-          {selectedWorkspace && <CurrentAccountTaskPanel
+          <div className="workspace-module" hidden={activeView !== "tasks"}>{selectedWorkspace && <CurrentAccountTaskPanel
+            key={selectedWorkspace.workspace_id}
             busy={taskBusy}
             discovery={taskDiscovery}
             error={taskError}
             locked={busy || pendingOwner !== null || logoutIntent !== null}
             onOpen={openCurrentAccountTask}
             onRefresh={refreshTasksSafely}
-          />}
+          />}</div>
 
-          {canInspectDemands && selectedWorkspace && session && me && !logoutIntent && <AdminDemandTimelinePanel
+          <div className="workspace-module" hidden={activeView !== "timeline"}>{canInspectDemands && selectedWorkspace && session && me && !logoutIntent && <AdminDemandTimelinePanel
             workspace={selectedWorkspace}
             sessionId={session.session.session_id}
             accountId={me.user_id}
-          />}
+          />}</div>
 
-          {canReviewDemands && selectedWorkspace && <ReviewHistoryPanel
+          <div className="workspace-module" hidden={activeView !== "review"}><details className="secondary-disclosure"><summary>已完成的需求审核</summary>{canReviewDemands && selectedWorkspace && <ReviewHistoryPanel
             key={`review-history:${selectedWorkspace.workspace_id}`}
             workspaceId={selectedWorkspace.workspace_id}
-          />}
+          />}</details></div>
 
-          {canReviewFunding && selectedWorkspace && <FinanceFundingHistoryPanel
+          <div className="workspace-module" hidden={activeView !== "funding"}><details className="secondary-disclosure"><summary>已完成的资金确认</summary>{canReviewFunding && selectedWorkspace && <FinanceFundingHistoryPanel
             key={`finance-funding-history:${selectedWorkspace.workspace_id}`}
             busy={busy || pendingOwner !== null || logoutIntent !== null}
             workspaceId={selectedWorkspace.workspace_id}
             onOpen={openFinanceFundingHistoryItem}
-          />}
+          />}</details></div>
 
           {logoutIntent && <section className="unknown-panel" aria-labelledby="logout-pending-title">
             <div>
@@ -3292,7 +3377,7 @@ export function ProductClient() {
             </div>
           </section>}
 
-          {session && me && <SessionManager
+          <div className="workspace-module" hidden={activeView !== "security"}>{session && me && <SessionManager
             key={`session-manager:${session.session.session_id}:${me.user_id}`}
             accountUserId={me.user_id}
             bootstrapSessionId={session.session.session_id}
@@ -3304,7 +3389,7 @@ export function ProductClient() {
             onLogoutCurrent={logoutCurrentSession}
             releaseWrite={releaseSessionWrite}
             request={requestJson}
-          />}
+          />}</div>
 
           {conflict && selected && <ConflictPanel
             key={`${selected.resource_type}:${conflict.currentEtag}:${conflict.current.version_id ?? "none"}`}
@@ -3314,11 +3399,11 @@ export function ProductClient() {
             resourceType={selected.resource_type}
           />}
 
-          {demandCreationOpen && canCreateDemand && <section className="demand-create-panel" aria-labelledby="demand-create-title">
+          {activeView === "demands" && demandCreationOpen && canCreateDemand && <section className="demand-create-panel" aria-labelledby="demand-create-title">
             <form className="starter-card demand-create-card" onSubmit={createDemand}>
               <p className="eyebrow">DEMAND OWNER</p>
-              <h2 id="demand-create-title">创建合成需求</h2>
-              <p>创建后会自动打开服务端返回的新需求，再通过十三个结构化分区补全、保存并提交审核。</p>
+              <h2 id="demand-create-title">新建需求</h2>
+              <p>先建立需求，再依次补充目标、计划、预算与合作条件。</p>
               {configuration && <ApprovedTaxonomy configuration={configuration} />}
               <label>合成案例引用<input required value={createReference} onChange={(event) => setCreateReference(event.target.value)} placeholder="synthetic-case-001" /></label>
               <label>到期时间<input required type="datetime-local" value={createExpiry} onChange={(event) => setCreateExpiry(event.target.value)} /></label>
@@ -3329,7 +3414,7 @@ export function ProductClient() {
             </form>
           </section>}
 
-          {canAdminOrganization && session && me && selectedWorkspace && <OrganizationAdminWorkbench
+          <div className="workspace-module" hidden={activeView !== "organization"}>{canAdminOrganization && session && me && selectedWorkspace && <OrganizationAdminWorkbench
             claimWrite={claimOrganizationWrite}
             me={me}
             onDirtyChange={setOrganizationPublicNameDirty}
@@ -3337,9 +3422,9 @@ export function ProductClient() {
             session={session}
             workspace={selectedWorkspace}
             writeLocked={busy || logoutIntent !== null || (pendingOwner !== null && pendingOwner !== "ORGANIZATION")}
-          />}
+          />}</div>
 
-          {canUseTrust && session && selectedWorkspace && <TrustWorkbench
+          <div className="workspace-module" hidden={activeView !== "trust"}>{canUseTrust && session && selectedWorkspace && <TrustWorkbench
             key={`trust-workbench:${selectedWorkspace.workspace_id}`}
             caseHistoryTaskTarget={trustCaseHistoryTaskTarget}
             claimWrite={claimTrustWrite}
@@ -3351,9 +3436,9 @@ export function ProductClient() {
             session={session}
             workspace={selectedWorkspace}
             writeLocked={busy || logoutIntent !== null || (pendingOwner !== null && pendingOwner !== "TRUST")}
-          />}
+          />}</div>
 
-          {canUseAppeal && session && selectedWorkspace && <AppealWorkbench
+          <div className="workspace-module" hidden={activeView !== "appeal"}>{canUseAppeal && session && selectedWorkspace && <AppealWorkbench
             key={`appeal-workbench:${selectedWorkspace.workspace_id}`}
             claimWrite={claimAppealWrite}
             handoff={appealHandoff}
@@ -3364,9 +3449,9 @@ export function ProductClient() {
             taskTarget={appealTaskTarget}
             workspace={selectedWorkspace}
             writeLocked={busy || logoutIntent !== null || (pendingOwner !== null && pendingOwner !== "APPEAL")}
-          />}
+          />}</div>
 
-          {canUseMatching && session && selectedWorkspace && <MatchingWorkbench
+          <div className="workspace-module" hidden={activeView !== "matching"}>{canUseMatching && session && selectedWorkspace && <MatchingWorkbench
             key={`matching-workbench:${selectedWorkspace.workspace_id}`}
             claimWrite={claimMatchingWrite}
             demands={demands}
@@ -3376,9 +3461,9 @@ export function ProductClient() {
             session={session}
             workspace={selectedWorkspace}
             writeLocked={busy || logoutIntent !== null || (pendingOwner !== null && pendingOwner !== "MATCHING")}
-          />}
+          />}</div>
 
-          {canReviewMatching && session && selectedWorkspace && <MatchingReviewWorkbench
+          <div className="workspace-module" hidden={activeView !== "matching-review"}>{canReviewMatching && session && selectedWorkspace && <MatchingReviewWorkbench
             key={`matching-review-workbench:${selectedWorkspace.workspace_id}`}
             claimWrite={claimMatchingWrite}
             releaseWrite={releaseMatchingWrite}
@@ -3386,47 +3471,43 @@ export function ProductClient() {
             session={session}
             workspace={selectedWorkspace}
             writeLocked={busy || logoutIntent !== null || (pendingOwner !== null && pendingOwner !== "MATCHING")}
-          />}
+          />}</div>
 
-          {!demandCreationOpen && !selected && !selectedAccount && !selectedFinanceReview && <section className="starter-grid" aria-label="选择或创建对象">
-            {canAdminOrganization && <article className="starter-card">
-              <p className="eyebrow">ORG_ADMIN</p>
-              <h2>组织权限管理</h2>
-              <p>上方工作台直接读取 IAM 组织、成员资格和邀请投影。邀请能力只在签发成功的当前页面内存中出现一次。</p>
-            </article>}
-            {canReviewDemands && <article className="starter-card">
-              <p className="eyebrow">OPERATIONS REVIEWER</p>
-              <h2>审核队列</h2>
-              <p>左侧只显示服务端返回的最小队列投影。领取成功后才会读取需求正文；整改后重提必须再次领取，旧分配不会复用。</p>
-              <button className="primary-button" disabled={busy} type="button" onClick={() => void reloadReviewQueue()}>刷新审核队列</button>
-            </article>}
-            {canAdminAccounts && <article className="starter-card">
-              <p className="eyebrow">ACCESS_ADMIN</p>
-              <h2>账号管理</h2>
-              <p>从左侧选择一个预置账号。页面只展示 IAM 返回的闭合投影，并在每次操作前绑定当前 ETag、会话 CSRF 和独立幂等键。</p>
-            </article>}
-            {canReviewFunding && <article className="starter-card">
-              <p className="eyebrow">FINANCE OPERATOR · SYNTHETIC ONLY</p>
-              <h2>资金确认队列</h2>
-              <p>这里只记录零真实资金的合成证据确认；需要两名独立 Finance Operator 分别领取和明确确认，不代表真实到账、支付、托管或法律承诺。</p>
-              <button className="primary-button" disabled={busy} type="button" onClick={() => void reloadFinanceFundingQueue()}>刷新资金确认队列</button>
-            </article>}
-            {canCreateProfile && profiles.length === 0 && <article className="starter-card">
-              <p className="eyebrow">CREATOR</p>
-              <h2>创建你的画像</h2>
-              <p>先建立空画像，再通过字段、选择项和可增删条目填写九个分区。发布前服务端会执行完整校验。</p>
-              <button className="primary-button" disabled={busy} type="button" onClick={createProfile}>创建画像</button>
-            </article>}
-            {canCreateDemand && <article className="starter-card">
-              <p className="eyebrow">DEMAND OWNER</p>
-              <h2>创建合成需求</h2>
-              <p>从左侧“新建需求”进入独立创建页。已有需求不会遮住入口，创建完成后会自动打开服务端新对象。</p>
-              <button className="primary-button" disabled={busy || pendingOwner !== null || logoutIntent !== null} type="button" onClick={beginDemandCreation}>新建需求</button>
-            </article>}
-            {resources.length === 0 && !canCreateProfile && !canCreateDemand && !canReviewDemands && !canReviewFunding && !canAdminAccounts && !canAdminOrganization && !canUseTrust && !canUseAppeal && !canUseMatching && !canReviewMatching && <p className="empty-state">当前账号没有可创建对象，也没有分配中的审核对象。</p>}
+          {activeView === "tasks" && <section className="workspace-start" aria-labelledby="workspace-start-title">
+            <h2 id="workspace-start-title">开始一项工作</h2>
+            {navigation.filter((item) => ["profiles", "demands", "review", "funding", "matching", "matching-review", "organization", "accounts", "trust", "appeal"].includes(item.id)).slice(0, 2).map((item) => <button
+              className="workspace-start-link" key={item.id} type="button" disabled={navigationLocked} onClick={() => navigateWorkspace(item.id)}
+            ><WorkspaceIcon name={item.icon} /><span><strong>{item.label}</strong><small>{item.description}</small></span><span aria-hidden="true">→</span></button>)}
           </section>}
 
-          {selectedAccount && <AccountAdminWorkbench
+          {activeView === "profiles" && !resourceVisible && <section className="workspace-collection" aria-label="我的画像列表">
+            {profileScope && <ResourceGroup disabled={navigationLocked} title="创作者画像" resources={profiles} selectedId={undefined} onOpen={openResource} />}
+            {canCreateProfile && profiles.length === 0 && <div className="workspace-empty">
+              <h2>让合适的合作找到你</h2>
+              <p>先填写你的意愿、能力和合作条件，再检查发布。</p>
+              <button className="primary-button" disabled={navigationLocked} type="button" onClick={createProfile}>创建画像</button>
+            </div>}
+          </section>}
+
+          {activeView === "demands" && !resourceVisible && !demandCreationOpen && <section className="workspace-collection" aria-label="我的需求列表">
+            {demandScope && <ResourceGroup disabled={navigationLocked} title="需求" resources={demands} selectedId={undefined} onOpen={openResource} />}
+            {demands.length === 0 && <div className="workspace-empty"><h2>从一个明确的目标开始</h2><p>新建需求，描述预期成果与合作条件，填写完成后提交审核。</p></div>}
+          </section>}
+
+          <div className="workspace-module workspace-collection" hidden={activeView !== "review" || resourceVisible}>
+            {canReviewDemands && demands.some((resource) => resource.capabilities.includes("RECORD_FINDINGS")) && <ResourceGroup
+              disabled={navigationLocked} title="我正在审核" resources={demands.filter((resource) => resource.capabilities.includes("RECORD_FINDINGS"))} selectedId={undefined} onOpen={openResource}
+            />}
+            {canReviewDemands && <ReviewQueueGroup busy={navigationLocked} items={reviewQueue} onClaim={claimReview} onRefresh={reloadReviewQueue} />}
+          </div>
+          <div className="workspace-module workspace-collection" hidden={activeView !== "funding" || selectedFinanceReview !== null}>
+            {canReviewFunding && <FinanceFundingQueueGroup busy={navigationLocked} items={financeFundingQueue} selectedId={selectedFinanceReview?.funding_review_id} onOpen={claimFinanceFundingReview} onRefresh={reloadFinanceFundingQueue} />}
+          </div>
+          {activeView === "accounts" && !selectedAccount && <section className="workspace-collection" aria-label="账号列表">
+            {canAdminAccounts && <AccountGroup accounts={accounts} selectedId={undefined} onOpen={openAccount} />}
+          </section>}
+
+          {activeView === "accounts" && selectedAccount && <AccountAdminWorkbench
             account={selectedAccount}
             busy={busy || pendingOwner !== null}
             writeLocked={pending !== null || logoutIntent !== null}
@@ -3436,7 +3517,7 @@ export function ProductClient() {
             onDutyAction={managePlatformDuty}
           />}
 
-          {selectedFinanceReview && <FinanceFundingWorkbench
+          {activeView === "funding" && selectedFinanceReview && <FinanceFundingWorkbench
             attestations={financeAttestationCodes}
             busy={busy}
             findingDisposition={financeFindingDisposition}
@@ -3457,7 +3538,8 @@ export function ProductClient() {
             onSubmitFinding={submitFinanceFundingFinding}
           />}
 
-          {selected && <ResourceEditor
+          {resourceVisible && selected && <ResourceEditor
+            key={selected.object_id}
             resource={selected}
             titleRef={resourceEditorTitleRef}
             sections={sections}
@@ -3586,16 +3668,23 @@ function CurrentAccountTaskPanel({
   onOpen: (task: CurrentAccountTask) => void;
   onRefresh: () => void;
 }) {
+  const [classification, setClassification] = useState<CurrentAccountTask["classification"]>("NEEDS_ACTION");
   return <section className="current-account-tasks" aria-busy={busy} aria-labelledby="current-account-tasks-title">
     <div className="section-heading task-discovery-heading">
       <div>
-        <p className="eyebrow">CURRENT ACCOUNT · SERVER DISCOVERY</p>
         <h2 id="current-account-tasks-title">我的任务与历史</h2>
-        <p>仅展示当前账号、当前工作区已授权的服务端投影；入口不会执行任务写入，也不会把内部 API 路径当网页打开。</p>
+        <p>先处理需要你行动的事项，其他进展随时可查。</p>
       </div>
       <button className="quiet-button" disabled={busy || locked} type="button" onClick={onRefresh}>
         {busy ? "正在刷新任务…" : "刷新任务与历史"}
       </button>
+    </div>
+
+    <div className="task-filters" role="group" aria-label="任务状态">
+      {CURRENT_ACCOUNT_TASK_GROUPS.map((group) => <button
+        key={group.classification} type="button" aria-pressed={classification === group.classification}
+        onClick={() => setClassification(group.classification)}
+      >{group.label}<span>{discovery ? discovery.items.filter((item) => item.classification === group.classification).length : "—"}</span></button>)}
     </div>
 
     {error && <div className="task-discovery-error" role="alert">
@@ -3612,13 +3701,13 @@ function CurrentAccountTaskPanel({
     {discovery?.items.length === 0 && <p className="task-discovery-empty" role="status">当前账号暂无待处理、等待中或已完成的可发现记录。</p>}
 
     {discovery && discovery.items.length > 0 && <div className="task-discovery-groups">
-      {CURRENT_ACCOUNT_TASK_GROUPS.map((group) => {
+      {CURRENT_ACCOUNT_TASK_GROUPS.filter((group) => group.classification === classification).map((group) => {
         const items = discovery.items.filter((item) => item.classification === group.classification);
         const titleId = `task-group-${group.classification.toLowerCase().replaceAll("_", "-")}`;
         return <section className={`task-discovery-group task-discovery-group--${group.classification.toLowerCase().replaceAll("_", "-")}`} aria-labelledby={titleId} key={group.classification}>
-          <h3 id={titleId}>{group.label}<span>{items.length}</span></h3>
+          <h3 className="sr-only" id={titleId}>{group.label}<span>{items.length}</span></h3>
           {items.length === 0
-            ? <p className="task-group-empty">本组暂无记录</p>
+            ? <p className="task-group-empty">{classification === "NEEDS_ACTION" ? "暂时没有需要你处理的事项。你可以查看等待中的进展，或开始一项新工作。" : "本组暂无记录"}</p>
             : <ol>
               {items.map((task) => <li key={`${task.resource_kind}:${task.resource_id}`}>
                 <article className="task-discovery-card">
@@ -4258,38 +4347,61 @@ function ResourceEditor({
 }) {
   const canEdit = resource.capabilities.includes("SAVE_DRAFT");
   const editorIssues = canEdit ? structuredContentIssues(resource.resource_type, sections, configuration) : [];
+  const steps = buildEditorWorkflow(resource.resource_type, resource.editable_paths);
+  const [stepId, setStepId] = useState(steps[0].id);
+  const [reviewDecision, setReviewDecision] = useState<"FINDINGS" | "VERIFY" | null>(null);
+  const stepTitleRef = useRef<HTMLHeadingElement>(null);
+  const activeStepIndex = Math.max(0, steps.findIndex((step) => step.id === stepId));
+  const activeStep = steps[activeStepIndex];
+  const issuesForStep = (paths: string[]) => editorIssues.filter((issue) => paths.some((path) => (
+    issue.path === path || issue.path.startsWith(`${path}/`)
+  )));
+  const changeStep = (id: string) => {
+    setStepId(id);
+    requestAnimationFrame(() => {
+      stepTitleRef.current?.focus({ preventScroll: true });
+      stepTitleRef.current?.scrollIntoView({ block: "start", behavior: "auto" });
+    });
+  };
+  const latestFinding = [...resource.findings].sort((left, right) => (
+    Date.parse(right.reviewed_at) - Date.parse(left.reviewed_at)
+  ))[0];
   return <>
     <section className="resource-header" aria-labelledby="resource-editor-title">
       <div>
-        <p className="eyebrow">{resource.resource_type}</p>
+        <p className="eyebrow">{canEdit ? "完善内容" : "查看内容"}</p>
         <h2
           data-resource-id={resource.object_id}
           id="resource-editor-title"
           ref={titleRef}
           tabIndex={-1}
-        >{resource.resource_type === "CREATOR_PROFILE" ? "创作者画像" : "需求对象"}</h2>
-        <code>{resource.object_id}</code>
+        >{resource.resource_type === "CREATOR_PROFILE" ? "创作者画像" : "需求详情"}</h2>
       </div>
       <dl>
         <div><dt>状态</dt><dd><span className="status">{statusLabel(resource.status)}</span></dd></div>
-        <div><dt>对象版本</dt><dd>v{resource.revision}</dd></div>
-        <div><dt>ETag</dt><dd><code>{resource.etag}</code></dd></div>
+        <div><dt>版本</dt><dd>v{resource.revision}</dd></div>
       </dl>
     </section>
 
-    <section className="capability-strip" aria-label="服务端授予能力">
-      <strong>当前能力</strong>
-      {resource.capabilities.length ? resource.capabilities.map((capability) => <span key={capability}>{capability}</span>) : <em>只读</em>}
-    </section>
-
     {recoveredScratchAt && <div className="draft-recovery" role="status">
-      已恢复当前标签页在 {formatTime(recoveredScratchAt)} 保存的未提交编辑。请核对后再写入服务端。
+      已恢复当前标签页在 {formatTime(recoveredScratchAt)} 保存的未提交编辑。切换步骤会保留修改，请核对后保存草稿。
     </div>}
+
+    {resource.status === "NEEDS_CHANGES" && latestFinding && <section className="current-findings" aria-label="本次需要修改的内容">
+      <h3>请先处理这些整改项</h3>
+      <p>{latestFinding.reason_codes.map(reviewReasonLabel).join("、")}</p>
+      <ul>{latestFinding.required_field_paths.map((path) => {
+        const destination = steps.find((step) => step.paths.includes(path));
+        return <li key={path}>{destination && canEdit
+          ? <button className="text-button" disabled={busy} type="button" onClick={() => changeStep(destination.id)}>{SECTION_LABELS[path] ?? path}</button>
+          : SECTION_LABELS[path] ?? path}</li>;
+      })}</ul>
+    </section>}
 
     {canEdit ? <section className="editor-section" aria-labelledby="content-editor-title">
       <div className="section-heading compact-heading">
-        <div><p className="eyebrow">STRUCTURED EDITOR</p><h2 id="content-editor-title">{resource.resource_type === "CREATOR_PROFILE" ? "九个画像分区" : "十三个需求分区"}</h2></div>
-        <span className={dirty ? "dirty-indicator" : "saved-indicator"}>{dirty ? "当前标签页有未保存修改" : "与已读取版本一致"}</span>
+        <div><p className="eyebrow">按步骤完善</p><h2 id="content-editor-title">{resource.resource_type === "CREATOR_PROFILE" ? "让合作更合适" : "把需求说清楚"}</h2></div>
+        <span className={dirty ? "dirty-indicator" : "saved-indicator"}>{dirty ? "有未保存修改" : "已保存"}</span>
       </div>
       {busy && <p className="editor-write-lock" id="editor-write-lock-status" role="status">
         正在同步服务端事实、处理版本冲突或确认写入结果；编辑控件已锁定，避免新输入被响应覆盖。
@@ -4301,11 +4413,24 @@ function ResourceEditor({
         disabled={busy}
       >
         <legend className="sr-only">可编辑内容与写入操作</legend>
-        {configuration
-          ? <ApprovedTaxonomy configuration={configuration} />
-          : <div className="taxonomy-field" role="alert">当前批准的分类配置不可用；保存已关闭。</div>}
+        {!configuration && <div className="taxonomy-field" role="alert">当前可选分类暂时不可用，请刷新后再保存。</div>}
+        <nav className="editor-step-nav" aria-label="内容填写步骤">
+          <ol>{steps.map((step, index) => <li key={step.id}>
+            <button
+              aria-controls="editor-step-content"
+              aria-current={activeStep.id === step.id ? "step" : undefined}
+              type="button"
+              onClick={() => changeStep(step.id)}
+            ><span aria-hidden="true">{index + 1}</span><strong>{step.title}</strong><small>{step.id === "review" ? "保存并继续" : `${step.paths.length} 个部分`}</small></button>
+          </li>)}</ol>
+        </nav>
+        <div className="editor-step-heading" id="editor-step-content">
+          <p className="eyebrow">第 {activeStepIndex + 1} / {steps.length} 步</p>
+          <h3 ref={stepTitleRef} tabIndex={-1}>{activeStep.title}</h3>
+          <p>{activeStep.description}</p>
+        </div>
         <div className="structured-section-grid">
-          {resource.editable_paths.map((path, index) => <StructuredSectionEditor
+          {activeStep.paths.map((path, index) => <StructuredSectionEditor
             configuration={configuration}
             encoded={sections[path] ?? "null"}
             index={index}
@@ -4315,32 +4440,52 @@ function ResourceEditor({
             onChange={(value) => onSectionChange(path, serializeStructuredSection(value))}
           />)}
         </div>
-        {editorIssues.length > 0 && <div className="editor-validation" role="status">
-          <strong>保存、发布或提交前还需处理 {editorIssues.length} 项</strong>
-          <span>{fieldLabel(editorIssues[0].path.split("/").filter(Boolean).at(-1) ?? editorIssues[0].path)}：{issueMessage(editorIssues[0].code)}</span>
+        {activeStep.id === "review" && <div className="editor-review-summary">
+          {steps.filter((step) => step.paths.length > 0).map((step) => {
+            const issues = issuesForStep(step.paths);
+            return <details className="secondary-disclosure" key={step.id}>
+              <summary><strong>{step.title}</strong><span>{issues.length ? `${issues.length} 项需要处理` : "展开核对内容"}</span></summary>
+              <button className="quiet-button" type="button" onClick={() => changeStep(step.id)}>修改{step.title}</button>
+              {step.paths.map((path) => <DraftSectionPreview encoded={sections[path] ?? "null"} key={path} path={path} resourceType={resource.resource_type} />)}
+            </details>;
+          })}
+          <p>步骤浏览不代表内容已完成。保存和提交仍会检查所有部分。</p>
         </div>}
-        <div className="editor-actions">
+        {editorIssues.length > 0 && <div className="editor-validation" role="status">
+          <strong>{activeStep.id === "review" ? `保存前还需处理 ${editorIssues.length} 项` : `本步 ${issuesForStep(activeStep.paths).length} 项待处理 · 全部 ${editorIssues.length} 项`}</strong>
+          {activeStep.id === "review" && <span>{fieldLabel(editorIssues[0].path.split("/").filter(Boolean).at(-1) ?? editorIssues[0].path)}：{issueMessage(editorIssues[0].code)}</span>}
+        </div>}
+        {activeStep.id === "review" && <div className="editor-actions">
           <button className="primary-button" disabled={!dirty || !configuration || editorIssues.length > 0} type="button" onClick={onSave}>保存草稿</button>
-          {resource.capabilities.includes("PUBLISH") && <button className="danger-button" disabled={dirty || !configuration || editorIssues.length > 0} type="button" onClick={() => onAdvance("PUBLISH")}>发布画像</button>}
-          {resource.capabilities.includes("SUBMIT") && <button className="danger-button" disabled={dirty || !configuration || editorIssues.length > 0} type="button" onClick={() => onAdvance("SUBMIT")}>提交审核</button>}
-          <small>发布/提交前必须先保存本页修改；服务端会再次做完整验证。</small>
+          {resource.capabilities.includes("PUBLISH") && <button className="primary-button" disabled={dirty || !configuration || editorIssues.length > 0} type="button" onClick={() => onAdvance("PUBLISH")}>发布画像</button>}
+          {resource.capabilities.includes("SUBMIT") && <button className="primary-button" disabled={dirty || !configuration || editorIssues.length > 0} type="button" onClick={() => onAdvance("SUBMIT")}>提交审核</button>}
+          <small>{dirty ? "请先保存修改，再发布或提交。" : "请确认内容准确后，再发布或提交。"}</small>
+        </div>}
+        <div className="editor-step-actions">
+          <button className="quiet-button" disabled={activeStepIndex === 0} type="button" onClick={() => changeStep(steps[activeStepIndex - 1].id)}>上一步</button>
+          <small>切换步骤会保留输入</small>
+          {activeStepIndex < steps.length - 1 && <button className="primary-button" type="button" onClick={() => changeStep(steps[activeStepIndex + 1].id)}>{steps[activeStepIndex + 1].id === "review" ? "前往复核" : "下一步"}</button>}
         </div>
       </fieldset>
     </section> : <section className="editor-section" aria-labelledby="readonly-content-title">
-      <div className="section-heading compact-heading"><div><p className="eyebrow">READ ONLY</p><h2 id="readonly-content-title">
+      <div className="section-heading compact-heading"><div><p className="eyebrow">只读内容</p><h2 id="readonly-content-title">
         {resource.resource_type === "CREATOR_PROFILE"
           ? resource.status === "ARCHIVED"
             ? "画像已归档"
-            : "暂停中的已发布内容"
-          : "当前提交内容"}
+            : resource.status === "PAUSED" ? "暂停中的已发布内容" : "当前画像内容"
+          : resource.status === "CANCELLED" ? "需求已取消" : "当前提交内容"}
       </h2></div></div>
       {resource.resource_type === "CREATOR_PROFILE" && resource.status === "ARCHIVED"
         ? <p className="readonly-explainer">归档后不再存在“当前版本”。历史版本仍保留在下方，可核对已退役或已废弃的不可变记录。</p>
         : <>
           <p className="readonly-explainer">
             {resource.resource_type === "CREATOR_PROFILE"
-              ? "画像暂停期间不会进入新的匹配；请先恢复画像，才能继续编辑或发布。"
-              : "以下内容按平台分区呈现，只读且不可代替需求方修改。字段路径保留用于准确记录整改项。"}
+              ? resource.status === "PAUSED"
+                ? "画像暂停期间不会进入新的匹配；请先恢复画像，才能继续编辑或发布。"
+                : "展开各部分查看画像。当前账号可以查看这些内容。"
+              : resource.capabilities.includes("RECORD_FINDINGS")
+                ? "展开各部分核对当前内容。审核时不可代替需求方修改，可在下方记录整改项。"
+                : "展开各部分查看已保存的需求内容。当前状态下不能修改。"}
           </p>
           {resource.current_version && <StructuredReadOnlyContent
             content={resource.current_version.content}
@@ -4352,11 +4497,13 @@ function ResourceEditor({
     {resource.resource_type === "CREATOR_PROFILE" && resource.capabilities.some((capability) => (
       capability === "PAUSE" || capability === "RESUME" || capability === "ARCHIVE"
     )) && <section className="profile-lifecycle-panel" aria-labelledby="profile-lifecycle-title">
+      <details className="secondary-disclosure" open={resource.status === "PAUSED"}>
+      <summary id="profile-lifecycle-title">画像状态管理<span>暂停、恢复或归档</span></summary>
       <div className="section-heading compact-heading">
-        <div><p className="eyebrow">CREATOR · PROFILE LIFECYCLE</p><h2 id="profile-lifecycle-title">画像状态管理</h2></div>
+        <div><h3>调整画像的参与状态</h3></div>
         <span className="status">{statusLabel(resource.status)}</span>
       </div>
-      <p>状态操作绑定当前 ETag 和独立幂等键。页面有未保存修改、其他写入结果未知或退出进行中时，全部保持关闭。</p>
+      <p>暂时无法参与合作时可以暂停画像。请先保存修改，再调整状态。</p>
       <div className="profile-lifecycle-actions">
         {resource.capabilities.includes("PAUSE") && <div className="profile-lifecycle-action">
           <label>暂停原因
@@ -4396,14 +4543,17 @@ function ResourceEditor({
           <button className="danger-button" disabled={busy || dirty || !profileArchiveConfirmed} type="button" onClick={() => onProfileLifecycle("ARCHIVE")}>永久归档画像</button>
         </div>}
       </div>
+      </details>
     </section>}
 
     {resource.resource_type === "DEMAND" && resource.capabilities.includes("CANCEL") && <section className="profile-lifecycle-panel demand-cancel-panel" aria-labelledby="demand-cancel-title">
+      <details className="secondary-disclosure">
+      <summary id="demand-cancel-title">取消需求<span>终止当前需求流程</span></summary>
       <div className="section-heading compact-heading">
-        <div><p className="eyebrow">DEMAND OWNER · CANCEL</p><h2 id="demand-cancel-title">取消需求</h2></div>
+        <div><h3>确认不再继续这个需求</h3></div>
         <span className="status">{statusLabel(resource.status)}</span>
       </div>
-      <p>取消会终止当前需求流程。请求绑定当前 ETag 和独立幂等键；有未保存修改或其他写入在途时不会发送。</p>
+      <p>取消会终止当前需求流程。请先保存修改，再选择原因并确认取消。</p>
       <div className="profile-lifecycle-actions">
         <div className="profile-lifecycle-action profile-lifecycle-action--archive">
           <label>取消原因
@@ -4427,13 +4577,15 @@ function ResourceEditor({
           <button className="danger-button" disabled={busy || dirty || !demandCancelConfirmed} type="button" onClick={onDemandCancel}>确认取消需求</button>
         </div>
       </div>
+      </details>
     </section>}
 
     {resource.capabilities.includes("RECORD_FINDINGS") && <section className="review-assignment-release-panel" aria-labelledby="review-assignment-release-title">
+      <details className="secondary-disclosure">
+      <summary id="review-assignment-release-title">无法继续本次审核？<span>释放分配并交回队列</span></summary>
       <div className="section-heading compact-heading">
         <div>
-          <p className="eyebrow">OPERATIONS REVIEWER · ASSIGNMENT MANAGEMENT</p>
-          <h2 id="review-assignment-release-title">释放当前审核分配（非最终决定）</h2>
+          <h3>释放当前审核分配（非最终决定）</h3>
         </div>
         <span className="status">Demand {resource.status}</span>
       </div>
@@ -4455,18 +4607,25 @@ function ResourceEditor({
         <button className="quiet-button" disabled={busy || !resource.review_assignment} type="submit">释放分配并返回审核队列</button>
         <small>请求绑定当前 Demand ETag、Session CSRF 与独立幂等键；结果未知时只能原样重试或明确放弃。</small>
       </form>
+      </details>
     </section>}
 
     {resource.capabilities.includes("RECORD_FINDINGS") && <section className="review-decision-grid" aria-label="当前审核分配的最终决定">
       <div className="review-decision-note" role="status">
-        <strong>以下两项才是最终审核决定</strong>
-        <span>选择“提交整改项”或“验证通过”之一。上方“释放分配”不是审核结论；最终决定成功后旧分配立即失效。</span>
+        <strong>作出审核决定</strong>
+        <span>查看内容后，选择需要整改或验证通过。决定提交后，本次审核分配结束。</span>
       </div>
-      <form className="review-panel" onSubmit={onRecordFindings}>
+      <div className="review-decision-switch" aria-label="选择审核决定">
+        <button aria-pressed={reviewDecision === "FINDINGS"} className="quiet-button" disabled={busy} type="button" onClick={() => setReviewDecision("FINDINGS")}>需要整改</button>
+        <button aria-pressed={reviewDecision === "VERIFY"} className="quiet-button" disabled={busy} type="button" onClick={() => setReviewDecision("VERIFY")}>验证通过</button>
+      </div>
+      {reviewDecision === "FINDINGS" && <form className="review-panel" onSubmit={onRecordFindings}>
+        <fieldset className="editor-write-scope" disabled={busy} aria-busy={busy}>
+        <legend className="sr-only">填写整改决定</legend>
         <div>
-          <p className="eyebrow">OPERATIONS REVIEWER · REQUEST CHANGES</p>
+          <p className="eyebrow">需要需求方补充</p>
           <h2>记录整改项</h2>
-          <p>只记录当前分配范围内的结构化理由和顶层必改字段；不能代替需求方修改内容。</p>
+          <p>选择整改理由和需要修改的部分，帮助需求方明确下一步。</p>
         </div>
         <dl className="review-assignment-summary">
           <div><dt>当前审核分配</dt><dd><code>{resource.review_assignment?.assignment_id ?? "不可用"}</code></dd></div>
@@ -4480,28 +4639,31 @@ function ResourceEditor({
               type="checkbox"
               onChange={(event) => onReasonCodesChange(event.target.checked ? [...reasonCodes, code] : reasonCodes.filter((item) => item !== code))}
             />
-            {reviewReasonLabel(code)} <code>{code}</code>
+            {reviewReasonLabel(code)}
           </label>)}
         </fieldset>
         <fieldset>
-          <legend>需要修改的顶层字段</legend>
+          <legend>需要修改的部分</legend>
           {Object.keys(sectionsFromContent("DEMAND", {})).map((path) => <label key={path}>
             <input
               checked={requiredPaths.includes(path)}
               type="checkbox"
               onChange={(event) => onRequiredPathsChange(event.target.checked ? [...requiredPaths, path] : requiredPaths.filter((item) => item !== path))}
             />
-            {SECTION_LABELS[path] ?? path} <code>{path}</code>
+            {SECTION_LABELS[path] ?? path}
           </label>)}
         </fieldset>
-        <button className="danger-button" disabled={busy || !resource.review_assignment || reasonCodes.length === 0 || requiredPaths.length === 0} type="submit">提交整改项</button>
-      </form>
+        <button className="primary-button" disabled={busy || !resource.review_assignment || reasonCodes.length === 0 || requiredPaths.length === 0} type="submit">提交整改项</button>
+        </fieldset>
+      </form>}
 
-      <form className="review-panel review-panel--verify" onSubmit={onVerifyDemand}>
+      {reviewDecision === "VERIFY" && <form className="review-panel review-panel--verify" onSubmit={onVerifyDemand}>
+        <fieldset className="editor-write-scope" disabled={busy} aria-busy={busy}>
+        <legend className="sr-only">填写通过决定</legend>
         <div>
-          <p className="eyebrow">OPERATIONS REVIEWER · VERIFY</p>
+          <p className="eyebrow">确认内容可执行</p>
           <h2>验证通过</h2>
-          <p>只提交封闭预算、风险与证据代码；浏览器不会生成自由文本摘要、身份、职责或证据摘要字段。</p>
+          <p>核对预算、风险和验证证据，再确认通过。</p>
         </div>
         <dl className="review-assignment-summary">
           <div><dt>当前审核分配</dt><dd><code>{resource.review_assignment?.assignment_id ?? "不可用"}</code></dd></div>
@@ -4514,7 +4676,7 @@ function ResourceEditor({
               const code = VERIFY_BUDGET_HEALTH_CODES.find((item) => item === event.target.value);
               if (code) onBudgetHealthCodeChange(code);
             }}>
-              {VERIFY_BUDGET_HEALTH_CODES.map((code) => <option key={code} value={code}>{reviewBudgetLabel(code)} · {code}</option>)}
+              {VERIFY_BUDGET_HEALTH_CODES.map((code) => <option key={code} value={code}>{reviewBudgetLabel(code)}</option>)}
             </select>
           </label>
           <label>
@@ -4523,7 +4685,7 @@ function ResourceEditor({
               const code = VERIFY_RISK_CODES.find((item) => item === event.target.value);
               if (code) onRiskCodeChange(code);
             }}>
-              {VERIFY_RISK_CODES.map((code) => <option key={code} value={code}>{reviewRiskLabel(code)} · {code}</option>)}
+              {VERIFY_RISK_CODES.map((code) => <option key={code} value={code}>{reviewRiskLabel(code)}</option>)}
             </select>
           </label>
         </div>
@@ -4535,33 +4697,59 @@ function ResourceEditor({
               type="checkbox"
               onChange={(event) => onEvidenceCodesChange(event.target.checked ? [...evidenceCodes, code] : evidenceCodes.filter((item) => item !== code))}
             />
-            {reviewEvidenceLabel(code)} <code>{code}</code>
+            {reviewEvidenceLabel(code)}
           </label>)}
         </fieldset>
         <button className="primary-button" disabled={busy || !resource.review_assignment || evidenceCodes.length === 0} type="submit">验证通过</button>
-      </form>
+        </fieldset>
+      </form>}
     </section>}
 
     <section className="history-grid">
-      <div>
-        <div className="section-heading compact-heading"><div><p className="eyebrow">IMMUTABLE</p><h2>版本历史</h2></div><strong>{resource.versions.length}</strong></div>
+      <details className="secondary-disclosure">
+        <summary>版本历史<span>{resource.versions.length} 个版本</span></summary>
         {resource.versions.length === 0 ? <p className="empty-state">尚无版本</p> : <ol className="version-list">
           {[...resource.versions].reverse().map((version) => <li key={version.version_id}>
             <strong>v{version.version_no} · {statusLabel(version.status)}</strong>
             <time>{formatTime(version.created_at)}</time>
-            <code>{version.content_sha256}</code>
+            <details><summary>内容校验摘要</summary><code>{version.content_sha256}</code></details>
           </li>)}
         </ol>}
-      </div>
-      {resource.resource_type === "DEMAND" && <div>
-        <div className="section-heading compact-heading"><div><p className="eyebrow">REVIEW</p><h2>提交与整改</h2></div><strong>{resource.submissions.length + resource.findings.length}</strong></div>
+      </details>
+      {resource.resource_type === "DEMAND" && <details className="secondary-disclosure">
+        <summary>提交与整改记录<span>{resource.submissions.length + resource.findings.length} 条记录</span></summary>
         {resource.submissions.map((submission) => <article className="evidence-card" key={submission.submission_id}><strong>第 {submission.submission_no} 次提交</strong><time>{formatTime(submission.submitted_at)}</time><code>{shortId(submission.version_id)}</code></article>)}
-        {resource.findings.map((finding) => <article className="evidence-card evidence-card--finding" key={finding.finding_id}><strong>{finding.result}</strong><time>{formatTime(finding.reviewed_at)}</time><p>{finding.reason_codes.join("、")}</p><code>{finding.required_field_paths.join(" · ")}</code></article>)}
+        {resource.findings.map((finding) => <article className="evidence-card evidence-card--finding" key={finding.finding_id}><strong>{statusLabel(finding.result)}</strong><time>{formatTime(finding.reviewed_at)}</time><p>{finding.reason_codes.map(reviewReasonLabel).join("、")}</p><p>{finding.required_field_paths.map((path) => SECTION_LABELS[path] ?? path).join(" · ")}</p></article>)}
         {!resource.submissions.length && !resource.findings.length && <p className="empty-state">尚无提交或整改记录</p>}
-      </div>}
+      </details>}
     </section>
-    <VersionComparison key={resource.object_id} versions={resource.versions} />
+    <details className="secondary-disclosure">
+      <summary>比较历史版本<span>核对两次保存之间的变化</span></summary>
+      <VersionComparison key={resource.object_id} versions={resource.versions} />
+    </details>
+    <details className="secondary-disclosure">
+      <summary>记录信息与分类来源<span>编号、权限与版本标识</span></summary>
+      <dl className="resource-metadata">
+        <div><dt>记录编号</dt><dd><code>{resource.object_id}</code></dd></div>
+        <div><dt>资源 ETag</dt><dd><code>{resource.etag}</code></dd></div>
+        <div><dt>当前能力</dt><dd>{resource.capabilities.length ? resource.capabilities.join(" · ") : "只读"}</dd></div>
+      </dl>
+      {configuration && <ApprovedTaxonomy configuration={configuration} />}
+    </details>
   </>;
+}
+
+function DraftSectionPreview({ encoded, path, resourceType }: { encoded: string; path: string; resourceType: ResourceType }) {
+  let value: unknown;
+  try {
+    value = parseStructuredSection(resourceType, path, encoded);
+  } catch {
+    return <p role="alert">{SECTION_LABELS[path] ?? path}：内容格式需要处理，请返回该步骤检查。</p>;
+  }
+  return <section className="draft-section-preview">
+    <h4>{SECTION_LABELS[path] ?? path}</h4>
+    <ReadOnlyValue canonicalPath={path} fieldKey={path.slice(1)} value={value} />
+  </section>;
 }
 
 function StructuredSectionEditor({
@@ -4584,13 +4772,13 @@ function StructuredSectionEditor({
     value = parseStructuredSection(resourceType, path, encoded);
   } catch {
     return <section className="structured-editor structured-editor--invalid">
-      <header><b>{index + 1}</b><h3>{SECTION_LABELS[path] ?? path}</h3><code>{path}</code></header>
+      <header><b>{index + 1}</b><h3>{SECTION_LABELS[path] ?? path}</h3></header>
       <p role="alert">旧草稿不是有效的受控分区。为避免静默丢失资料，页面不会自动修复；请选择服务器版本或处理版本冲突。</p>
     </section>;
   }
   const issues = structuredSectionIssues(resourceType, path, encoded, configuration);
   return <section className="structured-editor">
-    <header><b>{index + 1}</b><h3>{SECTION_LABELS[path] ?? path}</h3><code>{path}</code></header>
+    <header><b>{index + 1}</b><h3>{SECTION_LABELS[path] ?? path}</h3></header>
     <StructuredValueEditor
       resourceType={resourceType}
       configuration={configuration}
@@ -4877,14 +5065,13 @@ function StructuredReadOnlyContent({
   return <div className="readonly-section-grid">
     {paths.map((path, index) => {
       const key = path.slice(1);
-      return <section className="readonly-section" key={path} aria-labelledby={`readonly-section-${index}`}>
-        <header>
+      return <details className="readonly-section" key={path} open={index === 0}>
+        <summary>
           <b>{index + 1}</b>
-          <h3 id={`readonly-section-${index}`}>{SECTION_LABELS[path] ?? path}</h3>
-          <code>{path}</code>
-        </header>
+          <h3>{SECTION_LABELS[path] ?? path}</h3>
+        </summary>
         <ReadOnlyValue canonicalPath={path} fieldKey={key} value={content[key] ?? null} />
-      </section>;
+      </details>;
     })}
   </div>;
 }

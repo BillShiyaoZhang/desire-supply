@@ -144,6 +144,7 @@ export function OrganizationAdminWorkbench({
 }) {
   const organizationId = workspace.workspace_id.startsWith("org:") ? workspace.workspace_id.slice(4) : "";
   const [organization, setOrganization] = useState<OrganizationSummary | null>(null);
+  const [section, setSection] = useState("members");
   const [invitations, setInvitations] = useState<AccessInvitationAdmin[]>([]);
   const [memberships, setMemberships] = useState<MembershipAdmin[]>([]);
   const [issued, setIssued] = useState<IssueOrganizationInvitationResponse | null>(null);
@@ -538,19 +539,26 @@ export function OrganizationAdminWorkbench({
     || !projectionReady
     || issued !== null;
   const organizationWriteLocked = commonWriteLocked || publicNameDirty;
+  const activeSection = publicNameDirty || pending?.operation === "UPDATE_PUBLIC_NAME" ? "settings" : issued ? "invitations" : section;
 
   return (
     <section className="organization-admin-workbench" aria-labelledby="organization-admin-title">
       <header className="account-header">
-        <div><p className="eyebrow">ORG_ADMIN · IAM AUTHORITY LIFECYCLE</p><h2 id="organization-admin-title">组织成员与邀请</h2><p>所有列表均来自 IAM；浏览器不提交组织、操作者或角色权限声明。</p></div>
+        <div><h2 id="organization-admin-title">{organization?.public_name ?? "组织成员与邀请"}</h2><p>管理成员、邀请与组织公开信息。</p></div>
         <button className="quiet-button" disabled={busy || pending !== null || writeLocked || issued !== null} type="button" onClick={requestProjectionRefresh}>刷新组织投影</button>
       </header>
-      {organization && <dl className="account-facts">
+      {organization && <details className="secondary-disclosure"><summary>组织信息与版本</summary><dl className="account-facts">
         <div><dt>组织</dt><dd>{organization.public_name}</dd></div>
         <div><dt>类型</dt><dd><code>{organization.type}</code></dd></div>
         <div><dt>状态</dt><dd><code>{organization.status}</code></dd></div>
         <div><dt>版本</dt><dd><code>{organization.entity_tag}</code></dd></div>
-      </dl>}
+      </dl></details>}
+      <div className="task-filters" role="group" aria-label="组织管理内容">
+        {[["members", "成员"], ["invitations", "邀请"], ["settings", "组织信息"]].map(([id, label]) => <button
+          key={id} type="button" aria-pressed={activeSection === id} disabled={organizationWriteLocked}
+          onClick={() => setSection(id)}
+        >{label}</button>)}
+      </div>
       <div className="live-notice" role="status" aria-live="polite" aria-atomic="true"><strong>组织管理状态</strong><span>{notice}</span></div>
       {error && <div className="error-panel" role="alert"><strong>操作未完成：{error.code}</strong>{error.traceId && <small>追踪编号：<code>{error.traceId}</code></small>}</div>}
       {discardRefreshRequested && <section className="organization-name-discard" role="group" aria-labelledby="organization-name-discard-title">
@@ -581,7 +589,7 @@ export function OrganizationAdminWorkbench({
           <button className="quiet-button" type="button" onClick={() => { setIssued(null); setNotice("已明确关闭当前页面内存中的一次性加入链接；它无法从列表或刷新中恢复。"); }}>已安全交付，关闭一次性链接</button>
         </div>
       </section>}
-      {organization && <form className="organization-public-name-card" aria-labelledby="organization-public-name-title" onSubmit={updatePublicName}>
+      <div hidden={activeSection !== "settings"}>{organization && <form className="organization-public-name-card" aria-labelledby="organization-public-name-title" onSubmit={updatePublicName}>
         <div className="section-heading compact-heading">
           <div><p className="eyebrow">ORG_ADMIN · PUBLIC PROJECTION</p><h3 id="organization-public-name-title">组织公开名称</h3></div>
           <span className={publicNameDirty ? "dirty-indicator" : "saved-indicator"}>{publicNameDirty ? "当前标签页有未提交修改" : "与已读取版本一致"}</span>
@@ -627,17 +635,17 @@ export function OrganizationAdminWorkbench({
           <button className="quiet-button" disabled={commonWriteLocked || !publicNameDirty} type="button" onClick={discardPublicNameDraft}>放弃本地名称修改</button>
         </div>
         <small>提交固定理由 <code>PUBLIC_NAME_CORRECTION</code>；浏览器不会提交操作者、组织权限或角色声明。</small>
-      </form>}
+      </form>}</div>
       <div className="organization-admin-grid">
-        <form className="starter-card" onSubmit={issueInvitation}>
+        <form hidden={activeSection !== "invitations"} className="starter-card" onSubmit={issueInvitation}>
           <p className="eyebrow">ISSUE · STEP_UP REQUIRED</p><h3>签发组织邀请</h3>
           <label>受邀邮箱<input required autoComplete="off" disabled={organizationWriteLocked} type="email" value={recipientEmail} onChange={(event) => setRecipientEmail(event.target.value)} placeholder="invited-user@example.org" /></label>
           <label>目标职责<select disabled={organizationWriteLocked} value={targetRole} onChange={(event) => setTargetRole(event.target.value as "ORG_ADMIN" | "DEMAND_OWNER")}><option value="DEMAND_OWNER">DEMAND_OWNER</option><option value="ORG_ADMIN">ORG_ADMIN</option></select></label>
           <label>邀请有效期<input required disabled={organizationWriteLocked} type="datetime-local" value={expiresAt} onChange={(event) => setExpiresAt(event.target.value)} /></label>
           <button className="primary-button" disabled={organizationWriteLocked || organization?.status !== "ACTIVE"} type="submit">签发一次性邀请</button>
         </form>
-        <label className="organization-reason-field">成员与邀请生命周期理由<select disabled={organizationWriteLocked} value={reasonCode} onChange={(event) => setReasonCode(event.target.value as (typeof ORGANIZATION_ADMIN_REASON_CODES)[number])}>{ORGANIZATION_ADMIN_REASON_CODES.map((code) => <option key={code} value={code}>{code}</option>)}</select><small>理由来自封闭选项；浏览器不能提交自由权限声明。</small></label>
-        <section className="organization-list" aria-labelledby="membership-list-title">
+        <label hidden={activeSection === "settings"} className="organization-reason-field">操作原因<select disabled={organizationWriteLocked} value={reasonCode} onChange={(event) => setReasonCode(event.target.value as (typeof ORGANIZATION_ADMIN_REASON_CODES)[number])}>{ORGANIZATION_ADMIN_REASON_CODES.map((code) => <option key={code} value={code}>{code}</option>)}</select><small>暂停、恢复或撤销前，请确认本次操作的原因。</small></label>
+        <section hidden={activeSection !== "members"} className="organization-list" aria-labelledby="membership-list-title">
           <h3 id="membership-list-title">成员资格 <span>{memberships.length}</span></h3>
           {memberships.map((membership) => {
             const isSelf = membership.user_id === me.user_id;
@@ -655,7 +663,7 @@ export function OrganizationAdminWorkbench({
             </article>;
           })}
         </section>
-        <section className="organization-list" aria-labelledby="invitation-list-title">
+        <section hidden={activeSection !== "invitations"} className="organization-list" aria-labelledby="invitation-list-title">
           <h3 id="invitation-list-title">已签发邀请 <span>{invitations.length}</span></h3>
           {invitations.map((invitation) => <article key={invitation.invitation_id}>
             <div><strong>{invitation.masked_recipient_label}</strong><span className="status">{invitation.status}</span></div>

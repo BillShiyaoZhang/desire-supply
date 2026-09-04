@@ -767,11 +767,10 @@ export function MatchingWorkbench({
   return <section className="trust-workbench matching-workbench" aria-busy={busy || invitationListBusy || invitationDetailBusy || attemptListBusy || selectionBusy} aria-labelledby="matching-workbench-title">
     <div className="trust-heading">
       <div>
-        <p className="eyebrow">MATCHING ROUND V1 · RECIPIENT SCOPED</p>
         <h2 id="matching-workbench-title" tabIndex={-1}>匹配与邀请工作台</h2>
-        <p>Creator 只见自己的 frozen disclosure；Candidate Selector 只见已接受且获准披露的摘要。接受邀请不是签约，人工选择也不替代 Agreement。</p>
+        <p>{canRespond ? "阅读合作条件，再决定是否接受邀请。" : "选择需求，查看匹配进度与已接受邀请的候选人。"}接受邀请与选择人选后，仍需后续协议确认。</p>
       </div>
-      <button className="quiet-button" disabled={nonRecoveryLocked} type="button" onClick={() => canRespond ? void loadInvitationList() : selectedDemandId ? void loadAttempts(selectedDemandId) : undefined}>刷新 Matching</button>
+      <button className="quiet-button" disabled={nonRecoveryLocked} type="button" onClick={() => canRespond ? void loadInvitationList() : selectedDemandId ? void loadAttempts(selectedDemandId) : undefined}>刷新匹配</button>
     </div>
 
     <div className="live-notice" aria-live="polite"><strong>Matching 状态</strong><span>{notice}</span></div>
@@ -839,7 +838,7 @@ export function MatchingWorkbench({
       </section>
 
       <section className="workbench-card sensitive-card" aria-labelledby="matching-invitation-detail-title">
-        <h3 id="matching-invitation-detail-title">邀请安全披露</h3>
+        <h3 id="matching-invitation-detail-title">合作邀请详情</h3>
         {invitationDetailBusy && <p role="status">正在读取 exact invitation 与 strong ETag。</p>}
         {invitationDetailError && <div className="task-discovery-error" role="alert">
           <strong>详情读取未完成：{invitationDetailError.code}</strong>
@@ -890,7 +889,7 @@ export function MatchingWorkbench({
 
     {canSelect && <div className="trust-actions-grid">
       <section className="workbench-card" aria-labelledby="matching-attempts-title">
-        <h3 id="matching-attempts-title">需求 Matching Round</h3>
+        <h3 id="matching-attempts-title">需求匹配进度</h3>
         {!demandsAvailable && <div className="task-discovery-error" role="alert"><strong>需求投影不可用</strong><span>读取失败，不是已验证的空需求列表。</span></div>}
         {demandsAvailable && matchingDemands.length === 0 && <p className="empty-state" role="status">当前组织没有进入 Matching 的需求（服务端已验证）。</p>}
         {matchingDemands.length > 0 && <label>选择需求
@@ -939,7 +938,7 @@ export function MatchingWorkbench({
       </section>
 
       <section className="workbench-card sensitive-card" aria-labelledby="matching-selection-title">
-        <h3 id="matching-selection-title">Candidate Selector 人工选择</h3>
+        <h3 id="matching-selection-title">选择合作人选</h3>
         {selectionBusy && <p role="status">正在读取 exact selection、assignment 与 accepted set。</p>}
         {selectionError && <div className="task-discovery-error" role="alert">
           <strong>Selection 读取未完成：{selectionError.code}</strong>

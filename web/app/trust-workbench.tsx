@@ -319,6 +319,7 @@ export function TrustWorkbench({
   const controlledRefreshActive = useRef(false);
   const ownReportCursorChain = useRef(new Set<string>());
   const attemptedHistoryTaskRef = useRef<string | null>(null);
+  const historyDisclosureRef = useRef<HTMLDetailsElement>(null);
   const historyItemRefs = useRef(new Map<string, HTMLElement>());
 
   const [reportLookupId, setReportLookupId] = useState("");
@@ -824,6 +825,7 @@ export function TrustWorkbench({
         focusFrame = window.requestAnimationFrame(() => {
           const destination = historyItemRefs.current.get(caseId);
           if (!destination) return;
+          if (historyDisclosureRef.current) historyDisclosureRef.current.open = true;
           destination.focus({ preventScroll: true });
           destination.scrollIntoView({ block: "center", behavior: "auto" });
         });
@@ -1248,9 +1250,12 @@ export function TrustWorkbench({
     <section className="trust-workbench" aria-labelledby="trust-workbench-title">
       <div className="trust-heading">
         <div>
-          <p className="eyebrow">PRIVATE TRUST · SAFE PROJECTIONS</p>
           <h2 id="trust-workbench-title" tabIndex={-1}>安全报告与 Trust 处置</h2>
-          <p>客户端不声明 actor、职责、分配、证据包或申诉资格；所有权限和决定证据均由服务端派生。</p>
+          <p>{canOperateCases ? "先查看正在处理的案件，或从队列领取下一项。" : "报告需求中遇到的问题，并查看处理进展与结果。"}</p>
+          <details>
+            <summary>权限与资料范围</summary>
+            <p>客户端不声明 actor、职责、分配、证据包或申诉资格；所有权限和决定证据均由服务端派生。</p>
+          </details>
         </div>
         {canOperateCases && <button
           aria-busy={refreshing}
@@ -1383,12 +1388,11 @@ export function TrustWorkbench({
       </div>}
 
       {canOperateCases && <>
-        <section className="workbench-card trust-case-history" aria-labelledby="trust-case-history-title">
+        <details className="workbench-card trust-case-history" ref={historyDisclosureRef} aria-labelledby="trust-case-history-title">
+          <summary>
+            <h3 id="trust-case-history-title" tabIndex={-1}>我的已完成 Trust 案件 <span>{queueSnapshotLoaded ? history?.items.length ?? 0 : "—"}</span></h3>
+          </summary>
           <div className="button-row">
-            <div>
-              <p className="eyebrow">TRUST OFFICER · 本人终态记录</p>
-              <h3 id="trust-case-history-title" tabIndex={-1}>我的已完成 Trust 案件 <span>{queueSnapshotLoaded ? history?.items.length ?? 0 : "—"}</span></h3>
-            </div>
             <button
               aria-busy={refreshing}
               className="quiet-button"
@@ -1425,7 +1429,7 @@ export function TrustWorkbench({
               ? " · 服务端还有更早的本人完成记录；当前有界 history v1 不提供游标，页面不会猜测或补齐。"
               : " · 当前授权历史已到末尾。"}
           </p>}
-        </section>
+        </details>
 
         <section className="workbench-card">
           <div className="button-row">

@@ -18,11 +18,13 @@ test("Demand Owner can always enter a dedicated new-demand screen", async () => 
   const rail = client.slice(railStart, railEnd);
 
   assert.ok(railStart >= 0 && railEnd > railStart);
-  assert.match(rail, /canCreateDemand && <button[\s\S]*className="rail-create-button"[\s\S]*>＋ 新建需求<\/button>/);
-  assert.doesNotMatch(rail, /!selected[\s\S]*rail-create-button/);
-  assert.match(rail, /disabled=\{busy \|\| pendingOwner !== null \|\| logoutIntent !== null\}/);
-  assert.match(client, /demandCreationOpen && canCreateDemand && <section className="demand-create-panel"/);
-  assert.match(client, /!demandCreationOpen && !selected && !selectedAccount && !selectedFinanceReview/);
+  assert.match(rail, /className="workspace-nav"/);
+  assert.match(rail, /onClick=\{\(\) => navigateWorkspace\(item.id\)\}/);
+  assert.match(rail, /disabled=\{navigationLocked\}/);
+  assert.match(client, /activeView === "demands" && canCreateDemand[\s\S]*onClick=\{beginDemandCreation\}/);
+  assert.match(client, /activeView === "demands" && demandCreationOpen && canCreateDemand && <section className="demand-create-panel"/);
+  assert.match(client, /onClick=\{\(\) => navigateWorkspace\(activeView\)\}/);
+
 });
 
 test("all editor-leaving navigation uses the same scratch guard", async () => {
@@ -150,13 +152,13 @@ test("object reads cannot race or overwrite a pending creation", async () => {
   assert.match(open, /const readEpoch = resourceReadEpochRef\.current \+ 1/);
   assert.match(open, /resourceReadEpochRef\.current !== readEpoch[\s\S]*return;/);
   assert.match(write, /resourceReadEpochRef\.current \+= 1;[\s\S]*requestWorkspaceJson/);
-  assert.match(client, /<ResourceGroup disabled=\{busy \|\| pendingOwner !== null \|\| logoutIntent !== null\}/);
+  assert.match(client, /<ResourceGroup disabled=\{navigationLocked\}/);
   assert.match(client, /className="resource-link"[\s\S]*disabled=\{disabled\}/);
 });
 
 test("editor inputs lock for every in-flight or outcome-unknown write", async () => {
   const client = await readFile(new URL("app/product-client.tsx", root), "utf8");
-  const mountStart = client.indexOf("{selected && <ResourceEditor");
+  const mountStart = client.indexOf("{resourceVisible && selected && <ResourceEditor");
   const mountEnd = client.indexOf("/>}", mountStart);
   const mount = client.slice(mountStart, mountEnd);
   const editorStart = client.indexOf("function ResourceEditor({");

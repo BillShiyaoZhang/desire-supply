@@ -13,7 +13,7 @@ test("internal-pilot shell is capability-scoped, editable, recoverable, and acce
   for (const endpoint of ["/v1/auth/session", "/v1/auth/oidc/authorizations", "/v1/me", "/v1/policy-bundles", "/v1/me/policy-acceptances", "/v1/app/workspaces", "/v1/app/configuration", "/v1/app/profiles", "/v1/app/demands", "/v1/app/review-queue", "/v1/app/finance/funding-reviews", "/v1/app/admin/accounts"]) {
     assert.match(client, new RegExp(endpoint.replaceAll("/", "\\/")));
   }
-  for (const phrase of ["受邀账号工作台", "首次登录政策确认", "政策正文", "法律效果", "内容 SHA-256", "我已阅读并明确接受", "服务端会话", "九个画像分区", "十三个需求分区", "保存草稿", "发布画像", "提交审核", "审核队列", "领取审核", "记录整改项", "验证通过", "预算健康", "风险结论", "资金确认队列", "领取资金确认", "零真实资金", "需要两名独立 Finance Operator", "NO_REAL_FUNDS_OR_PAYMENT", "本次确认所绑定的目标与证据", "计划预算范围", "它不是余额、到账、支付或可支配资金", "目标审计摘要", "证据引用审计摘要", "明确确认四项声明", "账号管理", "平台职责", "授予职责", "撤销职责", "暂停账号", "恢复账号", "撤销全部会话", "当前提交内容", "不可代替需求方修改", "版本历史", "INTERNAL_SANDBOX", "G1 NO-GO", "G2 NO-GO", "PRECONDITION FAILED", "原样重试"]) {
+  for (const phrase of ["受邀账号工作台", "首次登录政策确认", "政策正文", "法律效果", "内容 SHA-256", "我已阅读并明确接受", "服务端会话", "内容填写步骤", "前往复核", "保存草稿", "发布画像", "提交审核", "审核队列", "领取审核", "记录整改项", "验证通过", "预算健康", "风险结论", "资金确认队列", "领取资金确认", "零真实资金", "NO_REAL_FUNDS_OR_PAYMENT", "本次确认所绑定的目标与证据", "计划预算范围", "它不是余额、到账、支付或可支配资金", "目标审计摘要", "证据引用审计摘要", "明确确认四项声明", "账号管理", "平台职责", "授予职责", "撤销职责", "暂停账号", "恢复账号", "撤销全部会话", "当前提交内容", "不可代替需求方修改", "版本历史", "INTERNAL_SANDBOX", "G1 NO-GO", "G2 NO-GO", "PRECONDITION FAILED", "原样重试"]) {
     assert.match(client, new RegExp(phrase));
   }
   assert.match(layout, /lang="zh-CN"/);
@@ -122,7 +122,7 @@ test("Operations review assignment release is closed, recoverable, and visually 
   assert.match(releasePanel, /REVIEW_ASSIGNMENT_RELEASE_REASON_CODES\.map/);
   assert.match(releasePanel, /释放分配并返回审核队列/);
   assert.doesNotMatch(releasePanel, /ASSIGNMENT_EXPIRED|textarea|type="text"/);
-  assert.match(client.slice(finalDecisionStart), /以下两项才是最终审核决定/);
+  assert.match(client.slice(finalDecisionStart), /选择需要整改或验证通过/);
   assert.match(css, /\.review-assignment-release-panel/);
   assert.match(css, /\.review-panel--release/);
 

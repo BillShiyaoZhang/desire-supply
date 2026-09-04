@@ -286,6 +286,7 @@ export function AppealWorkbench({
   const ownAppealTitleRef = useRef<HTMLHeadingElement>(null);
   const assignedAppealTitleRef = useRef<HTMLHeadingElement>(null);
   const terminalAppealTitleRef = useRef<HTMLHeadingElement>(null);
+  const historyDisclosureRef = useRef<HTMLDetailsElement>(null);
   const historyItemRefs = useRef(new Map<string, HTMLButtonElement>());
   const [handoffStatus, setHandoffStatus] = useState<AppealHandoffStatus>("IDLE");
 
@@ -686,6 +687,7 @@ export function AppealWorkbench({
     window.requestAnimationFrame(() => {
       const destination = historyItemRefs.current.get(candidate.appeal_id);
       if (!destination) return;
+      if (historyDisclosureRef.current) historyDisclosureRef.current.open = true;
       destination.focus({ preventScroll: true });
       destination.scrollIntoView({ block: "center", behavior: "auto" });
     });
@@ -1342,9 +1344,12 @@ export function AppealWorkbench({
     <section className="appeal-workbench" aria-labelledby="appeal-workbench-title">
       <div className="trust-heading">
         <div>
-          <p className="eyebrow">APPEAL · PARTY SAFE · INDEPENDENT REVIEW</p>
           <h2 id="appeal-workbench-title" tabIndex={-1}>申诉申请人与独立复核</h2>
-          <p>浏览器只显示不可变 Trust 来源、结构化申请和决定。申请人陈述与复核备注写入后不可回显。</p>
+          <p>{canReview ? "查看当前分配，阅读原决定并完成独立复核。" : "对符合条件的处理结果申请申诉，或查看已有申诉的进展。"}</p>
+          <details>
+            <summary>资料与备注说明</summary>
+            <p>浏览器只显示不可变 Trust 来源、结构化申请和决定。申请人陈述与复核备注写入后不可回显。</p>
+          </details>
         </div>
         <span className="status status--review">{canReview ? "APPEAL_REVIEWER" : "APPLICANT"}</span>
       </div>
@@ -1444,14 +1449,13 @@ export function AppealWorkbench({
       </div>}
 
       {canReview && <>
-        <section className="workbench-card" aria-labelledby="appeal-review-history-title">
+        <details className="workbench-card" ref={historyDisclosureRef} aria-labelledby="appeal-review-history-title">
+          <summary>
+            <h3 id="appeal-review-history-title" tabIndex={-1}>
+              我的已完成申诉复核 <span>{reviewerSnapshot ? history?.items.length ?? 0 : "—"}</span>
+            </h3>
+          </summary>
           <div className="button-row">
-            <div>
-              <p className="eyebrow">APPEAL REVIEWER · VERIFIED TERMINAL HISTORY</p>
-              <h3 id="appeal-review-history-title" tabIndex={-1}>
-                我的已完成申诉复核 <span>{reviewerSnapshot ? history?.items.length ?? 0 : "—"}</span>
-              </h3>
-            </div>
             <button
               aria-busy={refreshing}
               className="quiet-button"
@@ -1495,7 +1499,7 @@ export function AppealWorkbench({
               : "has_more=false：服务端确认当前本人完成历史没有更多记录。"}
           </p>}
           <small>历史行只负责发现；每次打开都会 fresh GET exact Appeal，并重新核对决定代码、时间与 ETag。</small>
-        </section>
+        </details>
 
         {terminalAppeal && <section className="trust-case-panel" aria-labelledby="appeal-review-terminal-title">
           <div className="trust-case-summary">

@@ -376,9 +376,9 @@ export function MatchingReviewWorkbench({
   return <section className="trust-workbench matching-review-workbench" aria-busy={busy} aria-labelledby="matching-review-title">
     <div className="trust-heading">
       <div>
-        <p className="eyebrow">MATCHING_REVIEW · OPERATIONS_REVIEWER</p>
+        <p className="eyebrow">当前审核分配</p>
         <h2 id="matching-review-title" tabIndex={-1}>Matching 审核工作台</h2>
-        <p>队列只支持领取下一项；领取后才披露 exact run、排名依据与候选。所有动作都绑定当前会话、分配和 strong ETag。</p>
+        <p>先领取下一项审核，再核对候选人和匹配依据，确认后发出合作邀请。</p>
       </div>
       <button className="quiet-button" disabled={busy || pending !== null} type="button" onClick={() => void loadAssignment()}>刷新当前分配</button>
     </div>

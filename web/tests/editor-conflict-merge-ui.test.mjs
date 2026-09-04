@@ -43,7 +43,7 @@ test("an unresolved conflict blocks leaving and locks the underlying editor", as
   const guardStart = client.indexOf("const prepareToLeaveSelectedEditor");
   const guardEnd = client.indexOf("\n\n  const adoptResource", guardStart);
   const guard = client.slice(guardStart, guardEnd);
-  const mountStart = client.indexOf("{selected && <ResourceEditor");
+  const mountStart = client.indexOf("{resourceVisible && selected && <ResourceEditor");
   const mountEnd = client.indexOf("/>}", mountStart);
   const mount = client.slice(mountStart, mountEnd);
 

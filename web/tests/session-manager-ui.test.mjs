@@ -58,7 +58,7 @@ test("SessionManager is account-bound before and after workspace selection witho
   assert.match(product, /logoutOutcomeUnknown=\{logoutIntent !== null\}/);
   assert.match(product, /onLogoutCurrent=\{logoutCurrentSession\}/);
   assert.match(product, /request=\{requestJson\}/);
-  assert.match(product, /独立角色账号 · 服务端权限 · 可版本化编辑/);
+  assert.match(product, /hidden=\{activeView !== "security"\}[\s\S]*<SessionManager/);
   assert.doesNotMatch(product, /真实账号 · 服务端权限 · 可版本化编辑/);
 });
 

@@ -3,6 +3,7 @@
   - [项目介绍](/guide/introduction.md)
   - [快速开始](/guide/quick-start.md)
   - [核心概念](/guide/core-concepts.md)
+  - [系统 UI/UX 设计规范](/design/ui-ux-system.md)
 
 - **理念与制度基础**
   - [从异世界幻想到愿作](/foundations/overview.md)
