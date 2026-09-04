@@ -60,6 +60,13 @@ jobs:
         with:
           version: v5.3.1
 
+      - name: Make pinned Compose available to the clean deployment environment
+        run: |
+          sudo install -D --mode=0755 \
+            "${DOCKER_CONFIG:-$HOME/.docker}/cli-plugins/docker-compose" \
+            /usr/local/lib/docker/cli-plugins/docker-compose
+          test "$(env -i HOME=/nonexistent PATH=/usr/bin:/bin /usr/bin/docker compose version --short)" = "5.3.1"
+
       - name: Install cleanup portability shells
         run: |
           sudo apt-get update

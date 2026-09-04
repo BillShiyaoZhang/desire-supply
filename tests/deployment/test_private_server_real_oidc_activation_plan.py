@@ -167,10 +167,12 @@ class _Fixture:
         def static_compose_runner(command, environment):
             if tuple(command[:2]) != ("/usr/bin/docker", "compose"):
                 raise AssertionError("stager must use the reviewed Docker Compose plugin")
-            # The macOS test host exposes the same v5.3.1 plugin through this
-            # standalone shim; production plans remain bound to /usr/bin/docker
-            # compose and no daemon lifecycle command is used here.
-            actual = ("/usr/local/bin/docker-compose",) + tuple(command[2:])
+            # Only macOS needs the Docker Desktop standalone shim. Linux must
+            # exercise the production command under the original clean environment.
+            # These static config commands never change the daemon lifecycle.
+            actual = tuple(command)
+            if sys.platform == "darwin":
+                actual = ("/usr/local/bin/docker-compose",) + tuple(command[2:])
             return subprocess.run(
                 actual,
                 cwd="/",
