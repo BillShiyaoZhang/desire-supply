@@ -55,6 +55,11 @@ jobs:
       - name: Bind the clean checkout to the exact source commit
         run: python -B scripts/check_private_server_source_readiness.py
 
+      - name: Set up the pinned Docker Compose version
+        uses: docker/setup-compose-action@2fe291b7677a45ee1269ec56a42604c143505e7e # v1
+        with:
+          version: v5.3.1
+
       - name: Install cleanup portability shells
         run: |
           sudo apt-get update
@@ -116,9 +121,10 @@ jobs:
     timeout-minutes: 30
     strategy:
       fail-fast: false
+      # Keep Python 3.9 coverage with an official Ubuntu 24.04 build.
       matrix:
         python-version:
-          - "3.9.6"
+          - "3.9.25"
           - "3.14.1"
     services:
       postgres:
@@ -194,7 +200,7 @@ jobs:
           persist-credentials: false
 
       - name: Set up Node.js
-        uses: actions/setup-node@395ad3262231945c25e8478fd5baf05154b88bb0 # v6.1.0
+        uses: actions/setup-node@395ad3262231945c25e8478fd5baf05154b1d79f # v6.1.0
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
@@ -237,7 +243,7 @@ jobs:
           persist-credentials: false
 
       - name: Set up Node.js
-        uses: actions/setup-node@395ad3262231945c25e8478fd5baf05154b88bb0 # v6.1.0
+        uses: actions/setup-node@395ad3262231945c25e8478fd5baf05154b1d79f # v6.1.0
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm

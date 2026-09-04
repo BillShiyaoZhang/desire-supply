@@ -137,7 +137,7 @@ class PostgresOperationsContractTest(unittest.TestCase):
             "sha256sum",
             "cmp -s",
             "desire-restore-verify-",
-            "18|46|46|5|5|15|15|22|22|3|3|2|2",
+            "18|46|46|5|5|15|15|22|22|9|9|2|2",
             "14b0ae7a2ba2db7d6807b9b71080d40ab4b40b4e0e2664c5da0ac14fcb29c84d",
             "005be339b76c61427895ad7e6ddbb685735d7c602d99fc4dafdd08c35c97d4f8",
             "32d8587651d05e725a4277e2d253b8e195192f1dabc702dd5208b53fe8143f73",

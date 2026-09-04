@@ -19,7 +19,7 @@ SPECIAL_MARKDOWN = {"_coverpage.md", "_navbar.md", "_sidebar.md"}
 LINK_RE = re.compile(r"(?<!!)\[[^\]]+\]\(([^)]+)\)")
 FENCE_RE = re.compile(r"^```", re.MULTILINE)
 PINNED_ACTION_RE = re.compile(r"[^/\s]+/[^@\s]+@[0-9a-f]{40}")
-PLATFORM_PYTHON_VERSIONS = ("3.9.6", "3.14.1")
+PLATFORM_PYTHON_VERSIONS = ("3.9.25", "3.14.1")
 
 
 def markdown_files() -> list[Path]:

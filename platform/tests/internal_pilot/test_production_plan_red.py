@@ -476,7 +476,7 @@ def test_builds_exact_role_bound_pool_plan_and_zeroizes_every_secret_on_close():
         assert trust_requirement.expected_combined_contract_sha256.hex() == (
             "68f3c3e90088f6d4383e73b3fbc6f77297cee27bc78086db227708bc872613f6"
         )
-        assert matching_requirement.expected_schema_head == 3
+        assert matching_requirement.expected_schema_head == 9
         assert matching_requirement.required_iam_schema_version == 46
         trust_application = (
             plan.runtime._delegate._application.application._trust_application

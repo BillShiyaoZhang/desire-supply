@@ -47,6 +47,7 @@ EXPECTED_CONTRACT_PATHS = (
     "api/appeal-v1.openapi.yaml",
     "api/demand-v1.openapi.yaml",
     "api/iam-v1.openapi.yaml",
+    "api/matching-selection-read-v1.openapi.yaml",
     "api/matching-v1.openapi.yaml",
     "api/profile-v1.openapi.yaml",
     "api/taxonomy-v1.openapi.yaml",
@@ -82,7 +83,7 @@ EXPECTED_MIGRATION_SQL_COUNTS = {
     "iam": 47,
     "profile": 5,
     "demand": 15,
-    "matching": 3,
+    "matching": 9,
     "trust": 22,
     "taxonomy": 2,
 }

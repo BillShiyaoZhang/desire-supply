@@ -84,7 +84,7 @@
 ### 4.4 CI 候选门禁
 
 - Foundations、Platform 与当前合成 Demo 分为三个只读验证 job；旧 MVP 不作为新设计的阻断门禁；
-- Platform 对声明支持边界 Python `3.9.6` 与 `3.14.1` 建立矩阵，每个版本都使用 digest-pinned PostgreSQL 18.4 跑分发测试与完整 suite；
+- Platform 对 Python `3.9` 与 `3.14` 建立矩阵，每个版本都使用 digest-pinned PostgreSQL 18.4 跑分发测试与完整 suite；2026-09-04 修复 Ubuntu 24.04 的安装兼容性后，精确版本为 `3.9.25` 与 `3.14.1`（原 `3.9.6` 无对应 runner 构建）；
 - Action revision、Python/Node/uv、PostgreSQL image、lock 与 build backend 均固定；CI 契约测试拒绝 deploy、publish、artifact upload 与 OpenAI Sites；
 - 本机无法执行这两个环境中的完整外部 PG18 组合，workflow 也仍未进入 fixed revision，所以这是候选门禁而不是 CI 已通过证据。
 

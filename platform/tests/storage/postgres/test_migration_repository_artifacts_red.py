@@ -252,6 +252,30 @@ REQUIRED_SQL_MARKERS = {
         b"iam-demand-reviewer-duty-v2",
         b"iam43_demand_release_authority_drifted",
     ),
+    44: (
+        b"create function iam_api.resolve_candidate_selector_opt_in_marker_v1",
+        b"rls_candidate_selector_opt_in_session_guard_v1",
+        b"opt_in_candidate_selector",
+        b"desire.iam.candidate-selector-opt-in-evidence.v1",
+        b"ck_iam44_candidate_selector_opt_in_readiness",
+    ),
+    45: (
+        b"create function iam_api.resolve_matching_reviewer_authority_marker_v1",
+        b"rls_matching_review_target_organization_definer_v1",
+        b"reviewer_duty.duty_code = 'operations_reviewer'",
+        b"desire.iam.matching-reviewer-claim-evidence.v1",
+        b"ck_iam45_matching_reviewer_readiness",
+    ),
+    46: (
+        b"create function iam_api.resolve_matching_creator_authority_marker_v1",
+        b"rls_matching_creator_session_guard_v1",
+        b"desire.iam.matching-creator-authority-evidence.v1",
+        b"ck_iam46_matching_creator_readiness",
+        b"create function iam_api.resolve_profile_match_creator_eligibility_v1",
+        b"rls_profile_match_derivation_user_lock_v1",
+        b"desire.iam.profile-match-creator-eligibility-evidence.v1",
+        b"ck_iam46_profile_match_creator_readiness",
+    ),
 }
 
 
@@ -299,6 +323,11 @@ class IamRepositoryMigrationArtifactRedTest(unittest.TestCase):
         )
 
     def test_actual_sql_files_contain_reviewed_schema_markers_not_placeholders(self) -> None:
+        self.assertEqual(
+            set(REQUIRED_SQL_MARKERS),
+            {version for version, _phase, _name, _path in IAM_MIGRATION_LAYOUT},
+            "every reviewed IAM migration must have substantive SQL markers",
+        )
         missing = [
             relative_path
             for _version, _phase, _name, relative_path in IAM_MIGRATION_LAYOUT

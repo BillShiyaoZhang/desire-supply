@@ -20,7 +20,7 @@ class DockerLocalLifecycleTest(unittest.TestCase):
     def setUp(self) -> None:
         self.temporary = tempfile.TemporaryDirectory(prefix="desire-docker-local-")
         self.addCleanup(self.temporary.cleanup)
-        self.repo = Path(self.temporary.name)
+        self.repo = Path(self.temporary.name).resolve()
         (self.repo / "scripts").mkdir()
         self.script = self.repo / "scripts/docker-local.sh"
         shutil.copyfile(ROOT / "scripts/docker-local.sh", self.script)
