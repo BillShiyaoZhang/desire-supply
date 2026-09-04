@@ -187,7 +187,7 @@ def _seed_exact_selector_iam_authority(
             last_activity_at,
             now + timedelta(minutes=30),
             now + timedelta(days=1),
-            now,
+            last_activity_at,
         ),
     )
 
@@ -1097,13 +1097,26 @@ class MatchingMigrationPostgres18Test(unittest.TestCase):
                 "VALUES (%s,%s,'ACTIVE',1,1,transaction_timestamp(),transaction_timestamp())",
                 (reviewer_family_id, reviewer_id),
             )
+            # Keep the source older than the new session even on a fast run;
+            # copying its updated_at would violate ck_session_lifetime.
+            self.assertEqual(
+                connection.execute(
+                    "SELECT updated_at < transaction_timestamp()-interval '30 seconds' "
+                    "FROM iam.sessions WHERE id=%s",
+                    (SELECTOR_SESSION_ID,),
+                ).fetchone(),
+                (True,),
+            )
             connection.execute(
                 "INSERT INTO iam.sessions SELECT (jsonb_populate_record(NULL::iam.sessions, "
                 "to_jsonb(session)||jsonb_build_object('id',%s::text,'user_id',%s::text,"
                 "'family_id',%s::text,'handle_digest',%s::bytea,"
                 "'auth_time',transaction_timestamp()-interval '1 minute',"
                 "'created_at',transaction_timestamp()-interval '30 seconds',"
-                "'last_activity_at',transaction_timestamp()-interval '10 seconds'))).* "
+                "'last_activity_at',transaction_timestamp()-interval '10 seconds',"
+                "'idle_expires_at',transaction_timestamp()+interval '30 minutes',"
+                "'absolute_expires_at',transaction_timestamp()+interval '1 day',"
+                "'updated_at',transaction_timestamp()))).* "
                 "FROM iam.sessions AS session WHERE session.id=%s",
                 (reviewer_session_id, reviewer_id, reviewer_family_id,
                  hashlib.sha256(reviewer_session_id.bytes).digest(), SELECTOR_SESSION_ID),

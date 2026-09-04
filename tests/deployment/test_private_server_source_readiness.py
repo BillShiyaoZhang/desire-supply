@@ -77,6 +77,9 @@ class PrivateServerSourceReadinessTest(unittest.TestCase):
         root.mkdir(mode=0o700)
         root.chmod(0o700)
         _git(root, "init", "--quiet")
+        # No detached Git maintenance may outlive this temporary repository.
+        _git(root, "config", "maintenance.auto", "false")
+        _git(root, "config", "gc.auto", "0")
         _git(root, "config", "user.name", "Source Readiness Test")
         _git(root, "config", "user.email", "source-readiness@example.invalid")
         for index, relative in enumerate(sorted(self.module.REQUIRED_TRACKED_PATHS)):
