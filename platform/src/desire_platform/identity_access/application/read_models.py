@@ -11,6 +11,7 @@ import json
 import unicodedata
 from typing import Any, Callable, Mapping, Optional, Sequence, Tuple
 
+from ...utc import parse_utc_timestamp
 from ..read_model_registry import (
     PAGED_READ_QUERY_SHAPE_DIGESTS,
     READ_STATEMENT_BUDGETS,
@@ -1527,7 +1528,7 @@ def _restore_json_timestamps(value: object, *, field_name: str = "") -> object:
         ]
     if isinstance(value, str) and field_name in _JSON_TIMESTAMP_FIELDS:
         try:
-            return datetime.fromisoformat(value.replace("Z", "+00:00"))
+            return parse_utc_timestamp(value)
         except ValueError:
             return value
     return value

@@ -199,19 +199,19 @@ class CurrentHeadV22ContractTest(unittest.TestCase):
             ROOT / "deploy/private-server-runtime-release-v1.schema.json"
         ).read_text(encoding="utf-8")
         for marker in (
-            '"iam": 46',
+            '"iam": 47',
             '"profile": 5',
             '"demand": 15',
-            '"trust": 22',
-            '"matching": 9',
+            '"trust": 23',
+            '"matching": 10',
         ):
             self.assertIn(marker, runtime)
         for marker in (
-            '"iam": {"const": 46}',
+            '"iam": {"const": 47}',
             '"profile": {"const": 5}',
             '"demand": {"const": 15}',
-            '"trust": {"const": 22}',
-            '"matching": {"const": 9}',
+            '"trust": {"const": 23}',
+            '"matching": {"const": 10}',
         ):
             self.assertIn(marker, schema)
 
@@ -240,7 +240,7 @@ class CurrentHeadV22ContractTest(unittest.TestCase):
         v25 = "python -B scripts/verify_current_head_v25.py"
         v26 = "python -B scripts/verify_current_head_v26.py"
         v27 = "python -B scripts/verify_current_head_v27.py"
-        v28 = "python -B scripts/verify_current_head_v28.py"
+        v29 = "python -B scripts/verify_current_head_v29.py"
         self.assertEqual(ci.count(v20), 0)
         self.assertEqual(ci.count(v21), 0)
         self.assertEqual(ci.count(v22), 0)
@@ -249,13 +249,13 @@ class CurrentHeadV22ContractTest(unittest.TestCase):
         self.assertEqual(ci.count(v25), 0)
         self.assertEqual(ci.count(v26), 0)
         self.assertEqual(ci.count(v27), 0)
-        self.assertEqual(ci.count(v28), 1)
+        self.assertEqual(ci.count(v29), 1)
         for version in range(14, 28):
             self.assertNotIn(
                 f"python -B scripts/verify_current_head_v{version}.py",
                 release,
             )
-        self.assertEqual(release.count(v28), 1)
+        self.assertEqual(release.count(v29), 1)
 
     def test_operational_summaries_do_not_relabel_v22_dynamic_evidence(self) -> None:
         operations = "\n".join(

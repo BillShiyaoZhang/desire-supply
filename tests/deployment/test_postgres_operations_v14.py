@@ -11,7 +11,7 @@ import unittest
 ROOT = Path(__file__).resolve().parents[2]
 V14_SCRIPT = ROOT / "deploy/postgres-backup-restore-v14.sh"
 CURRENT_SCRIPT = ROOT / "deploy/postgres-backup-restore.sh"
-V28_SCRIPT = ROOT / "deploy/postgres-backup-restore-v28.sh"
+V28_SCRIPT = ROOT / "deploy/postgres-backup-restore-v29.sh"
 V14_OVERLAY = ROOT / "deploy/postgres-operations-v14.compose.yaml"
 V14_SCRIPT_SHA256 = (
     "bb80382bf77aae6995d620106cddb0e5271c089dcaec3a1012759c03561a646a"
@@ -74,7 +74,7 @@ class PostgresOperationsV14Test(unittest.TestCase):
         )
         subprocess.run(["/bin/sh", "-n", V14_SCRIPT], check=True)
 
-    def test_unversioned_operations_script_is_the_current_v28_alias(self) -> None:
+    def test_unversioned_operations_script_is_the_current_v29_alias(self) -> None:
         self.assertEqual(CURRENT_SCRIPT.read_bytes(), V28_SCRIPT.read_bytes())
         self.assertNotEqual(CURRENT_SCRIPT.read_bytes(), V14_SCRIPT.read_bytes())
 

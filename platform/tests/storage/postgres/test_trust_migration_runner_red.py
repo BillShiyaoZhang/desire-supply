@@ -73,13 +73,13 @@ def _actual_sources() -> TrustContractSources:
     )
 
 
-def test_runner_pins_exact_direct_iam46_and_demand15_dependency_contracts() -> None:
-    assert TRUST_SCHEMA_HEAD_VERSION == 22
-    assert TRUST_REQUIRED_IAM_SCHEMA_VERSION == 46
+def test_runner_pins_exact_direct_iam47_and_demand15_dependency_contracts() -> None:
+    assert TRUST_SCHEMA_HEAD_VERSION == 23
+    assert TRUST_REQUIRED_IAM_SCHEMA_VERSION == 47
     assert TRUST_REQUIRED_DEMAND_SCHEMA_VERSION == 15
     assert _EXPECTED_DEMAND_REQUIRED_IAM_SCHEMA_VERSION == 45
     assert TRUST_REQUIRED_IAM_CONTRACT_SHA256.hex() == (
-        "14b0ae7a2ba2db7d6807b9b71080d40ab4b40b4e0e2664c5da0ac14fcb29c84d"
+        "abc9924571cecb3027ec29ee7fdf34596bf8682d8b41c62d033964ec3094400f"
     )
     assert TRUST_REQUIRED_DEMAND_CONTRACT_SHA256.hex() == (
         "ea6887891134ffa2f451fed35d469ae1c5195c54649e228f587622d95696dddf"
@@ -109,7 +109,7 @@ def test_runner_pins_exact_direct_iam46_and_demand15_dependency_contracts() -> N
         "08982687c6654d606040c52faedc15a14b7b50e1c5c80db560587bbf3e16f72b"
     )
     assert TRUST_REVIEWED_COMBINED_CONTRACT_SHA256.hex() == (
-        "68f3c3e90088f6d4383e73b3fbc6f77297cee27bc78086db227708bc872613f6"
+        "96ff2fd0b3e32143b4570fff008948d13fbe5f537a746712878bd2cca77255fa"
     )
 
 

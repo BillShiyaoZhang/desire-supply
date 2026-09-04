@@ -204,6 +204,7 @@ class RaiseAtCheckpoint:
 class BarrierAtReceiptClaim:
     def __init__(self, parties: int = 2) -> None:
         self.barrier = threading.Barrier(parties, timeout=10)
+        self._worker = threading.local()
 
     def before_write(
         self,
@@ -214,6 +215,10 @@ class BarrierAtReceiptClaim:
             checkpoint is PolicyConsentPostgresWriteCheckpoint.COMMAND_RECEIPT_CLAIM
             and ordinal == 0
         ):
+            # A pre-COMMIT retry must not wait for the already-finished winner.
+            if getattr(self._worker, "claimed", False):
+                return
+            self._worker.claimed = True
             self.barrier.wait()
 
 

@@ -147,11 +147,11 @@
       ],
       "properties": {
         "postgresql": {"const": 18},
-        "iam": {"const": 46},
+        "iam": {"const": 47},
         "profile": {"const": 5},
         "demand": {"const": 15},
-        "trust": {"const": 22},
-        "matching": {"const": 9},
+        "trust": {"const": 23},
+        "matching": {"const": 10},
         "taxonomy": {"const": 2}
       }
     },

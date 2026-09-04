@@ -117,7 +117,9 @@ def verify_ci_contract(ci_workflow: str, errors: list[str]) -> None:
         "PYTHONPATH: src",
         "postgres:18.4-alpine@sha256:9a8afca54e7861fd90fab5fdf4c42477a6b1cb7d293595148e674e0a3181de15",
         "DESIRE_IAM_TEST_POSTGRES_DSN",
-        "python3 -m unittest discover -s tests -t . -v",
+        "shard: [0, 1, 2, 3]",
+        "python3 ../scripts/run_platform_test_shard.py",
+        "--shard-index ${{ matrix.shard }} --shard-count 4",
     )
     for expected in required_platform_contracts:
         if expected not in platform_job:
@@ -162,7 +164,7 @@ def verify_ci_contract(ci_workflow: str, errors: list[str]) -> None:
 
     required_deployment_contracts = (
         "python -B scripts/verify_container_stack.py",
-        "python -B scripts/verify_current_head_v28.py",
+        "python -B scripts/verify_current_head_v29.py",
         "python -B -m unittest discover -s tests/deployment -v",
     )
     for expected in required_deployment_contracts:

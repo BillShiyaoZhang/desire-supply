@@ -276,6 +276,15 @@ REQUIRED_SQL_MARKERS = {
         b"desire.iam.profile-match-creator-eligibility-evidence.v1",
         b"ck_iam46_profile_match_creator_readiness",
     ),
+    47: (
+        b"alter policy rls_profile_match_derivation_selector_definer_v1",
+        b"alter policy rls_profile_match_derivation_selector_lock_v1",
+        b"collate \"c\"",
+        b"else null::uuid",
+        b"create or replace function iam_api.resolve_profile_match_creator_eligibility_v1",
+        b"schema_head_version = 47",
+        b"ck_iam47_profile_match_creator_readiness",
+    ),
 }
 
 

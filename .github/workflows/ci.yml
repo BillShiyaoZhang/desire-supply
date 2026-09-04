@@ -82,7 +82,7 @@ jobs:
           /bin/sh -n deploy/devcontainer-runtime-closure.sh
           /bin/sh -n deploy/devcontainer-toolchain-check.sh
           python -B scripts/verify_container_stack.py
-          python -B scripts/verify_current_head_v28.py
+          python -B scripts/verify_current_head_v29.py
           python -B scripts/private_server_real_oidc_compose_contract.py --check-static
           uv run --offline --locked --project platform --extra test --extra server python -B -m unittest \
             tests.deployment.test_private_server_real_oidc_compose \
@@ -128,7 +128,7 @@ jobs:
             '
 
   platform:
-    name: Platform (Python ${{ matrix.python-version }}, PostgreSQL 18)
+    name: Platform (Python ${{ matrix.python-version }}, PostgreSQL 18, shard ${{ matrix.shard }})
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     strategy:
@@ -138,6 +138,7 @@ jobs:
         python-version:
           - "3.9.25"
           - "3.14.1"
+        shard: [0, 1, 2, 3]
     services:
       postgres:
         image: postgres:18.4-alpine@sha256:9a8afca54e7861fd90fab5fdf4c42477a6b1cb7d293595148e674e0a3181de15
@@ -179,7 +180,7 @@ jobs:
           uv run --offline --locked --extra test --extra server python -m unittest
           tests.packaging.test_distribution_resources -v
 
-      - name: Run complete platform suite against PostgreSQL 18
+      - name: Run platform suite shard against PostgreSQL 18
         working-directory: platform
         env:
           # Do not add tests/: its top-level http package shadows stdlib http.client.
@@ -188,7 +189,8 @@ jobs:
           DESIRE_IAM_TEST_POSTGRES_EPHEMERAL: "1"
         run: >-
           uv run --offline --locked --extra test --extra server
-          python3 -m unittest discover -s tests -t . -v
+          python3 ../scripts/run_platform_test_shard.py
+          --shard-index ${{ matrix.shard }} --shard-count 4
 
       - name: Verify preprovisioned real-OIDC identity safety contracts
         working-directory: platform

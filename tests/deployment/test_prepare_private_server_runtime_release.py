@@ -287,11 +287,11 @@ class PreparePrivateServerRuntimeReleaseTests(unittest.TestCase):
             release_stream = archive.extractfile("release.json")
             self.assertIsNotNone(release_stream)
             schema_heads = json.loads(release_stream.read())["schema_heads"]
-            self.assertEqual(schema_heads["iam"], 46)
+            self.assertEqual(schema_heads["iam"], 47)
             self.assertEqual(schema_heads["profile"], 5)
             self.assertEqual(schema_heads["demand"], 15)
-            self.assertEqual(schema_heads["trust"], 22)
-            self.assertEqual(schema_heads["matching"], 9)
+            self.assertEqual(schema_heads["trust"], 23)
+            self.assertEqual(schema_heads["matching"], 10)
             for slot in PREPARE.APP_SLOTS:
                 for kind in ("sbom", "provenance"):
                     member = archive.getmember(

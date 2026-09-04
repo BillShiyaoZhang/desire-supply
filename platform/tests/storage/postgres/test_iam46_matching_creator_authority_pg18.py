@@ -370,6 +370,9 @@ class Iam46MatchingCreatorAuthorityPostgres18Test(unittest.TestCase):
                     "invitation_id": invitation_id,
                     "command_id": command_id,
                 }
+                transaction_started = connection.execute(
+                    "SELECT transaction_timestamp()"
+                ).fetchone()[0]
                 first = self._resolve_creator(connection, **arguments)
                 second = self._resolve_creator(connection, **arguments)
 
@@ -382,9 +385,9 @@ class Iam46MatchingCreatorAuthorityPostgres18Test(unittest.TestCase):
                 )
                 self.assertEqual(bytes(row[4]), expected_marker)
                 self.assertEqual(len(bytes(row[5])), 32)
-                self.assertGreater(row[6], seed.now)
+                self.assertGreater(row[6], transaction_started)
                 self.assertLessEqual(
-                    row[6], seed.now + timedelta(minutes=5, seconds=10)
+                    row[6], transaction_started + timedelta(minutes=5)
                 )
 
     def test_creator_evidence_binds_operation_invitation_and_command_only(self) -> None:

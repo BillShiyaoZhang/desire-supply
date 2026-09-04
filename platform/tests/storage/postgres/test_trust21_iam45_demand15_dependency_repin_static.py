@@ -49,8 +49,8 @@ def test_trust21_is_the_frozen_reviewed_dependency_predecessor() -> None:
     catalog = TrustMigrationCatalog.load(MIGRATION_ROOT)
     artifact = catalog.artifacts[20]
 
-    assert TRUST_SCHEMA_HEAD_VERSION == 22
-    assert TRUST_REQUIRED_IAM_SCHEMA_VERSION == 46
+    assert TRUST_SCHEMA_HEAD_VERSION == 23
+    assert TRUST_REQUIRED_IAM_SCHEMA_VERSION == 47
     assert TRUST_REQUIRED_DEMAND_SCHEMA_VERSION == 15
     assert TRUST_MIGRATION_LAYOUT[20] == (
         21,
@@ -69,7 +69,7 @@ def test_trust21_is_the_frozen_reviewed_dependency_predecessor() -> None:
     )
     assert catalog.manifest_sha256 == TRUST_REVIEWED_MANIFEST_SHA256
     assert catalog.manifest_sha256.hex() == (
-        "3fd3089db8139f4e70551f59f8e803fdf2543847d38d08f82f8a050c2dd921e8"
+        "0576a8872e2c9783e345d521f151b3d6f9bd7e1d9ee125ee1ef3810e01a05e47"
     )
     assert (
         "3a1619b3d21567534df7f1331c6c39bb09c049be67deebf7988ff3b841e384fa"

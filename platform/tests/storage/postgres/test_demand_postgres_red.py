@@ -301,12 +301,14 @@ class RealPostgres18DemandSemanticRedTest(unittest.TestCase):
         *,
         source: Optional[TrackingDemandConnectionSource] = None,
         fault: Any = None,
+        settings: Optional[DemandPostgresSettings] = None,
     ) -> PsycopgDemandUnitOfWorkFactory:
         return PsycopgDemandUnitOfWorkFactory(
             connections=source or self._source(),
             event_validator=RecordingSchemaValidator(),
             response_validator=RecordingSchemaValidator(),
             fault_injector=fault,
+            settings=settings,
         )
 
     @staticmethod
@@ -1461,11 +1463,13 @@ class RealPostgres18DemandSemanticRedTest(unittest.TestCase):
         operation = DemandPostgresOperation.SUBMIT
         self._prepare(operation)
         request = postgres_command(operation)
+        # Exercise wait-and-replay semantics even on a CPU-limited CI runner.
+        settings = DemandPostgresSettings(lock_timeout_ms=10_000)
         with ThreadPoolExecutor(max_workers=2) as executor:
             futures = tuple(
                 executor.submit(
                     self._observe,
-                    self._factory(),
+                    self._factory(settings=settings),
                     operation,
                     request,
                 )
@@ -1480,6 +1484,8 @@ class RealPostgres18DemandSemanticRedTest(unittest.TestCase):
     def test_different_keys_same_client_reference_concurrency_has_one_business_effect(self) -> None:
         operation = DemandPostgresOperation.CREATE
         self._prepare(operation)
+        # The losing command must reach the client-reference uniqueness check.
+        settings = DemandPostgresSettings(lock_timeout_ms=10_000)
         requests = (
             postgres_command(
                 operation,
@@ -1496,7 +1502,7 @@ class RealPostgres18DemandSemanticRedTest(unittest.TestCase):
             futures = tuple(
                 executor.submit(
                     self._observe,
-                    self._factory(),
+                    self._factory(settings=settings),
                     operation,
                     request,
                 )

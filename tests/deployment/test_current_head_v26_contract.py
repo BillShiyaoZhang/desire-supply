@@ -206,13 +206,13 @@ class CurrentHeadV26ContractTest(unittest.TestCase):
                 self.assertEqual(_sha(ROOT / relative), expected)
                 self.assertIn(expected, verifier_source)
 
-    def test_v25_operations_test_tracks_the_v28_live_alias_separately(self) -> None:
+    def test_v25_operations_test_tracks_the_v29_live_alias_separately(self) -> None:
         source = (
             ROOT / "tests/deployment/test_postgres_operations_v25.py"
         ).read_text(encoding="utf-8")
 
         self.assertIn(
-            "test_unversioned_facts_are_the_current_v28_alias",
+            "test_unversioned_facts_are_the_current_v29_alias",
             source,
         )
         self.assertIn("V28_FACTS", source)
@@ -221,12 +221,12 @@ class CurrentHeadV26ContractTest(unittest.TestCase):
             VERIFY_PATH.read_text(encoding="utf-8"),
         )
 
-    def test_v25_historical_contract_now_asserts_v28_live_pointer(self) -> None:
+    def test_v25_historical_contract_now_asserts_v29_live_pointer(self) -> None:
         path = ROOT / "tests/deployment/test_current_head_v25_contract.py"
         source = path.read_text(encoding="utf-8")
 
         self.assertIn(
-            "test_current_pointer_workflows_and_source_readiness_advance_to_v28",
+            "test_current_pointer_workflows_and_source_readiness_advance_to_v29",
             source,
         )
         self.assertNotIn("self.verifier.verify_repository(ROOT)", source)
@@ -272,24 +272,24 @@ class CurrentHeadV26ContractTest(unittest.TestCase):
             ROOT / "deploy/private-server-runtime-release-v1.schema.json"
         ).read_text(encoding="utf-8")
         for marker in (
-            '"iam": 46',
+            '"iam": 47',
             '"profile": 5',
             '"demand": 15',
-            '"trust": 22',
-            '"matching": 9',
+            '"trust": 23',
+            '"matching": 10',
         ):
             self.assertIn(marker, runtime)
         for marker in (
-            '"iam": {"const": 46}',
+            '"iam": {"const": 47}',
             '"profile": {"const": 5}',
             '"demand": {"const": 15}',
-            '"trust": {"const": 22}',
-            '"matching": {"const": 9}',
+            '"trust": {"const": 23}',
+            '"matching": {"const": 10}',
         ):
             self.assertIn(marker, schema)
         self.assertIn("18|43|43|3|3|13|13|19|19|2|2", self.runbook)
 
-    def test_current_pointer_workflows_and_source_readiness_advance_to_v28(
+    def test_current_pointer_workflows_and_source_readiness_advance_to_v29(
         self,
     ) -> None:
         sidebar = (ROOT / "docs/_sidebar.md").read_text(encoding="utf-8")
@@ -315,15 +315,15 @@ class CurrentHeadV26ContractTest(unittest.TestCase):
         v25 = "python -B scripts/verify_current_head_v25.py"
         v26 = "python -B scripts/verify_current_head_v26.py"
         v27 = "python -B scripts/verify_current_head_v27.py"
-        v28 = "python -B scripts/verify_current_head_v28.py"
+        v29 = "python -B scripts/verify_current_head_v29.py"
         self.assertEqual(ci.count(v25), 0)
         self.assertEqual(ci.count(v26), 0)
         self.assertEqual(ci.count(v27), 0)
-        self.assertEqual(ci.count(v28), 1)
+        self.assertEqual(ci.count(v29), 1)
         self.assertEqual(release.count(v25), 0)
         self.assertEqual(release.count(v26), 0)
         self.assertEqual(release.count(v27), 0)
-        self.assertEqual(release.count(v28), 1)
+        self.assertEqual(release.count(v29), 1)
         for relative in (
             "docs/operations/current-head-v27.md",
             "deploy/postgres-backup-restore-v27.sh",

@@ -722,8 +722,17 @@ class RealPostgres18IamHttpSessionSecurityRedTest(unittest.TestCase):
         self._assert_single_replay_transition(snapshot)
 
     def test_concurrent_replay_has_exactly_one_monotonic_event_set(self) -> None:
+        self._assert_concurrent_replay()
+
+    def test_concurrent_replay_commit_ack_loss_converges_without_waiting_for_finished_peer(self) -> None:
+        self._assert_concurrent_replay(lose_left_commit_ack=True)
+
+    def _assert_concurrent_replay(self, *, lose_left_commit_ack: bool = False) -> None:
         barrier = threading.Barrier(2, timeout=15)
-        left_source = self._source(replay_barrier=barrier)
+        left_source = self._source(
+            replay_barrier=barrier,
+            lose_replay_commit_ack=lose_left_commit_ack,
+        )
         right_source = self._source(replay_barrier=barrier)
         left, _source, _ids = self._component(
             source=left_source,
@@ -749,6 +758,10 @@ class RealPostgres18IamHttpSessionSecurityRedTest(unittest.TestCase):
                 ((None, "AUTHENTICATION_REQUIRED"),) * 2,
             )
         self._assert_single_replay_transition(self._replay_snapshot())
+        if lose_left_commit_ack:
+            self.assertEqual(left_source.commit_ack_losses, 1)
+            self.assertEqual(len(left_source.discarded), 1)
+            self.assertGreaterEqual(len(set(left_source.backend_pids)), 2)
 
     def test_replay_commit_ack_loss_discards_then_converges_on_new_connection(self) -> None:
         source = self._source(lose_replay_commit_ack=True)

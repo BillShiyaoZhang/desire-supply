@@ -590,11 +590,11 @@ class RuntimeReleaseTest(unittest.TestCase):
             dict(RELEASE.SCHEMA_HEADS),
             {
                 "postgresql": 18,
-                "iam": 46,
+                "iam": 47,
                 "profile": 5,
                 "demand": 15,
-                "trust": 22,
-                "matching": 9,
+                "trust": 23,
+                "matching": 10,
                 "taxonomy": 2,
             },
         )

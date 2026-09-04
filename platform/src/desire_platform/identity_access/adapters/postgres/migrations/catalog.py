@@ -296,6 +296,12 @@ IAM_MIGRATION_LAYOUT: Tuple[Tuple[int, MigrationPhase, str, str], ...] = (
         "matching_creator_authority",
         "0046_expand__matching_creator_authority.sql",
     ),
+    (
+        47,
+        MigrationPhase.EXPAND,
+        "profile_match_candidate_uuid_predicates",
+        "0047_expand__profile_match_candidate_uuid_predicates.sql",
+    ),
 )
 
 _MANIFEST_KEYS = ("component", "version", "phase", "name", "path", "sha256")
@@ -306,7 +312,7 @@ _SHA256_HEX = re.compile(r"[0-9a-f]{64}\Z")
 
 # Reviewed digest of the exact restricted-canonical ``manifest.json`` bytes.
 IAM_REVIEWED_MANIFEST_SHA256 = bytes.fromhex(
-    "faa540929a66eeb7ebfe86ca5e43539ef7dcb10424e792ded14252f27c5850a5"
+    "257c438e1d44b385b47505e04f0eca001b41e5121a7f996f3f7e0d8b81d913da"
 )
 
 

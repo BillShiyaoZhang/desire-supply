@@ -3782,13 +3782,13 @@ def verify(root: Path) -> tuple[str, ...]:
             failures.append(f"database-operations-compose-open:{fragment}")
     for fragment in (
         "desire-restore-verify-",
-        "18|46|46|5|5|15|15|22|22|9|9|2|2",
-        "14b0ae7a2ba2db7d6807b9b71080d40ab4b40b4e0e2664c5da0ac14fcb29c84d",
+        "18|47|47|5|5|15|15|23|23|10|10|2|2",
+        "abc9924571cecb3027ec29ee7fdf34596bf8682d8b41c62d033964ec3094400f",
         "005be339b76c61427895ad7e6ddbb685735d7c602d99fc4dafdd08c35c97d4f8",
         "32d8587651d05e725a4277e2d253b8e195192f1dabc702dd5208b53fe8143f73",
         "ea6887891134ffa2f451fed35d469ae1c5195c54649e228f587622d95696dddf",
-        "68f3c3e90088f6d4383e73b3fbc6f77297cee27bc78086db227708bc872613f6",
-        "3fd3089db8139f4e70551f59f8e803fdf2543847d38d08f82f8a050c2dd921e8",
+        "96ff2fd0b3e32143b4570fff008948d13fbe5f537a746712878bd2cca77255fa",
+        "0576a8872e2c9783e345d521f151b3d6f9bd7e1d9ee125ee1ef3810e01a05e47",
         "bbf292401809ff6b1fdf05fd687d7f337dfb34e193f5340c579dceaba4801e18",
         "ec63cb0733f275eaedc99348427883bb958c6467c5ee49f2a26fb252c0aafb6a",
         "144337610f3d06b8bfbb324547f3e25ca54ee6c2f821a28f94812aefc01ea4aa",

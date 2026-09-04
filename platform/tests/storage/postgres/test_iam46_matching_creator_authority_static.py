@@ -25,12 +25,12 @@ MIGRATION = MIGRATION_ROOT / "0046_expand__matching_creator_authority.sql"
 IAM45 = MIGRATION_ROOT / "0045_expand__matching_reviewer_authority.sql"
 
 
-def test_iam46_is_the_registered_reviewed_forward_only_head() -> None:
+def test_iam46_remains_a_registered_reviewed_forward_only_migration() -> None:
     catalog = MigrationCatalog.load(MIGRATION_ROOT)
-    artifact = catalog.artifacts[-1]
+    artifact = catalog.artifacts[46]
 
-    assert IAM_SCHEMA_HEAD_VERSION == 46
-    assert IAM_MIGRATION_LAYOUT[-1] == (
+    assert IAM_SCHEMA_HEAD_VERSION >= 46
+    assert IAM_MIGRATION_LAYOUT[46] == (
         46,
         MigrationPhase.EXPAND,
         "matching_creator_authority",

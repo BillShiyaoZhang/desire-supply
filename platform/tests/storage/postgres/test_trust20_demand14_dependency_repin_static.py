@@ -26,7 +26,7 @@ def test_trust20_remains_registered_byte_exact_below_the_reviewed_head() -> None
     catalog = TrustMigrationCatalog.load(MIGRATION_ROOT)
     artifact = catalog.artifacts[19]
 
-    assert TRUST_SCHEMA_HEAD_VERSION == 22
+    assert TRUST_SCHEMA_HEAD_VERSION == 23
     assert TRUST_MIGRATION_LAYOUT[19] == (
         20,
         TrustMigrationPhase.EXPAND,

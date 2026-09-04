@@ -9,6 +9,7 @@ import hashlib
 import hmac
 import json
 from pathlib import Path
+from typing import Optional
 from uuid import UUID, uuid4
 import unittest
 
@@ -29,6 +30,7 @@ from desire_platform.creator_profile.domain import canonical_profile_version_byt
 from desire_platform.demand.adapters.postgres import (
     DemandPostgresDatabaseError,
     DemandPostgresOperation,
+    DemandPostgresSettings,
     PsycopgDemandUnitOfWorkFactory,
 )
 from desire_platform.demand.adapters.postgres.migrations import (
@@ -756,13 +758,16 @@ class RealPostgres18EditorDemandRepositoryTest(unittest.TestCase):
         self.sources.append(source)
         return source
 
-    def repository(self) -> PsycopgEditorRepository:
+    def repository(
+        self, *, settings: Optional[DemandPostgresSettings] = None
+    ) -> PsycopgEditorRepository:
         writer = self.source()
         reader = self.source()
         uow = PsycopgDemandUnitOfWorkFactory(
             connections=writer,
             event_validator=DemandSchemaValidator(),
             response_validator=DemandSchemaValidator(),
+            settings=settings,
         )
         return PsycopgEditorRepository(
             profile_uow=None,
@@ -831,7 +836,10 @@ class RealPostgres18EditorDemandRepositoryTest(unittest.TestCase):
 
     def test_same_key_restart_projection_and_actor_org_scope(self) -> None:
         command = demand_command(DemandPostgresOperation.CREATE)
-        repository = self.repository()
+        # Leave enough lock budget to observe replay on a CPU-limited runner.
+        repository = self.repository(
+            settings=DemandPostgresSettings(lock_timeout_ms=10_000)
+        )
         with ThreadPoolExecutor(max_workers=2) as workers:
             results = tuple(workers.map(repository.execute_demand, (command, command)))
         self.assertEqual(sorted(result.replayed for result in results), [False, True])
@@ -910,7 +918,10 @@ class RealPostgres18EditorDemandRepositoryTest(unittest.TestCase):
                 ).fetchall()
 
     def test_distinct_key_concurrent_demand_occ_has_one_winner(self) -> None:
-        repository = self.repository()
+        # The losing command must reach OCC after the winner releases its lock.
+        repository = self.repository(
+            settings=DemandPostgresSettings(lock_timeout_ms=10_000)
+        )
         repository.execute_demand(demand_command(DemandPostgresOperation.CREATE))
         contenders = tuple(
             replace(

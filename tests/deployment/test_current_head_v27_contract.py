@@ -94,6 +94,8 @@ class CurrentHeadV27ContractTest(unittest.TestCase):
                     # v27 remains bound to the original v1-v3 bytes. The new
                     # live head must preserve this prefix, not replace its pin.
                     manifest = ROOT / "tests/deployment/fixtures/current-head-v28/matching-v3-manifest.json"
+                if component in ("iam", "trust"):
+                    manifest = ROOT / f"tests/deployment/fixtures/current-head-v29/{component}-manifest.json"
                 document = json.loads(manifest.read_text(encoding="utf-8"))
                 self.assertEqual(_sha(manifest), expected)
                 self.assertEqual(live_document[:len(document)], document)
@@ -110,7 +112,7 @@ class CurrentHeadV27ContractTest(unittest.TestCase):
     def test_historical_verifier_rejects_the_newer_live_matching_manifest(self) -> None:
         self.assertEqual(
             self.verifier._manifest_failures(ROOT),
-            ("matching-manifest-pin-open",),
+            ("iam-manifest-pin-open", "trust-manifest-pin-open", "matching-manifest-pin-open"),
         )
         self.assertEqual(self.verifier._historical_prefix_failures(ROOT), ())
 
@@ -156,7 +158,7 @@ class CurrentHeadV27ContractTest(unittest.TestCase):
             with self.subTest(relative=relative):
                 self.assertEqual(_sha(ROOT / relative), expected)
 
-    def test_current_pointer_is_v28_while_v27_and_v26_remain_discoverable(self) -> None:
+    def test_current_pointer_is_v29_while_v27_and_v26_remain_discoverable(self) -> None:
         ci = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
         release = (
             ROOT / ".github/workflows/private-server-runtime-release.yml"
@@ -164,13 +166,13 @@ class CurrentHeadV27ContractTest(unittest.TestCase):
         sidebar = (ROOT / "docs/_sidebar.md").read_text(encoding="utf-8")
         v26 = "python -B scripts/verify_current_head_v26.py"
         v27 = "python -B scripts/verify_current_head_v27.py"
-        v28 = "python -B scripts/verify_current_head_v28.py"
+        v29 = "python -B scripts/verify_current_head_v29.py"
         self.assertEqual(ci.count(v26), 0)
         self.assertEqual(ci.count(v27), 0)
-        self.assertEqual(ci.count(v28), 1)
+        self.assertEqual(ci.count(v29), 1)
         self.assertEqual(release.count(v26), 0)
         self.assertEqual(release.count(v27), 0)
-        self.assertEqual(release.count(v28), 1)
+        self.assertEqual(release.count(v29), 1)
         self.assertIn(
             "[Current-head v27 静态模式头](/operations/current-head-v27.md)",
             sidebar,
@@ -180,14 +182,14 @@ class CurrentHeadV27ContractTest(unittest.TestCase):
             sidebar,
         )
 
-    def test_unversioned_operations_assets_resolve_to_v28(self) -> None:
+    def test_unversioned_operations_assets_resolve_to_v29(self) -> None:
         self.assertEqual(
             (ROOT / "deploy/postgres-backup-restore.sh").read_bytes(),
-            (ROOT / "deploy/postgres-backup-restore-v28.sh").read_bytes(),
+            (ROOT / "deploy/postgres-backup-restore-v29.sh").read_bytes(),
         )
         self.assertEqual(
             (ROOT / "deploy/postgres-core-facts.sql").read_bytes(),
-            (ROOT / "deploy/postgres-core-facts-v28.sql").read_bytes(),
+            (ROOT / "deploy/postgres-core-facts-v29.sql").read_bytes(),
         )
 
     def test_verifier_is_read_only_runtime_free_and_argument_closed(self) -> None:

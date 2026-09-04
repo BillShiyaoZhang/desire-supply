@@ -177,7 +177,7 @@ def test_iam37_contract_is_retained_while_runtime_heads_advance() -> None:
     demand = DEMAND_RUNNER.read_text(encoding="utf-8")
     trust = TRUST_RUNNER.read_text(encoding="utf-8")
 
-    assert "IAM_SCHEMA_HEAD_VERSION != 46" in production
+    assert "IAM_SCHEMA_HEAD_VERSION != 47" in production
     assert "DEMAND_REQUIRED_IAM_SCHEMA_VERSION = 45" in demand
     assert "lock_finance_funding_authority_v2" in demand
-    assert "TRUST_REQUIRED_IAM_SCHEMA_VERSION = 46" in trust
+    assert "TRUST_REQUIRED_IAM_SCHEMA_VERSION = 47" in trust

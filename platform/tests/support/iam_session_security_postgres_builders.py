@@ -163,7 +163,6 @@ class _TrackingSessionSecurityConnection:
         self._raw = raw
         self._source = source
         self._replay_scope_installed = False
-        self._replay_barrier_used = False
 
     def execute(self, query: Any, parameters: Any = None, *args: Any, **kwargs: Any):
         normalized = " ".join(str(query).strip().split())
@@ -172,9 +171,10 @@ class _TrackingSessionSecurityConnection:
             self._replay_scope_installed = True
             if (
                 self._source.replay_barrier is not None
-                and not self._replay_barrier_used
+                and not getattr(self._source._replay_barrier_worker, "used", False)
             ):
-                self._replay_barrier_used = True
+                # Retry connections belong to the same original contender.
+                self._source._replay_barrier_worker.used = True
                 self._source.replay_barrier.wait()
         if normalized.upper() == "COMMIT" and self._should_lose_commit_ack():
             result = self._raw.execute(query, parameters, *args, **kwargs)
@@ -223,6 +223,7 @@ class TrackingSessionSecurityConnectionSource:
         self.reuse_released = reuse_released
         self.lose_replay_commit_ack = lose_replay_commit_ack
         self.replay_barrier = replay_barrier
+        self._replay_barrier_worker = threading.local()
         self.trace: list[str] = []
         self.checked_out: list[Any] = []
         self.released: list[Any] = []

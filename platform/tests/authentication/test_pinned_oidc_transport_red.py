@@ -111,6 +111,9 @@ class PinnedPublicIpOidcJsonTransportTest(unittest.TestCase):
                 self.closed = True
 
         class Context:
+            verify_mode = ssl.CERT_REQUIRED
+            check_hostname = True
+
             def __init__(self) -> None:
                 self.calls = []
 

@@ -98,11 +98,17 @@ MATCHING_MIGRATION_LAYOUT: Tuple[
         "matching_completion_intent_receipt_visibility",
         "0009_expand__matching_completion_intent_receipt_visibility.sql",
     ),
+    (
+        10,
+        MatchingMigrationPhase.EXPAND,
+        "iam47_trust23_dependency_repin",
+        "0010_expand__iam47_trust23_dependency_repin.sql",
+    ),
 )
 
 # Updated atomically with the restricted-canonical manifest.
 MATCHING_REVIEWED_MANIFEST_SHA256 = bytes.fromhex(
-    "ff3453c1f86739684dbe255a6ae16a0b5839dacf7ba680b120a50b089aa260e2"
+    "83547a319fb2d1e5cc88131570fc889ac795b0dd30643e9bca565058226f2cb6"
 )
 
 _PATH = re.compile(r"[0-9]{4}_(?:expand|migrate|contract)__[a-z0-9_]+\.sql\Z")

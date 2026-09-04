@@ -61,7 +61,7 @@ class CurrentHeadV28ContractTest(unittest.TestCase):
                 self.assertIn(marker, self.verifier.EXPECTED_CONTRACTS)
         self.assertNotIn("__MATCHING_V9_", self.verifier.EXPECTED_CONTRACTS)
 
-    def test_fixture_is_canonical_and_matches_live_manifests(self) -> None:
+    def test_fixture_is_canonical_and_matches_historical_manifest_prefixes(self) -> None:
         fixture_path = (
             ROOT / "tests/deployment/fixtures/current-head-v28/schema-pins.json"
         )
@@ -89,7 +89,13 @@ class CurrentHeadV28ContractTest(unittest.TestCase):
         ):
             with self.subTest(component=component):
                 manifest = ROOT / relative / "manifest.json"
+                live = json.loads(manifest.read_text(encoding="utf-8"))
+                if component in ("iam", "trust", "matching"):
+                    manifest = ROOT / f"tests/deployment/fixtures/current-head-v29/{component}-manifest.json"
                 document = json.loads(manifest.read_text(encoding="utf-8"))
+                self.assertEqual(live[:len(document)], document)
+                for descriptor in document:
+                    self.assertEqual(_sha(ROOT / relative / descriptor["path"]), descriptor["sha256"])
                 self.assertEqual(_sha(manifest), expected)
                 self.assertEqual(
                     tuple(item["version"] for item in document),
@@ -97,7 +103,7 @@ class CurrentHeadV28ContractTest(unittest.TestCase):
                 )
 
     def test_all_migration_entries_pin_the_actual_artifact_bytes(self) -> None:
-        self.assertEqual(self.verifier._manifest_failures(ROOT), ())
+        self.assertEqual(self.verifier._manifest_failures(ROOT), ("iam-manifest-pin-open", "trust-manifest-pin-open", "matching-manifest-pin-open"))
         self.assertEqual(self.verifier._historical_prefix_failures(ROOT), ())
 
     def test_matching_contract_files_are_exactly_pinned(self) -> None:
@@ -147,13 +153,13 @@ class CurrentHeadV28ContractTest(unittest.TestCase):
             with self.subTest(relative=relative):
                 self.assertEqual(_sha(ROOT / relative), expected)
 
-    def test_matching9_release_package_schema_is_exact(self) -> None:
+    def test_current_release_package_schema_is_exact(self) -> None:
         schema = json.loads((ROOT / "deploy/private-server-runtime-release-v1.schema.json").read_text())
-        self.assertEqual(schema["properties"]["schema_heads"]["properties"]["matching"], {"const": 9})
+        self.assertEqual(schema["properties"]["schema_heads"]["properties"]["matching"], {"const": 10})
         source = (ROOT / "scripts/private_server_runtime_release.py").read_text()
-        self.assertIn('"matching": 9,', source)
+        self.assertIn('"matching": 10,', source)
 
-    def test_current_pointer_is_v28_while_v27_remains_discoverable(self) -> None:
+    def test_current_pointer_is_v29_while_v28_and_v27_remain_discoverable(self) -> None:
         ci = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
         release = (
             ROOT / ".github/workflows/private-server-runtime-release.yml"
@@ -162,9 +168,12 @@ class CurrentHeadV28ContractTest(unittest.TestCase):
         v27 = "python -B scripts/verify_current_head_v27.py"
         v28 = "python -B scripts/verify_current_head_v28.py"
         self.assertEqual(ci.count(v27), 0)
-        self.assertEqual(ci.count(v28), 1)
+        v29 = "python -B scripts/verify_current_head_v29.py"
+        self.assertEqual(ci.count(v28), 0)
+        self.assertEqual(ci.count(v29), 1)
         self.assertEqual(release.count(v27), 0)
-        self.assertEqual(release.count(v28), 1)
+        self.assertEqual(release.count(v28), 0)
+        self.assertEqual(release.count(v29), 1)
         self.assertIn(
             "[Current-head v28 静态模式头](/operations/current-head-v28.md)",
             sidebar,
@@ -174,14 +183,14 @@ class CurrentHeadV28ContractTest(unittest.TestCase):
             sidebar,
         )
 
-    def test_unversioned_operations_assets_resolve_to_v28(self) -> None:
+    def test_unversioned_operations_assets_resolve_to_v29(self) -> None:
         self.assertEqual(
             (ROOT / "deploy/postgres-backup-restore.sh").read_bytes(),
-            (ROOT / "deploy/postgres-backup-restore-v28.sh").read_bytes(),
+            (ROOT / "deploy/postgres-backup-restore-v29.sh").read_bytes(),
         )
         self.assertEqual(
             (ROOT / "deploy/postgres-core-facts.sql").read_bytes(),
-            (ROOT / "deploy/postgres-core-facts-v28.sql").read_bytes(),
+            (ROOT / "deploy/postgres-core-facts-v29.sql").read_bytes(),
         )
 
     def test_verifier_is_read_only_runtime_free_and_argument_closed(self) -> None:

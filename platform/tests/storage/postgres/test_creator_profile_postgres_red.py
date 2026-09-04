@@ -1675,7 +1675,9 @@ class RealPostgres18CreatorProfileSemanticRedTest(unittest.TestCase):
         self._seed_published_profiles(label="limit", owner_user_ids=users)
         repository = PsycopgCreatorProfileMatcherRepository(
             connections=self._source(role="profile_matcher"),
-            settings=CreatorProfilePostgresSettings(statement_timeout_ms=30_000),
+            # Match the derived-capture ceiling test's budget: this checks the
+            # full 501-candidate permission path and atomic limit rejection.
+            settings=CreatorProfilePostgresSettings(statement_timeout_ms=120_000),
         )
         self.assertEqual(
             self._observe_match(repository, match_capture_request()).code,

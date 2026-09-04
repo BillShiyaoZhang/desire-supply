@@ -176,6 +176,7 @@ class RaiseAtLogicalWrite:
 class BarrierAtReceiptClaim:
     def __init__(self, parties: int = 2) -> None:
         self.barrier = threading.Barrier(parties, timeout=10)
+        self._worker = threading.local()
 
     def before_write(
         self,
@@ -183,6 +184,10 @@ class BarrierAtReceiptClaim:
         ordinal: int,
     ) -> None:
         if checkpoint == AcceptWriteCheckpoint.COMMAND_RECEIPT_CLAIM:
+            # A pre-COMMIT retry must not wait for the already-finished winner.
+            if getattr(self._worker, "claimed", False):
+                return
+            self._worker.claimed = True
             self.barrier.wait()
 
 
@@ -2536,9 +2541,11 @@ class RealPostgres18AcceptAccessInvitationUowRedTest(unittest.TestCase):
         fixture = self._seed_accept_graph(kind="creator")
         request = self._request(fixture)
         source = self._connection_source()
+        # This case asserts two connections: wait for replay instead of retrying.
         factory = self._factory(
             connections=source,
             fault_injector=BarrierAtReceiptClaim(),
+            settings=AcceptPostgresSettings(lock_timeout_ms=10_000),
         )
         with ThreadPoolExecutor(max_workers=2) as executor:
             outcomes = tuple(

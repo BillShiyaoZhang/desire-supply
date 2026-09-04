@@ -13,6 +13,7 @@ import json
 from typing import Any, Callable, Mapping, Optional, Protocol, Sequence
 import uuid
 
+from ....utc import parse_utc_timestamp
 from ...read_model_registry import (
     READ_STATEMENT_PROFILES,
     RegisteredReadStatementProfile,
@@ -742,7 +743,7 @@ def _restore_json_fact(value: object, *, field_name: str = "") -> object:
         return [_restore_json_fact(item, field_name=field_name) for item in value]
     if isinstance(value, str) and field_name in _JSON_TIME_FIELDS:
         try:
-            parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+            parsed = parse_utc_timestamp(value)
         except ValueError:
             return value
         return parsed

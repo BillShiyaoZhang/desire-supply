@@ -766,7 +766,7 @@ class ContainerStackContractTest(unittest.TestCase):
         self.assertIn("PYTHONPATH: src\n", ci)
         self.assertIn("PYTHONPATH=src ", dev_docs)
         self.assertIn(
-            "python3 -m unittest discover -s tests -t . -v",
+            "python3 ../scripts/run_platform_test_shard.py",
             ci,
         )
         self.assertIn(

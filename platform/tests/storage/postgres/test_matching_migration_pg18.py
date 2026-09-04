@@ -1541,16 +1541,16 @@ class MatchingMigrationPostgres18Test(unittest.TestCase):
             ).fetchone(), (UUID(ORGANIZATION_ID), UUID(WORKLOAD_ID), None, 1))
 
     def test_runner_is_forward_only_and_schema_is_force_rls(self) -> None:
-        self.assertEqual(self.first_report.applied_versions, (1, 2, 3, 4, 5, 6, 7, 8, 9))
+        self.assertEqual(self.first_report.applied_versions, (1, 2, 3, 4, 5, 6, 7, 8, 9, 10))
         replay = self.runner.run(catalog=self.catalog, contract_sources=self.sources)
         self.assertEqual(replay.applied_versions, ())
-        self.assertEqual(replay.skipped_versions, (1, 2, 3, 4, 5, 6, 7, 8, 9))
+        self.assertEqual(replay.skipped_versions, (1, 2, 3, 4, 5, 6, 7, 8, 9, 10))
         with self._admin() as connection:
             compatibility = connection.execute(
                 "SELECT component,current_schema_version,schema_head_version,"
                 "required_iam_schema_version FROM matching.schema_compatibility"
             ).fetchone()
-            self.assertEqual(compatibility, ("matching", 9, 9, 46))
+            self.assertEqual(compatibility, ("matching", 10, 10, 47))
             rls = tuple(
                 connection.execute(
                     "SELECT relname,relrowsecurity,relforcerowsecurity "
@@ -1672,13 +1672,13 @@ class MatchingMigrationPostgres18Test(unittest.TestCase):
 
     def test_worker_and_coordinator_readiness_reject_stale_trust_metadata(self) -> None:
         with self._admin() as connection:
-            trust22 = connection.execute(
+            trust23 = connection.execute(
                 "DELETE FROM trust_meta.schema_migrations "
-                "WHERE component='trust' AND version=22 "
+                "WHERE component='trust' AND version=23 "
                 "RETURNING component,version,phase,name,checksum_sha256,"
                 "manifest_sha256,runner_version,applied_at"
             ).fetchone()
-        self.assertIsNotNone(trust22)
+        self.assertIsNotNone(trust23)
         try:
             for runtime_type, role in (
                 (PsycopgMatchingWorkerRuntime, "matching_worker"),
@@ -1694,14 +1694,14 @@ class MatchingMigrationPostgres18Test(unittest.TestCase):
                 with self.assertRaises(MatchingPostgresConfigurationError):
                     runtime.check_readiness(1_000)
         finally:
-            assert trust22 is not None
+            assert trust23 is not None
             with self._admin() as connection:
                 connection.execute(
                     "INSERT INTO trust_meta.schema_migrations ("
                     "component,version,phase,name,checksum_sha256,"
                     "manifest_sha256,runner_version,applied_at) VALUES ("
                     "%s,%s,%s,%s,%s,%s,%s,%s)",
-                    trust22,
+                    trust23,
                 )
 
     def test_expiry_after_trust_evaluation_returns_stable_lease_lost(self) -> None:
@@ -1939,7 +1939,7 @@ class MatchingMigrationPostgres18Test(unittest.TestCase):
                 catalog=self.catalog,
                 contract_sources=self.sources,
             )
-            self.assertEqual(upgraded.applied_versions, (3, 4, 5, 6, 7, 8, 9))
+            self.assertEqual(upgraded.applied_versions, (3, 4, 5, 6, 7, 8, 9, 10))
             self.assertEqual(upgraded.skipped_versions, (1, 2))
 
             selector_runtime = PsycopgMatchingRuntime(
@@ -2141,7 +2141,7 @@ class MatchingMigrationPostgres18Test(unittest.TestCase):
                 contract_sources=self.sources,
             )
             self.assertEqual(replayed.applied_versions, ())
-            self.assertEqual(replayed.skipped_versions, (1, 2, 3, 4, 5, 6, 7, 8, 9))
+            self.assertEqual(replayed.skipped_versions, (1, 2, 3, 4, 5, 6, 7, 8, 9, 10))
             with self._admin(database) as connection:
                 self.assertEqual(
                     connection.execute(
@@ -2149,7 +2149,7 @@ class MatchingMigrationPostgres18Test(unittest.TestCase):
                         "required_iam_schema_version,migration_manifest_sha256 "
                         "FROM matching.schema_compatibility"
                     ).fetchone(),
-                    (9, 9, 46, self.catalog.manifest_sha256),
+                    (10, 10, 47, self.catalog.manifest_sha256),
                 )
                 self.assertEqual(
                     connection.execute(

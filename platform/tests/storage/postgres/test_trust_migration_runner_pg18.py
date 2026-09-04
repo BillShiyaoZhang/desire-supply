@@ -1261,7 +1261,29 @@ class TrustMigrationRunnerPostgres18Test(unittest.TestCase):
         finally:
             self.postgres.drop_database(database)
 
-    def test_exact_trust21_database_repins_to_iam46_and_replays(self) -> None:
+    def test_exact_trust21_database_repins_to_iam47_and_replays(self) -> None:
+        self._assert_exact_dependency_repin(
+            21,
+            45,
+            "3a1619b3d21567534df7f1331c6c39bb09c049be67deebf7988ff3b841e384fa",
+            "e5aeb13a1550a43f230db4b04e6559a30897803716205cb9e9ab41868152e572",
+        )
+
+    def test_exact_trust22_database_repins_to_iam47_and_replays(self) -> None:
+        self._assert_exact_dependency_repin(
+            22,
+            46,
+            "14b0ae7a2ba2db7d6807b9b71080d40ab4b40b4e0e2664c5da0ac14fcb29c84d",
+            "68f3c3e90088f6d4383e73b3fbc6f77297cee27bc78086db227708bc872613f6",
+        )
+
+    def _assert_exact_dependency_repin(
+        self,
+        prior_head: int,
+        prior_iam: int,
+        prior_iam_hash: str,
+        prior_combined_hash: str,
+    ) -> None:
         database = self.postgres.create_database()
         try:
             with psycopg.connect(
@@ -1282,7 +1304,7 @@ class TrustMigrationRunnerPostgres18Test(unittest.TestCase):
                 autocommit=True,
             ) as connection:
                 connection.execute("SET ROLE trust_schema_owner")
-                for artifact in catalog.artifacts[:21]:
+                for artifact in catalog.artifacts[:prior_head]:
                     descriptor = artifact.descriptor
                     connection.execute("BEGIN")
                     connection.execute(artifact.sql_bytes.decode("utf-8"))
@@ -1300,7 +1322,7 @@ class TrustMigrationRunnerPostgres18Test(unittest.TestCase):
                             descriptor.prefix_manifest_sha256,
                         ),
                     )
-                    if descriptor.version == 21:
+                    if descriptor.version == prior_head:
                         connection.execute(
                             "INSERT INTO trust_meta.schema_contracts ("
                             "singleton_key,schema_head_version,"
@@ -1315,13 +1337,14 @@ class TrustMigrationRunnerPostgres18Test(unittest.TestCase):
                             "appeal_application_contract_sha256,"
                             "appeal_review_contract_sha256,combined_contract_sha256,"
                             "migration_manifest_sha256,generated_at) VALUES ("
-                            "true,21,21,21,45,15,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,"
+                            "true,%s,%s,%s,%s,15,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,"
                             "%s,%s,transaction_timestamp())",
                             (
-                                bytes.fromhex(
-                                    "3a1619b3d21567534df7f1331c6c39bb"
-                                    "09c049be67deebf7988ff3b841e384fa"
-                                ),
+                                prior_head,
+                                prior_head,
+                                prior_head,
+                                prior_iam,
+                                bytes.fromhex(prior_iam_hash),
                                 TRUST_REQUIRED_DEMAND_CONTRACT_SHA256,
                                 TRUST_API_CONTRACT_SHA256,
                                 TRUST_EVENT_CONTRACT_SHA256,
@@ -1331,10 +1354,7 @@ class TrustMigrationRunnerPostgres18Test(unittest.TestCase):
                                 TRUST_APPEAL_EVENT_CONTRACT_SHA256,
                                 TRUST_APPEAL_APPLICATION_CONTRACT_SHA256,
                                 TRUST_APPEAL_REVIEW_CONTRACT_SHA256,
-                                bytes.fromhex(
-                                    "e5aeb13a1550a43f230db4b04e6559a3"
-                                    "0897803716205cb9e9ab41868152e572"
-                                ),
+                                bytes.fromhex(prior_combined_hash),
                                 descriptor.prefix_manifest_sha256,
                             ),
                         )
@@ -1349,7 +1369,10 @@ class TrustMigrationRunnerPostgres18Test(unittest.TestCase):
                 contract_sources=self._contracts(),
             )
 
-            self.assertEqual(upgraded.applied_versions, (22,))
+            self.assertEqual(
+                upgraded.applied_versions,
+                tuple(range(prior_head + 1, TRUST_SCHEMA_HEAD_VERSION + 1)),
+            )
             self.assertEqual(replay.applied_versions, ())
             with psycopg.connect(
                 self.postgres.admin_conninfo(database=database),
@@ -1363,8 +1386,8 @@ class TrustMigrationRunnerPostgres18Test(unittest.TestCase):
             self.assertEqual(
                 contract,
                 (
-                    22,
-                    46,
+                    TRUST_SCHEMA_HEAD_VERSION,
+                    TRUST_REQUIRED_IAM_SCHEMA_VERSION,
                     TRUST_REQUIRED_IAM_CONTRACT_SHA256,
                     TRUST_REVIEWED_MANIFEST_SHA256,
                 ),

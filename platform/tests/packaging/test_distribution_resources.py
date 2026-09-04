@@ -80,11 +80,11 @@ EXPECTED_CONTRACT_PATHS = (
 )
 
 EXPECTED_MIGRATION_SQL_COUNTS = {
-    "iam": 47,
+    "iam": 48,
     "profile": 5,
     "demand": 15,
-    "matching": 9,
-    "trust": 22,
+    "matching": 10,
+    "trust": 23,
     "taxonomy": 2,
 }
 
