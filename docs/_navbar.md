@@ -1,3 +1,4 @@
+- [整体方案报告](/desire-supply-platform-design.md)
 - [文档首页](/)
 - [快速开始](/guide/quick-start.md)
 - [系统架构](/architecture/overview.md)

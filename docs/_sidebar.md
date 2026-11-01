@@ -1,4 +1,5 @@
 - **从这里开始**
+  - [整体方案报告：让人重新掌握完整创造](/desire-supply-platform-design.md)
   - [文档首页](/index.md)
   - [项目介绍](/guide/introduction.md)
   - [快速开始](/guide/quick-start.md)
@@ -121,5 +122,4 @@
   - [ADR-0002：组织租户根与角色作用域](/decisions/0002-tenant-root-and-role-scopes.md)
   - [ADR-0003：OIDC、BFF 会话与协议级并发例外](/decisions/0003-oidc-bff-session-and-protocol-exceptions.md)
   - [ADR-0004：IAM onboarding、持久化与 PostgreSQL 执行协议](/decisions/0004-iam-onboarding-persistence-and-postgres.md)
-  - [平台概念设计](/desire-supply-platform-design.md)
   - [礼宾式 MVP 开发方案](/concierge-mvp-development-plan.md)

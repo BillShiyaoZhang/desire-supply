@@ -1,25 +1,30 @@
 # 愿作文档
 
-愿作（Desire Supply）希望帮助拥有 AI 增强生产力的个人，持续找到“我愿意做、我有能力做好、对方确实需要、报酬足够体面”的真实协作机会。
+愿作（Desire Supply）帮助个人和小团队发现值得解决的问题，掌握从构想到实际使用的创造过程，并获得可持续收入、成果权利和社会联系。
 
-这套文档同时描述三个不同层次，阅读时请留意状态：
+**首先阅读[《愿作整体方案报告：让人重新掌握完整创造》](/desire-supply-platform-design.md)。** 这是理解项目定位、平台机制、现有差距、推进路线与合作资源需求的主入口。
 
-| 标记 | 含义 | 当前例子 |
+## 我们正在建设什么
+
+方案以作品与长期实践为中心，连接三种来源：**委托、创作者发起、共同或公共创造**。平台既帮助人找到合适的有偿合作，也帮助人提出问题、塑造成果、连接使用者、持续改进，并保留自己的权利和选择。AI 提高生产能力，是这一方向的条件；收入、权利与社会关系仍需要产品和制度共同支持。
+
+## 如何理解当前状态
+
+| 层次 | 当前事实 | 阅读时的边界 |
 | --- | --- | --- |
-| **已实现** | 仓库中已有代码并有测试覆盖 | 本地 CLI、SQLite、资料校验、预算检查、确定性匹配、报告 |
-| **人工流程** | 已定义运行方法，但由发起人和外部工具执行 | 访谈、身份与资金核实、协议、付款、项目协调、争议处理 |
-| **目标设计** | 长期产品方向，不代表已经上线 | 账户、合作空间、支付保障、社区治理、平台级服务 |
+| 已实现的内部工作台 | `platform/` + `web/` 已有受邀账号、画像与需求编辑、审核、合成资金确认、匹配邀请与选择，以及限定范围的信任安全与申诉 | 固定为 `INTERNAL_SANDBOX`；不等于已开放真人业务 |
+| 已实现的本地运营工具 | `mvp/` 提供匿名资料校验、预算检查、可解释匹配、决策留痕与批次报告 | CLI 是独立路径，不代表当前平台的全部 |
+| 合成制度原型 | `demo/` 演练协议、交付、付款、成果反馈、申诉和数据权 | 状态可重置，不能据此宣布真实工作台已经闭环 |
+| 新的整体方案 | 作品与长期实践、三种创造来源、持续使用反馈、成果权利、可持续支持与共同治理 | 属于重新规划的建设方向，需验证并逐步实现 |
 
-## 推荐阅读路线
+当前 Web 的协议、交付验收与结算尚未接入完整流程，真实资金和完整产品持续经营也未上线。真人研究、真实合同和资金试点须遵守现有[启动决策边界](/foundations/readiness-and-start-decision.md)；新的方案不改变这些事实。
 
-- 第一次接触：先读[项目介绍](/guide/introduction.md)、[核心概念](/guide/core-concepts.md)和[快速开始](/guide/quick-start.md)。
-- 准备开发：继续读[系统总览](/architecture/overview.md)、[当前 MVP 架构](/architecture/current-mvp.md)和[项目结构](/development/project-structure.md)。
-- 修改匹配规则：必须读[匹配、预算与决策](/architecture/matching-and-budget.md)、[规则配置参考](/reference/configuration.md)和[开发与变更流程](/development/workflow.md)。
-- 运行真实批次：从[首批项目流程](/operations/pilot.md)开始，并执行仓库内的启动清单。
-- 讨论长期平台：阅读[目标平台架构](/architecture/target-platform.md)和[平台概念设计](/desire-supply-platform-design.md)。
+## 按目的阅读
 
-## 当前结论
+- **了解项目或考虑提供协助**：先读[整体方案报告](/desire-supply-platform-design.md)，再读[项目介绍](/guide/introduction.md)和[核心概念](/guide/core-concepts.md)。
+- **理解制度与使命**：阅读[社会契约](/foundations/social-contract.md)、[经济宪法](/foundations/economic-constitution.md)与[使命衡量和学习](/foundations/mission-measurement-and-learning-plan.md)。
+- **检查当前实现或开展技术合作**：从[系统总览](/architecture/overview.md)、[内部试运行平台](/architecture/internal-pilot-platform.md)和[项目结构](/development/project-structure.md)进入；现有架构文档中的目标模型不自动代表已接入功能。
+- **运行内部合成演练**：使用[本机 Docker 指南](/operations/docker-local.md)和[运行与逐步检查](/operations/run-and-check.md)；CLI 路径见[快速开始](/guide/quick-start.md)。
+- **准备试点与运营**：结合[产品与试点定义](/foundations/product-and-pilot-definition.md)、[研究计划](/foundations/research-and-evidence-plan.md)和[首批项目流程](/operations/pilot.md)，先核对适用阶段与授权条件。
 
-当前系统不是一个公开交易平台，而是一项由发起人亲自提供的礼宾式服务，加上一套只处理匿名化结构数据的本地决策辅助工具。任何将账户、支付、聊天、自动处罚或开放市场直接加入首轮 MVP 的改动，都需要先通过真实项目证据证明其必要性。
-
-> 文档基线：2026-08-07。实现是最终事实来源；发现文档与代码不一致时，请在同一次变更中修正文档或明确记录差异。
+> 本入口更新于 2026-11-01。主报告表达整体方向；技术与运营文档保留各自阶段、适用范围和证据状态。实现事实以当前代码、已接入路径及相应验证记录为准。

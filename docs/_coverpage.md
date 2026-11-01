@@ -1,11 +1,12 @@
 # 愿作 <small>Desire Supply</small>
 
-> 让真实需求、个人意愿、可信能力与合理报酬形成可持续的协作
+> 让人重新掌握完整创造
 
-- 当前：邀请制礼宾式 MVP 与本地运营工具
-- 目标：公平、可解释、可申诉的需求—创作者协作基础设施
-- 本文档面向初次了解项目的人、运营者与后续开发者
+- 帮助个人和小团队发现值得解决的问题，连接从构想到实际使用的过程
+- 围绕作品与长期实践，支持委托、创作者发起和共同或公共创造
+- 共同建设可持续收入、成果权利与社会联系；当前软件仍限内部合成演练
 
-[开始阅读](/guide/introduction.md)
-[快速运行](/guide/quick-start.md)
+[阅读整体方案](/desire-supply-platform-design.md)
+[了解项目](/guide/introduction.md)
+[运行内部演练](/operations/docker-local.md)
 [GitHub](https://github.com/BillShiyaoZhang/desire-supply)

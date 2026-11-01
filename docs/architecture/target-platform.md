@@ -1,6 +1,8 @@
 # 目标平台架构
 
-> 状态：目标设计并分切片实现。当前 MVP 不依赖这些能力；IAM 机器契约、领域/授权规则、Memory application 与 framework-neutral HTTP/ASGI kernel 已有分层测试证据，真实 server/composition root、完整 production presenters/provider 与 E2E 仍未完成。精确边界以 [IAM 追踪表](/architecture/identity-tenancy-consent.md#req--design--test--code-追踪)为准；任何真实启用仍须满足[演进门槛](/development/roadmap.md)。
+> 适用范围：本页保留既有委托协作路径的技术设计。总体产品方向已由[愿作整体方案](/desire-supply-platform-design.md)更新为作品与完整创造；本文中的 Demand → Selection → Project 关系限定委托子域，不是创作者发起作品的唯一入口。新作品模型和跨工具生产能力尚需另行详细设计。
+>
+> 实现状态：当前已有 `platform/` + `web/` 的多角色内部合成沙箱与独立 CLI；不能再用早期“只有内存模型或 HTTP kernel”概括整个仓库。各模块精确状态以当前代码、[系统总览](/architecture/overview.md)和模块追踪表为准；本文的目标模块图不表示全部已接通。真实启用条件见[统一决策入口](/foundations/readiness-and-start-decision.md)。
 
 ## 架构目标
 
