@@ -4,10 +4,14 @@
 
 本站参考 [ambient-agent 的 Pages 工作流](https://github.com/BillShiyaoZhang/ambient-agent/blob/main/.github/workflows/deploy-docs.yml)，采用 Docsify 纯静态站点：浏览器直接读取 `docs/*.md`，GitHub Actions 不需要 Node 构建，只校验后上传整个 `docs/` artifact。
 
+发布验证使用 Ubuntu 24.04，并通过 `setup-python` 明确选择 Python 3.12，完整运行 MVP 测试和文档校验。2026-11-01 的发布曾因 `ubuntu-latest` 升级到 Ubuntu 26.04 / Python 3.14 而失败：SQLite 连接的资源警告进入 CLI 测试捕获的标准错误流。固定发布环境使文档发布不再随系统 Python 的次版本升级而变化；MVP 在 Python 3.14 下的连接生命周期问题仍需另行修复。
+
 ```mermaid
 flowchart LR
     PUSH["push main / 手动触发"] --> CHECKOUT["Checkout"]
-    CHECKOUT --> VERIFY["verify_docs.py"]
+    CHECKOUT --> PYTHON["Python 3.12"]
+    PYTHON --> TEST["MVP tests"]
+    TEST --> VERIFY["verify_docs.py"]
     VERIFY --> UPLOAD["Upload docs artifact"]
     UPLOAD --> DEPLOY["Deploy GitHub Pages"]
     DEPLOY --> SITE["billshiyaozhang.github.io/desire-supply/"]
