@@ -1,5 +1,6 @@
 - **从这里开始**
   - [整体方案报告：让人重新掌握完整创造](/desire-supply-platform-design.md)
+  - [商业可行性与各方选择](/foundations/commercial-feasibility-and-stakeholder-choices.md)
   - [文档首页](/index.md)
   - [项目介绍](/guide/introduction.md)
   - [快速开始](/guide/quick-start.md)
